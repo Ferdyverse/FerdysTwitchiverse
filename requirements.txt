@@ -1,0 +1,6 @@
+fastapi
+pydantic
+python-escpos
+Pillow
+requests
+uvicorn
