@@ -1,7 +1,6 @@
 # config.py
 
 # App configuration
-
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
 APP_LOG_LEVEL = "debug"

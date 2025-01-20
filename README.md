@@ -1,7 +1,7 @@
-# Twitch2Printer - README
+# Twitch2HomeLab - README
 
 ## Übersicht
-**Twitch2Printer** ist eine API, die mit FastAPI erstellt wurde und es ermöglicht, Avatare von Twitch-Nutzern mit Überschrift, Benutzernamen und Nachricht auf einem ESC/POS-kompatiblen Drucker auszudrucken. Dieses Projekt wurde speziell für den Wincor Nixdorf TH230 Drucker entwickelt, kann aber mit ähnlichen Geräten angepasst werden.
+**Twitch2HomeLab** ist eine API, die mit FastAPI erstellt wurde und es ermöglicht, Avatare von Twitch-Nutzern mit Überschrift, Benutzernamen und Nachricht auf einem ESC/POS-kompatiblen Drucker auszudrucken. Dieses Projekt wurde speziell für den Wincor Nixdorf TH230 Drucker entwickelt, kann aber mit ähnlichen Geräten angepasst werden.
 
 ---
 
