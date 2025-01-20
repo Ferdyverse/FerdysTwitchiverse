@@ -1,81 +1,141 @@
 #!/usr/bin/env python3
 
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
 from pydantic import BaseModel, HttpUrl
+from typing import Optional
 from escpos.printer import Usb
-from PIL import Image, ImageOps
+from PIL import Image
 import requests
 from io import BytesIO
+import uvicorn
 import logging
+import config
 
-# Logger konfigurieren
-# logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configure logger
+logger = logging.getLogger('uvicorn.error')
 
-app = FastAPI(title="Twitch2Printer")
+printer = None
 
-# Druckerkonfiguration (Vendor ID und Product ID anpassen!)
-# UDEV anpassen nicht vergessen!
-VENDOR_ID = 0x0aa7 # WINCOR NIXDORF
-PRODUCT_ID = 0x0304 # TH230
+# Required for Startup and Shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global printer
+    logger.info("Initializing printer")
+    try:
+        # Initialize the printer
+        printer = Usb(
+            config.PRINTER_VENDOR_ID,
+            config.PRINTER_PRODUCT_ID,
+            timeout=0,
+            in_ep=config.PRINTER_IN_EP,
+            out_ep=config.PRINTER_OUT_EP,
+            profile=config.PRINTER_PROFILE
+        )
+        logger.info("Printer found!")
+        yield  # The printer is available during the app's lifespan
+    except Exception as e:
+        logger.error(f"Error initializing the printer: {e}")
+        yield  # Start the app even if there's an error
+    finally:
+        # Clean up resources
+        if printer is not None:
+            try:
+                logger.info("Shutting down printer")
+                printer.close()
+            except Exception as e:
+                logger.error(f"Error shutting down the printer: {e}")
 
-# ESCPOS Drucker initialisieren
-try:
-    printer = Usb(VENDOR_ID, PRODUCT_ID, timeeout=0, in_ep=0x81, out_ep=0x02, profile="TH230")
-except Exception as e:
-    printer = None
-    logger.error(f"Fehler beim Initialisieren des Druckers: {e}")
+# App config
+app = FastAPI(
+        title="Twitch2HomeLab",
+        summary="Get stuff from Twitch to the local network",
+        lifespan=lifespan)
+
+class PrintElement(BaseModel):
+    type: str  # "headline_1", "headline_2", "image", "message""
+    text: str = None
+    url: str = None
 
 class PrintRequest(BaseModel):
-    image_url: HttpUrl
-    headline: str
-    twitch_username: str
-    message: str
+    print_elements: list[PrintElement]
 
-@app.post("/print")
-async def print_image(request: PrintRequest):
-    if printer is None:
-        logger.error("Drucker nicht verfügbar")
-        raise HTTPException(status_code=500, detail="Drucker nicht verfügbar")
-
-    try:
-        # Bild von der URL herunterladen
-        response = requests.get(request.image_url)
+async def get_image(image_url: str):
+    if image_url:
+        # Download the image from the URL
+        logger.debug("Downloading image!")
+        response = requests.get(image_url)
         response.raise_for_status()
-        logger.info(response)
         image = Image.open(BytesIO(response.content))
 
-        # Überschrift drucken
-        printer.set(align="center", bold=True, double_height=True)
-        printer.text(f"{request.headline}\n\n")
+        # Prepare the image (scale and convert)
+        image = image.convert("1")  # Convert to black and white
+        return image
 
-        # Bild vorbereiten (skalieren und umwandeln)
-        image = image.convert("1")  # In Schwarzweiß umwandeln
-        #image = ImageOps.invert(image.convert("L"))
-        printer.image(image, high_density_horizontal=True, high_density_vertical=True, impl="bitImageColumn", fragment_height=960, center=False)
+@app.post("/print")
+async def print_data(request: PrintRequest):
+    "Prints a json object on my Thermal Printer"
+    logger.debug("Request on /print")
+    if printer is None:
+        logger.error("Printer not available")
+        raise HTTPException(status_code=500, detail="Printer not available")
 
-        # Benutzername unter dem Bild drucken
-        printer.set(align="center", bold=True, double_height=False, double_width=True)
-        printer.text(f"{request.twitch_username}\n\n")
+    try:
+        logger.debug(request)
 
-        # Nachricht drucken
-        printer.set(align="left", normal_textsize=True)
-        printer.text(f"{request.message}\n")
+        for element in request.print_elements:
+            # Headline type 1
+            if element.type == "headline_1":
+                printer.set(align="center", bold=True, double_height=True)
+                printer.text(f"{element.text}\n\n")
+            # Headline type 2
+            elif element.type == "headline_2":
+                printer.set(align="center", bold=True, double_height=False, double_width=True)
+                printer.text(f"{element.text}\n\n")
+            # Images
+            elif element.type == "image":
+                pimage = await get_image(element.url)
+                if pimage:
+                    printer.image(
+                        await get_image(element.url),
+                        high_density_horizontal=True,
+                        high_density_vertical=True,
+                        impl="bitImageColumn",
+                        fragment_height=960,
+                        center=False
+                    )
+            # Normal Text
+            elif element.type == "message":
+                # Print message
+                printer.set(align="left", normal_textsize=True)
+                printer.text(f"{element.text}\n")
 
-        # Schneiden
+        # Cut the paper
         printer.cut()
-        return {"status": "success", "message": "Überschrift, Avatar, Benutzername und Nachricht gedruckt"}
+        return {"status": "success", "message": "Print done!"}
 
     except requests.RequestException as e:
-        logger.error(f"Fehler beim Herunterladen des Bildes: {e}")
-        raise HTTPException(status_code=400, detail=f"Fehler beim Herunterladen des Bildes: {e}")
+        logger.error(f"Error downloading the image: {e}")
+        raise HTTPException(status_code=400, detail=f"Error downloading the image: {e}")
     except Exception as e:
-        logger.error(f"Fehler beim Drucken: {e}")
-        raise HTTPException(status_code=500, detail=f"Fehler beim Drucken: {e}")
+        logger.error(f"Error printing: {e}")
+        raise HTTPException(status_code=500, detail=f"Error printing: {e}")
 
 @app.get("/status")
 async def status():
     if printer is None:
-        logger.error("Drucker ist offline")
-        return {"status": "offline", "message": "Drucker nicht verfügbar"}
-    return {"status": "online", "message": "Drucker bereit"}
+        logger.error("Printer is offline")
+        return {"status": "online", "printer_state": "Printer not available"}
+    return {"status": "online", "printer_state": "Printer ready"}
+
+@app.get('/')
+async def home():
+    return { "message": "API is running!", "state": "/status", "docs": "/docs" }
+
+if __name__ == '__main__':
+    uvicorn.run(
+        app,
+        host=config.APP_HOST,
+        port=config.APP_PORT,
+        log_level=config.APP_LOG_LEVEL
+    )
