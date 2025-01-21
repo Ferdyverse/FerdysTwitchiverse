@@ -125,8 +125,17 @@ async def print_data(request: PrintRequest):
 async def status():
     if printer is None:
         logger.error("Printer is offline")
-        return {"status": "online", "printer_state": "Printer not available"}
-    return {"status": "online", "printer_state": "Printer ready"}
+        return {
+            "status": "online",
+            "printer": "unknown"
+        }
+    return {
+        "status": "online",
+        "printer": {
+            "is_online": printer.is_online(),
+            "paper_status": printer.paper_status()
+        }
+    }
 
 @app.get('/')
 async def home():

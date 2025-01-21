@@ -1,6 +1,6 @@
 fastapi
 pydantic
-python-escpos
+python-escpos[all]
 Pillow
 requests
 uvicorn
