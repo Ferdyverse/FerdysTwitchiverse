@@ -1,169 +1,138 @@
-# Twitch2HomeLab - README
+# Twitch2HomeLab
 
-## Übersicht
-**Twitch2HomeLab** ist eine API, die mit FastAPI erstellt wurde und es ermöglicht, Avatare von Twitch-Nutzern mit Überschrift, Benutzernamen und Nachricht auf einem ESC/POS-kompatiblen Drucker auszudrucken. Dieses Projekt wurde speziell für den Wincor Nixdorf TH230 Drucker entwickelt, kann aber mit ähnlichen Geräten angepasst werden.
+**Twitch2HomeLab** is a FastAPI-based application that integrates Twitch interactions with a local network setup. It supports printing various types of data (headlines, messages, and images) on a thermal printer using the ESC/POS protocol.
 
 ---
 
-## Voraussetzungen
+## Features
 
-### Software
-1. **Python 3.8+**
-2. **Abhängigkeiten**:
-    - `fastapi`
-    - `pydantic`
-    - `python-escpos`
-    - `Pillow`
-    - `requests`
+- **Print Functionality**: Print headlines, messages, and images on a thermal printer.
+- **Dynamic Printer Management**: Automatically reconnects if the printer is offline.
+- **Swagger Documentation**: Explore and test API endpoints with built-in docs.
+- **Lightweight and Modular**: Clean architecture for easy maintenance and scalability.
 
-### Hardware
-- **ESC/POS-kompatibler Drucker** (z. B. Wincor Nixdorf TH230)
-- **USB-Verbindung zum Drucker**
+---
 
-### Betriebssystem
-- Linux (z. B. Ubuntu/Debian) wird empfohlen.
-- Stelle sicher, dass du die entsprechenden Berechtigungen hast, um auf USB-Geräte zuzugreifen (siehe `udev`-Konfiguration).
+## Requirements
+
+- Python 3.8+
+- A compatible ESC/POS thermal printer
+- Libraries: `fastapi`, `uvicorn`, `escpos`, `PIL` (Pillow), `requests`
 
 ---
 
 ## Installation
 
-1. **Projekt klonen**:
-    ```bash
-    git clone <repository-url>
-    cd <repository-folder>
-    ```
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/Twitch2HomeLab.git
+cd Twitch2HomeLab
+```
 
-2. **Virtuelle Umgebung erstellen und aktivieren**:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+### 2. Install Dependencies
+Create a virtual environment and install the required libraries:
+```bash
+python -m venv env
+source env/bin/activate  # On Windows: .\env\Scripts\activate
+pip install -r requirements.txt
+```
 
-3. **Abhängigkeiten installieren**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 3. Configure the Application
+Set up the required configurations in a `config.py` file:
+```python
+# config.py
+APP_HOST = "0.0.0.0"
+APP_PORT = 8000
+APP_LOG_LEVEL = "debug"
 
-4. **API starten**:
-    ```bash
-    uvicorn escpos_printer_api:app --reload
-    ```
+PRINTER_VENDOR_ID = 0x04b8  # Example: Epson
+PRINTER_PRODUCT_ID = 0x0e15
+PRINTER_IN_EP = 0x82
+PRINTER_OUT_EP = 0x01
+PRINTER_PROFILE = "default"
+```
 
 ---
 
-## Nutzung
+## Running the Application
 
-### API-Endpunkte
+### Development Mode (with Auto-Reload)
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-#### 1. **POST /print**
-Druckt einen Twitch-Avatar mit einer Überschrift, dem Benutzernamen und einer Nachricht.
+### Production Mode
+```bash
+python main.py
+```
 
-- **Payload**:
-    ```json
-    {
-        "image_url": "https://example.com/avatar.png",
-        "headline": "Willkommen im Stream!",
-        "twitch_username": "CoolStreamer123",
-        "message": "Danke, dass du ein Teil der Community bist!"
+---
+
+## API Endpoints
+
+### `/print`
+**POST**: Print data on the thermal printer.
+
+- **Request Body**:
+  ```json
+  {
+    "print_elements": [
+      { "type": "headline_1", "text": "Welcome to Twitch2HomeLab!" },
+      { "type": "message", "text": "This is a test message." },
+      { "type": "image", "url": "http://example.com/image.png" }
+    ]
+  }
+  ```
+
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Print done!"
+  }
+  ```
+
+### `/status`
+**GET**: Get the current status of the printer.
+
+- **Response**:
+  ```json
+  {
+    "status": "online",
+    "printer": {
+      "is_online": true,
+      "message": "Printer is operational"
     }
-    ```
-
-- **Erfolgreiche Antwort**:
-    ```json
-    {
-        "status": "success",
-        "message": "Überschrift, Avatar, Benutzername und Nachricht gedruckt"
-    }
-    ```
-
-- **Fehler**:
-    - 500: Drucker ist nicht verfügbar.
-    - 400: Fehler beim Herunterladen des Bildes.
-
-#### 2. **GET /status**
-Überprüft, ob der Drucker online ist.
-
-- **Antwort**:
-  - **Online**:
-    ```json
-    {
-        "status": "online",
-        "message": "Drucker bereit"
-    }
-    ```
-  - **Offline**:
-    ```json
-    {
-        "status": "offline",
-        "message": "Drucker nicht verfügbar"
-    }
-    ```
+  }
+  ```
 
 ---
 
-## Anpassungen
+## Directory Structure
 
-### Druckerkonfiguration
-Passen Sie die folgenden Parameter in der Datei `escpos_printer_api.py` an:
-- **`VENDOR_ID`**: Vendor-ID des Druckers (z. B. `0x0aa7`).
-- **`PRODUCT_ID`**: Product-ID des Druckers (z. B. `0x0304`).
-- **`in_ep`** und **`out_ep`**: Endpunkte für den USB-Drucker (siehe `lsusb -v`).
-
-### `udev`-Regeln
-Füge `udev`-Regeln hinzu, um den Zugriff auf den Drucker ohne Root-Rechte zu ermöglichen:
-1. Erstelle die Datei `/etc/udev/rules.d/99-usb.rules`:
-    ```bash
-    sudo nano /etc/udev/rules.d/99-usb.rules
-    ```
-2. Füge folgende Zeile hinzu:
-    ```
-    SUBSYSTEM=="usb", ATTR{idVendor}=="0aa7", ATTR{idProduct}=="0304", MODE="0666"
-    ```
-3. Lade die Regeln neu:
-    ```bash
-    sudo udevadm control --reload-rules
-    sudo udevadm trigger
-    ```
+```
+.
+├── main.py                     # Main entry point for the application
+├── modules/
+│   ├── printer_manager.py      # Handles printer operations
+│   ├── schemas.py              # Defines API request/response models
+├── config.py                   # Configuration file
+├── README.md                   # Documentation
+└── requirements.txt            # Python dependencies
+```
 
 ---
 
-## Hinweise zur Bildverarbeitung
+## Contributing
 
-- **Schwarz-Weiß-Invertierung**:
-    Die Invertierung von Schwarz und Weiß kann im Code angepasst werden:
-    ```python
-    image = ImageOps.invert(image.convert("L")).convert("1")
-    ```
-- **Bildoptionen für den Druck**:
-    Die folgenden Parameter im `printer.image`-Aufruf können angepasst werden:
-    - `high_density_horizontal` und `high_density_vertical`
-    - `impl`: Druckmodus (z. B. `bitImageColumn`).
-    - `fragment_height`: Maximale Höhe für das Fragment.
+Feel free to submit issues or pull requests if you’d like to improve or add new features. Contributions are welcome!
 
 ---
 
-## Fehlerbehebung
+## License
 
-1. **Fehler „Unable to open USB printer“**:
-    - Überprüfe die `VENDOR_ID` und `PRODUCT_ID` mit `lsusb`.
-    - Stelle sicher, dass die `udev`-Regeln korrekt sind.
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
 
-2. **Fehler „Invalid endpoint address“**:
-    - Stelle sicher, dass `in_ep` und `out_ep` korrekt konfiguriert sind (siehe `lsusb -v`).
+### Third-Party Dependencies
 
-3. **Fehler „Drucker nicht verfügbar“**:
-    - Überprüfe die Verbindung und den Status des Druckers.
-
----
-
-## Weiterentwicklung
-
-- Unterstützung für weitere Druckermodelle.
-- Erweiterte Bildverarbeitung (z. B. Größenänderung, Rahmen).
-- Weitere API-Endpunkte (z. B. Warteschlange für Druckaufträge).
-
----
-
-## Lizenz
-Dieses Projekt steht unter der MIT-Lizenz. Weitere Informationen in der Datei `LICENSE`.
+The project uses third-party libraries, each governed by their respective licenses. Refer to the libraries' documentation for details.
