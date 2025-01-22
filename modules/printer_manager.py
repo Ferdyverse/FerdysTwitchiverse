@@ -118,6 +118,7 @@ class PrinterManager:
             raise
         finally:
             # Newline after print
+            self.printer.set(align="left", normal_textsize=True)
             self.printer.ln(1)
 
     def cut_paper(self):
