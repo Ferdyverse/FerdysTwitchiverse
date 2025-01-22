@@ -110,13 +110,15 @@ class PrinterManager:
                         fragment_height=960,
                         center=False
                     )
-                    self.printer.ln(1)
             elif element.type == "message":
                 self.printer.set(align="left", normal_textsize=True)
                 self.printer.text(f"{element.text}\n")
         except Exception as e:
             logger.error(f"Error printing element: {e}")
             raise
+        finally:
+            # Newline after print
+            self.printer.ln(1)
 
     def cut_paper(self):
         """
