@@ -96,9 +96,11 @@ class PrinterManager:
             if element.type == "headline_1":
                 self.printer.set(align="center", bold=True, double_height=True)
                 self.printer.text(f"{element.text}\n\n")
+                return True
             elif element.type == "headline_2":
                 self.printer.set(align="center", bold=True, double_height=False, double_width=True)
                 self.printer.text(f"{element.text}\n\n")
+                return True
             elif element.type == "image":
                 pimage = await self.get_image(element.url)
                 if pimage:
@@ -110,16 +112,16 @@ class PrinterManager:
                         fragment_height=960,
                         center=False
                     )
+                    return True
             elif element.type == "message":
                 self.printer.set(align="left", normal_textsize=True)
                 self.printer.text(f"{element.text}\n")
+                return True
+            else:
+                return False
         except Exception as e:
             logger.error(f"Error printing element: {e}")
             raise
-        finally:
-            # Newline after print
-            self.printer.set(align="left", normal_textsize=True, bold=False, double_height=False, double_width=False)
-            self.printer.ln(1)
 
     def cut_paper(self):
         """
@@ -127,3 +129,11 @@ class PrinterManager:
         """
         if self.printer:
             self.printer.cut()
+
+    def newline(self, count: int):
+        """
+        Print a newline
+        """
+        if self.printer:
+            self.printer.set(align="left", normal_textsize=True)
+            self.printer.ln(count)

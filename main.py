@@ -50,7 +50,8 @@ async def print_data(request: PrintRequest):
 
     try:
         for element in request.print_elements:
-            await printer_manager.print_element(element)
+            if await printer_manager.print_element(element):
+                printer_manager.newline(1)
         printer_manager.cut_paper()
         return {"status": "success", "message": "Print done!"}
     except Exception as e:
