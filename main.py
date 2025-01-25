@@ -42,8 +42,6 @@ app = FastAPI(
     }
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 @app.post(
     "/print",
     summary="Print Data",
