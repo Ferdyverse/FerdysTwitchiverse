@@ -36,6 +36,7 @@ python -m venv env
 source env/bin/activate  # On Windows: .\env\Scripts\activate
 pip install -r requirements.txt
 ```
+**Note:** You need to install the following library on your system: `libcups2-dev`
 
 ### 3. Configure the Application
 Set up the required configurations in a `config.py` file:

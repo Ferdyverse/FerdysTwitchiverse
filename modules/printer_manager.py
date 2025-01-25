@@ -123,12 +123,15 @@ class PrinterManager:
             logger.error(f"Error printing element: {e}")
             raise
 
-    def cut_paper(self):
+    def cut_paper(self, partial: bool=False):
         """
         Cut the paper.
         """
         if self.printer:
-            self.printer.cut()
+            if partial:
+                self.printer.cut(mode="PART")
+            else:
+                self.printer.cut()
 
     def newline(self, count: int):
         """

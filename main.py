@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
@@ -34,7 +37,12 @@ app = FastAPI(
     title="Twitch2HomeLab",
     summary="Get stuff from Twitch to the local network",
     lifespan=lifespan,
+    swagger_ui_parameters={
+        "syntaxHighlight.theme": "monokai"
+    }
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.post(
     "/print",
@@ -52,7 +60,7 @@ async def print_data(request: PrintRequest):
         for element in request.print_elements:
             if await printer_manager.print_element(element):
                 printer_manager.newline(1)
-        printer_manager.cut_paper()
+        printer_manager.cut_paper(partial=True)
         return {"status": "success", "message": "Print done!"}
     except Exception as e:
         logger.error(f"Error during printing: {e}")
