@@ -110,7 +110,7 @@ class PrinterManager:
                         high_density_vertical=True,
                         impl="bitImageColumn",
                         fragment_height=960,
-                        center=False
+                        center=True
                     )
                     return True
             elif element.type == "message":
