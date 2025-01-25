@@ -68,11 +68,11 @@ async def print_data(request: PrintRequest):
 
 
 @app.get(
-    "/status",
-    summary="Get Printer Status",
-    description="Checks the current status of the printer, including its connectivity and paper status. "
+    "/state",
+    summary="Get API Status",
+    description="Checks the current status of the api."
                 "If the printer is offline, an attempt to reconnect will be made.",
-    response_description="Returns the current status of the printer, including whether it is online and its paper status."
+    response_description="Returns the current status of the api including whether it is online and its paper status."
 )
 async def status():
     is_online = printer_manager.is_online()
@@ -83,6 +83,10 @@ async def status():
             "message": "Printer is operational" if is_online else "Printer is offline",
         },
     }
+
+@app.get("/")
+async def home():
+    return { "docs": "/docs", "state": "/state"}
 
 if __name__ == "__main__":
     uvicorn.run(
