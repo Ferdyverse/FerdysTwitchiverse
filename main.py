@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
 
 from modules.printer_manager import PrinterManager
-from modules.schemas import PrintRequest, PrintElement
+from modules.schemas import PrintRequest
 import config
 
 # Configure logger
@@ -68,9 +65,8 @@ async def print_data(request: PrintRequest):
 @app.get(
     "/state",
     summary="Get API Status",
-    description="Checks the current status of the api."
-                "If the printer is offline, an attempt to reconnect will be made.",
-    response_description="Returns the current status of the api including whether it is online and its paper status."
+    description="Checks the current status of the api.",
+    response_description="Returns the current status of the api including the printer state, whether it is online and its paper status."
 )
 async def status():
     is_online = printer_manager.is_online()
