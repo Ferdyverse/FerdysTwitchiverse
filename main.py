@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 
+# FastAPI imports
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
+from fastapi import WebSocket, WebSocketDisconnect, Body
+
+# Other required imports
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
+from typing import Any
 
+# Own modules
 from modules.printer_manager import PrinterManager
 from modules.schemas import PrintRequest
+from modules.db_manager import init_db, save_data, get_data
 import config
 
 # Configure logger
@@ -15,11 +26,21 @@ logger = logging.getLogger("uvicorn.error")
 # Instantiate the PrinterManager
 printer_manager = PrinterManager()
 
+templates = Jinja2Templates(directory="templates")
+
+# Keep track of connected clients
+connected_clients = []
+
 # Required for Startup and Shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Lifecycle event manager for the FastAPI application.
+    Initializes the database and printer manager on startup and shuts them down on exit.
+    """
     logger.info("Initializing printer manager")
     try:
+        init_db()
         printer_manager.initialize()
         yield  # The app is running
     except Exception as e:
@@ -31,21 +52,112 @@ async def lifespan(app: FastAPI):
 
 # App config
 app = FastAPI(
-    title="Twitch2HomeLab",
-    summary="Get stuff from Twitch to the local network",
+    title="Ferdy’s Twitchiverse",
+    summary="Get data from Twitch and send it to the local network.",
+    description="An API to manage Twitch-related events, overlay updates, and thermal printing.",
     lifespan=lifespan,
     swagger_ui_parameters={
         "syntaxHighlight.theme": "monokai"
     }
 )
 
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get(
+    "/overlay",
+    response_class=HTMLResponse,
+    summary="Display the overlay",
+    description="Serves the HTML page that acts as an overlay for OBS."
+)
+def overlay(request: Request):
+    """
+    Endpoint to serve the OBS overlay HTML page.
+    """
+    return templates.TemplateResponse("overlay.html", {"request": request})
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket connection to communicate with the frontend overlay in real-time.
+    Keeps the connection alive and allows broadcasting data.
+    """
+    await websocket.accept()
+    connected_clients.append(websocket)
+    try:
+        while True:
+            # Keep the WebSocket connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
+        connected_clients.remove(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        connected_clients.remove(websocket)
+
+async def broadcast_message(message: Any):
+    """
+    Sends a message to all connected WebSocket clients.
+    """
+    for client in connected_clients:
+        try:
+            await client.send_json(message)
+        except Exception as e:
+            logger.error(f"Error sending message: {e}")
+
+@app.post(
+    "/send-to-overlay",
+    summary="Send data to the overlay",
+    description="Accepts data and broadcasts it to all connected WebSocket clients for overlay updates.",
+    response_description="Acknowledges the broadcast status."
+)
+async def send_html_to_overlay(payload: Any = Body(...)):
+    """
+    Endpoint to send data to the overlay via WebSocket.
+    Saves relevant information to the database for persistence.
+    """
+    try:
+        # Save last follower or subscriber
+        if "alert" in payload:
+            alert = payload["alert"]
+            if alert["type"] == "follower":
+                save_data("last_follower", alert["user"])
+            elif alert["type"] == "subscriber":
+                save_data("last_subscriber", alert["user"])
+
+        # Broadcast the data to WebSocket clients
+        await broadcast_message(payload)
+        return {"status": "success", "message": "Data piped to overlay"}
+    except Exception as e:
+        logger.error(f"Error piping data: {e}")
+        raise HTTPException(status_code=500, detail="Failed to pipe data")
+
+@app.get(
+    "/overlay-data",
+    summary="Fetch overlay data",
+    description="Retrieves the last follower and subscriber from the database.",
+    response_description="Returns the last follower and subscriber."
+)
+async def get_overlay_data():
+    """
+    Endpoint to fetch the most recent follower and subscriber from the database.
+    """
+    return {
+        "last_follower": get_data("last_follower") or "None",
+        "last_subscriber": get_data("last_subscriber") or "None",
+    }
+
 @app.post(
     "/print",
-    summary="Print Data",
-    description="Send data to the thermal printer to print various elements, such as text headlines, messages, or images.",
+    summary="Print data to thermal printer",
+    description="Send structured data to the thermal printer for printing.",
     response_description="Returns a success message when printing is completed."
 )
 async def print_data(request: PrintRequest):
+    """
+    Endpoint to send data to the thermal printer for printing.
+    Validates the printer state and sends the print elements.
+    """
     if not printer_manager.is_online():
         printer_manager.reconnect()
         if not printer_manager.is_online():
@@ -61,14 +173,17 @@ async def print_data(request: PrintRequest):
         logger.error(f"Error during printing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get(
     "/state",
-    summary="Get API Status",
-    description="Checks the current status of the api.",
-    response_description="Returns the current status of the api including the printer state, whether it is online and its paper status."
+    summary="Get API state",
+    description="Checks the current status of the API and the printer.",
+    response_description="Returns the API and printer status."
 )
 async def status():
+    """
+    Endpoint to check the current status of the API and printer.
+    Provides details about printer availability and operational status.
+    """
     is_online = printer_manager.is_online()
     return {
         "status": "online",
@@ -78,9 +193,17 @@ async def status():
         },
     }
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="API home",
+    description="Provides links to the API documentation, overlay, and status endpoints.",
+    response_description="Links to API resources."
+)
 async def home():
-    return { "docs": "/docs", "state": "/state"}
+    """
+    Default home endpoint with links to API resources.
+    """
+    return { "docs": "/docs", "overlay": "/overlay", "state": "/state"}
 
 if __name__ == "__main__":
     uvicorn.run(

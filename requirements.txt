@@ -3,4 +3,6 @@ pydantic
 python-escpos[all]
 Pillow
 requests
-uvicorn
+uvicorn[standard]
+jinja2
+sqlite-utils

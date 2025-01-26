@@ -1,0 +1,106 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    text-align: center;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#overlay {
+    position: fixed; /* Ensure it stays in place */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%; /* Full height */
+    display: flex; /* For centering alerts */
+    justify-content: center; /* Horizontally center alerts */
+    align-items: center; /* Vertically center alerts */
+    pointer-events: none; /* Prevent interactions */
+    z-index: 999; /* Ensure it is above everything */
+    background: none; /* No background color */
+}
+
+
+#status {
+    font-size: 1.2em;
+    margin-top: 10px;
+}
+
+#top-bar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+    font-size: 1rem;
+    text-align: center;
+    padding: 0 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+#top-bar > div {
+    flex: 1;
+    text-align: center;
+}
+
+#top-bar > div:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    padding-right: 10px;
+}
+
+#custom-message {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    animation: scrollText 10s linear infinite;
+    animation-duration: calc(10s + (50px * var(--message-length)));
+}
+
+@keyframes scrollText {
+    0% {
+        transform: translateX(100%);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+.alert {
+    margin: 0 auto;
+    padding: 15px 20px;
+    background: rgba(0, 128, 255, 0.9); /* Blue for follower alert */
+    color: white;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    opacity: 0; /* Start hidden for animation */
+    transform: translateY(-20px); /* Start slightly above */
+    max-width: 80%; /* Prevent alerts from being too wide */
+    word-wrap: break-word; /* Handle long text gracefully */
+}
+
+.alert.subscriber {
+    background: rgba(0, 200, 0, 0.8);
+    color: white;
+}
+
+.alert.follower {
+    background: rgba(0, 128, 255, 0.8);
+    color: white;
+}
+
+.alert.default {
+    background: rgba(255, 0, 0, 0.8);
+    color: white;
+}

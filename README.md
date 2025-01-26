@@ -1,13 +1,15 @@
-# Twitch2HomeLab
+# Ferdy’s Twitchiverse
 
-**Twitch2HomeLab** is a FastAPI-based application that integrates Twitch interactions with a local network setup. It supports printing various types of data (headlines, messages, and images) on a thermal printer using the ESC/POS protocol.
+**Ferdy’s Twitchiverse** is a FastAPI-based application that integrates Twitch interactions with your local network setup. It’s a Twitchy pocket universe that supports printing various types of data (headlines, messages, and images) on a thermal printer using the ESC/POS protocol and managing dynamic overlays.
 
 ---
 
 ## Features
 
 - **Print Functionality**: Print headlines, messages, and images on a thermal printer.
+- **Dynamic Overlays**: Real-time updates to OBS overlays with alerts and custom messages.
 - **Dynamic Printer Management**: Automatically reconnects if the printer is offline.
+- **WebSocket Integration**: Enables live communication with the frontend.
 - **Swagger Documentation**: Explore and test API endpoints with built-in docs.
 - **Lightweight and Modular**: Clean architecture for easy maintenance and scalability.
 
@@ -25,8 +27,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/Twitch2HomeLab.git
-cd Twitch2HomeLab
+git clone https://github.com/Ferdyverse/FerdysTwitchiverse.git
+cd FerdysTwitchiverse
 ```
 
 ### 2. Install Dependencies
@@ -78,7 +80,7 @@ python main.py
   ```json
   {
     "print_elements": [
-      { "type": "headline_1", "text": "Welcome to Twitch2HomeLab!" },
+      { "type": "headline_1", "text": "Welcome to Ferdy’s Twitchiverse!" },
       { "type": "message", "text": "This is a test message." },
       { "type": "image", "url": "http://example.com/image.png" }
     ]
@@ -107,6 +109,38 @@ python main.py
   }
   ```
 
+### `/send-to-overlay`
+**POST**: Send data to the overlay via WebSocket.
+
+- **Request Body**:
+  ```json
+  {
+    "alert": {
+      "type": "subscriber",
+      "user": "FerdyverseFan"
+    }
+  }
+  ```
+
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Data piped to overlay"
+  }
+  ```
+
+### `/overlay-data`
+**GET**: Retrieve the last follower and subscriber from the database.
+
+- **Response**:
+  ```json
+  {
+    "last_follower": "FerdyFan123",
+    "last_subscriber": "StreamerPro"
+  }
+  ```
+
 ---
 
 ## Directory Structure
@@ -117,6 +151,12 @@ python main.py
 ├── modules/
 │   ├── printer_manager.py      # Handles printer operations
 │   ├── schemas.py              # Defines API request/response models
+│   ├── db_manager.py           # Database interactions for persistence
+├── templates/
+│   └── overlay.html            # HTML for the overlay
+├── static/
+│   ├── css/                    # Stylesheets
+│   ├── js/                     # JavaScript files
 ├── config.py                   # Configuration file
 ├── README.md                   # Documentation
 └── requirements.txt            # Python dependencies

@@ -1,0 +1,38 @@
+import sqlite3
+
+DB_PATH = "data.db"
+
+# Initialize the database
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Create tables if they don't exist
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS overlay_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT UNIQUE,
+        value TEXT
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+# Save data to the database
+def save_data(key, value):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO overlay_data (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    """, (key, value))
+    conn.commit()
+    conn.close()
+
+# Retrieve data from the database
+def get_data(key):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM overlay_data WHERE key = ?", (key,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
