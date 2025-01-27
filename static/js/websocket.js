@@ -18,13 +18,15 @@ function connectWebSocket() {
         const data = JSON.parse(event.data);
 
         if (data.alert) {
-            const { type, user } = data.alert;
+            const { type, user, size } = data.alert;
 
             // Update top bar and show alert
             if (type === "follower") {
                 updateTopBar("follower", user);
             } else if (type === "subscriber") {
                 updateTopBar("subscriber", user);
+            } else if (type === "raid") {
+                addPlanetToSystem(user, size);
             }
 
             showAlertWithGSAP(type, user);
