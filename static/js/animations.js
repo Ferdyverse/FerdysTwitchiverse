@@ -23,7 +23,7 @@ function updateTopBar(section, content) {
             animateTopBar(section);
             break;
         case "message":
-            customMessageElement.textContent = `Message: ${content}`;
+            customMessageElement.textContent = `${content}`;
             break;
         default:
             console.warn(`Unknown section: ${section}`);
@@ -51,20 +51,45 @@ function playSoundForAlert(type) {
 }
 
 // Function to display alerts with GSAP animation
-function showAlertWithGSAP(type, user) {
+function showAlertWithGSAP(type, user, additionalInfo) {
     const alertElement = document.createElement("div");
     alertElement.className = `alert ${type}`;
     alertElement.innerHTML = `
-        <h1>${type === "subscriber" ? "New Subscriber!" : type === "follower" ? "New Follower!" : "Alert!"}</h1>
-        <p>${user ? `${user} just ${type}!` : "Action triggered!"}</p>
+        <video autoplay loop muted playsinline class="alert-background">
+            <source src="/static/videos/${type}.webm" type="video/webm">
+        </video>
+        <div class="alert-content">
+            <h1>${type === "subscriber"
+                ? "New Subscriber!"
+                : type === "follower"
+                ? "New Follower!"
+                : type === "raid"
+                ? "Incoming Raid!"
+                : "Alert!"}</h1>
+            <p>${type === "raid"
+                ? `${user} is raiding with ${additionalInfo || 0} viewers!`
+                : `${user}`}</p>
+        </div>
     `;
+
+    // Append the alert to the overlay
     overlayElement.appendChild(alertElement);
+
+    // Dynamically adjust the font size of the <p> tag
+    const alertContent = alertElement.querySelector(".alert-content");
+    const paragraph = alertContent.querySelector("p");
+    adjustFontSizeToFit(paragraph);
 
     // Play sound for the alert
     playSoundForAlert(type);
 
-    // Animate with GSAP
-    gsap.to(alertElement, { opacity: 1, y: 20, duration: 1 });
+    // Animate the video and text
+    gsap.to(alertElement, { opacity: 1, y: 20, duration: 1 }); // Fade in the container
+    setTimeout(() => {
+        alertContent.style.opacity = 1; // Fade in the text
+    }, 2000); // Delay text fade-in by 2 seconds
+
+    // Automatically remove the alert after 6 seconds
     setTimeout(() => {
         gsap.to(alertElement, {
             opacity: 0,
@@ -72,10 +97,41 @@ function showAlertWithGSAP(type, user) {
             duration: 1,
             onComplete: () => alertElement.remove(),
         });
-    }, 4000); // Keep visible for 4 seconds
+    }, 6000);
 
     // Cleanup old alerts
     cleanupOldAlerts();
+}
+
+function adjustFontSizeToFit(element) {
+    const parent = element.parentElement;
+    const maxWidth = parent.clientWidth * 0.95; // Use 95% of parent width
+    const maxHeight = parent.clientHeight * 0.95; // Use 95% of parent height
+    let currentFontSize = parseFloat(window.getComputedStyle(element).fontSize);
+
+    console.log(`Initial font size: ${currentFontSize}px`);
+    console.log(`Max Width: ${maxWidth}px`);
+
+    while (currentFontSize > 14) { // Prevent shrinking below 14px
+        element.style.fontSize = `${currentFontSize}px`;
+
+        // Force reflow
+        const elementWidth = element.scrollWidth;
+        const elementHeight = element.scrollHeight;
+
+        console.log(
+            `Parent Width: ${maxWidth}, Element Width: ${elementWidth}, Current Font Size: ${currentFontSize}px`
+        );
+
+        if (elementWidth <= maxWidth && elementHeight <= maxHeight) {
+            break; // Stop resizing when the text fits
+        }
+
+        currentFontSize -= 1; // Reduce font size
+    }
+
+    console.log(`Final font size: ${Math.max(currentFontSize, 14)}px`);
+    element.style.fontSize = `${Math.max(currentFontSize, 14)}px`; // Ensure readability
 }
 
 // Function to limit the number of visible alerts

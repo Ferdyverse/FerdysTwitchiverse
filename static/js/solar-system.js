@@ -5,6 +5,8 @@ import * as THREE from "/static/js/three/three.module.js";
 import { OrbitControls } from "/static/js/three/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "/static/js/three/CSS2DRenderer.js";
 
+const planetObjects = [];
+
 // Create the renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(1920, 1080); // Full HD resolution
@@ -35,11 +37,11 @@ controls.maxDistance = 600;
 controls.maxPolarAngle = Math.PI / 2;
 
 // Lights
-const sunLight = new THREE.PointLight(0xffaa33, 5, 800);
-sunLight.position.set(0, 0, 0);
-scene.add(sunLight);
+const sunlight = new THREE.DirectionalLight(0xffcc88, 1.5); // Warm yellow light
+sunlight.position.set(100, 100, 100);
+scene.add(sunlight);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 // Sun
@@ -69,105 +71,120 @@ scene.add(sunHalo);
 
 /* ------------------ STARS WITH INDEPENDENT CHAOTIC FLICKER ------------------ */
 function createStars() {
-  const starCount = 1000;
-  const positions = new Float32Array(starCount * 3);
-  const baseOpacities = new Float32Array(starCount);
-  const freqs = new Float32Array(starCount);
-  const phases = new Float32Array(starCount);
+  const starCount = 1000; // Number of stars
+  const positions = new Float32Array(starCount * 3); // Position array
+  const opacities = new Float32Array(starCount); // Opacity array
+  const freqs = new Float32Array(starCount); // Frequencies for twinkling
+  const phases = new Float32Array(starCount); // Random phase offsets
 
+  // Initialize positions, opacities, frequencies, and phases
   for (let i = 0; i < starCount; i++) {
-    // Random star position
-    const x = (Math.random() - 0.5) * 1500;
-    const y = (Math.random() - 0.5) * 1500;
-    const z = (Math.random() - 0.5) * 1500;
-    positions[i * 3 + 0] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-
-    // Base opacity [0.5..1.0]
-    baseOpacities[i] = Math.random() * 0.5 + 0.5;
-
-    // Random freq + phase
-    freqs[i] = 1.0 + Math.random() * 3.0; // Flicker speed
-    phases[i] = Math.random() * Math.PI * 2;
+    positions[i * 3] = (Math.random() - 0.5) * 1500; // x
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 1500; // y
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 1500; // z
+    opacities[i] = Math.random(); // Initial random opacity
+    freqs[i] = 0.5 + Math.random() * 2.0; // Random twinkling frequency
+    phases[i] = Math.random() * Math.PI * 2; // Random phase offset
   }
 
-  // BufferGeometry
   const starGeometry = new THREE.BufferGeometry();
-  starGeometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3)
-  );
+  starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  starGeometry.setAttribute("opacity", new THREE.Float32BufferAttribute(opacities, 1));
 
   const starMaterial = new THREE.PointsMaterial({
-    size: 3,
-    color: 0xffffff, // Set stars to white by default
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    opacity: 1.0,
-    sizeAttenuation: true,
+    size: 4, // Star size
+    color: 0xffffff, // White stars
+    transparent: true, // Enable transparency
+    blending: THREE.AdditiveBlending, // Additive blending for glowing effect
+    depthWrite: false, // Prevent stars from being occluded by other objects
+    map: new THREE.TextureLoader().load("/static/images/circle.png"), // Texture for stars
   });
+
+  // Modify shaders to include the opacity attribute
+  starMaterial.onBeforeCompile = (shader) => {
+    shader.vertexShader = `
+      attribute float opacity;
+      varying float vOpacity;
+      ${shader.vertexShader.replace(
+        "void main() {",
+        "void main() { vOpacity = opacity;"
+      )}
+    `;
+    shader.fragmentShader = `
+      varying float vOpacity;
+      ${shader.fragmentShader.replace(
+        "vec4 diffuseColor = vec4( diffuse, opacity );",
+        "vec4 diffuseColor = vec4( diffuse, vOpacity );"
+      )}
+    `;
+  };
 
   const stars = new THREE.Points(starGeometry, starMaterial);
   scene.add(stars);
 
   let startTime = performance.now();
 
+  // Twinkle function to update opacity
   function twinkleStars() {
-    const elapsed = (performance.now() - startTime) * 0.001;
-    // We'll compute an average flicker from all stars.
-    // For truly individual star opacities, we'd need a custom shader or per-star attribute.
-    // For a simplified approach, let's compute an average flicker.
+    const elapsed = (performance.now() - startTime) * 0.001; // Time in seconds
+    const opacitiesArray = starGeometry.attributes.opacity.array;
 
     for (let i = 0; i < starCount; i++) {
-      // Flicker in [1..0.3], reversed from bright to dark
-      const sinVal = Math.sin(freqs[i] * elapsed + phases[i]) * 0.5 + 0.5; // [0..1]
-      const flicker = 1.0 - sinVal * 0.7; // [0.3..1.0], reversed
-      baseOpacities[i] = flicker; // Update the opacity per star
+      const sinVal = Math.sin(freqs[i] * elapsed + phases[i]) * 0.5 + 0.5; // Smooth sine wave
+      opacitiesArray[i] = sinVal; // Update opacity dynamically
     }
 
-    // Apply the opacity as a uniform scale for all stars
-    starMaterial.opacity = 1.0; // Stars are fully bright by default // Average for the entire star field
+    // Ensure the attribute is marked for an update
+    starGeometry.attributes.opacity.needsUpdate = true;
   }
 
   return twinkleStars;
 }
 
 /* ------------------ PLANET TEXTURE GENERATION ------------------ */
-function generateRandomPlanetTexture(textureLoader) {
+function generateRandomPlanetTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d");
 
-  // Random gradient
-  const gradient = ctx.createLinearGradient(0, 0, 256, 256);
-  gradient.addColorStop(
-    0,
-    `hsl(${Math.random() * 360}, ${Math.random() * 100}%, ${Math.random() * 80 + 20}%)`
-  );
-  gradient.addColorStop(
-    1,
-    `hsl(${Math.random() * 360}, ${Math.random() * 100}%, ${Math.random() * 70 + 10}%)`
-  );
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 256);
+  // Create a darker radial gradient for the base color
+  const gradient = ctx.createRadialGradient(256, 256, 50, 256, 256, 256);
+  const color1 = `hsl(${Math.random() * 360}, 50%, 20%)`; // Dark base color
+  const color2 = `hsl(${Math.random() * 360}, 40%, 10%)`; // Even darker edge color
 
-  // Random circles
+  gradient.addColorStop(0, color1);
+  gradient.addColorStop(1, color2);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Add random noise for surface details
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    const random = Math.random() * 50; // Subtle noise for darker textures
+    imageData.data[i] = (imageData.data[i] + random) / 2; // Red
+    imageData.data[i + 1] = (imageData.data[i + 1] + random) / 2; // Green
+    imageData.data[i + 2] = (imageData.data[i + 2] + random) / 2; // Blue
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Add craters or surface patterns
   for (let i = 0; i < 10; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const radius = Math.random() * 50 + 10;
+
     ctx.beginPath();
-    ctx.arc(
-      Math.random() * 256,
-      Math.random() * 256,
-      Math.random() * 60 + 20,
-      0,
-      Math.PI * 2
-    );
-    ctx.fillStyle = `hsl(${Math.random() * 360}, ${Math.random() * 100}%, ${Math.random() * 60 + 20}%)`;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.5})`; // Darker craters
     ctx.fill();
+
+    ctx.strokeStyle = `rgba(255, 255, 255, ${Math.random() * 0.2})`; // Subtle highlights
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 
-  return textureLoader.load(canvas.toDataURL());
+  return new THREE.CanvasTexture(canvas); // Return as a texture for Three.js
 }
 
 /* ------------------ FETCH & CREATE PLANETS ------------------ */
@@ -182,23 +199,22 @@ async function fetchPlanets() {
 }
 
 function createPlanets(planetsData) {
-  const textureLoader = new THREE.TextureLoader();
-  const planetObjects = [];
   const scaleFactor = 0.5;
 
   planetsData.forEach((data) => {
-    const planetTexture = generateRandomPlanetTexture(textureLoader);
+    const planetTexture = generateRandomPlanetTexture();
 
     const planetSize = Math.sqrt(data.raid_size) * 1.5;
-    const planetGeometry = new THREE.SphereGeometry(planetSize, 32, 32);
-    const planetMaterial = new THREE.MeshPhysicalMaterial({
-      map: planetTexture,
-      emissive: 0x0033ff,
-      emissiveIntensity: 1.8,
-      roughness: 0.1, // More cartoon-like
-      metalness: 0.5,
-      clearcoat: 1.0,
+
+    const planetGeometry = new THREE.SphereGeometry(planetSize, 64, 64);
+    const planetMaterial = new THREE.MeshStandardMaterial({
+      map: planetTexture, // Use generated texture
+      bumpMap: planetTexture, // Use the same texture for bump mapping
+      bumpScale: 0.2, // Adjust bump intensity
+      metalness: 0.2,
+      roughness: 1.0,
     });
+
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
 
     // Label
@@ -240,35 +256,44 @@ function createPlanets(planetsData) {
       distance: adjustedDistance,
       tiltX,
       tiltZ,
-      speed: 0.001 + Math.random() * 0.002,
+      speed: 0.001 + Math.random() * 0.002, // Random orbital speed
     });
   });
-
-  animatePlanets(planetObjects);
 }
 
-function animatePlanets(planetObjects) {
-  function animate() {
-    requestAnimationFrame(animate);
+function animatePlanets() {
+  planetObjects.forEach((obj) => {
+    // Update planet position based on orbital angle
+    obj.angle += obj.speed; // Increment angle by speed
+    const x = Math.cos(obj.angle) * obj.distance;
+    const z = Math.sin(obj.angle) * obj.distance;
+    obj.mesh.position.set(x, 0, z);
 
-    planetObjects.forEach((obj) => {
-      obj.angle += obj.speed;
-      const x = Math.cos(obj.angle) * obj.distance;
-      const z = Math.sin(obj.angle) * obj.distance;
-      obj.mesh.position.set(x, 0, z);
-    });
+    // Rotate the planet on its axis
+    obj.mesh.rotation.y += 0.002; // Adjust rotational speed as needed
+  });
+}
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
 
-    // Per-star chaotic flicker
-    twinkleStars();
-    controls.update();
+  // Animate planets
+  animatePlanets();
 
-    renderer.render(scene, camera);
-    labelRenderer.render(scene, camera);
-  }
+  // Twinkle stars
+  twinkleStars();
 
-  animate();
+  // Update controls
+  controls.update();
+
+  // Render the scene and labels
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
 }
 
-// Create stars & fetch planets
-const twinkleStars = createStars();
-fetchPlanets();
+// Initialize stars and planets
+const twinkleStars = createStars(); // Create stars and get the twinkle function
+fetchPlanets(); // Fetch and create planets
+
+// Start the animation
+animate();

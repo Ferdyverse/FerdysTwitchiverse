@@ -10,7 +10,7 @@ function connectWebSocket() {
     socket.onopen = () => {
         console.log("WebSocket connected!");
         reconnectAttempts = 0; // Reset reconnect attempts
-        updateTopBar("message", "Connected to server");
+        updateTopBar("message", "WS: Connected to server");
     };
 
     // WebSocket message received
@@ -25,11 +25,14 @@ function connectWebSocket() {
                 updateTopBar("follower", user);
             } else if (type === "subscriber") {
                 updateTopBar("subscriber", user);
+                updateTopBar("message", "NEW SUBSCRIBER!");
             } else if (type === "raid") {
-                addPlanetToSystem(user, size);
+                updateTopBar("message", "Something changed in the Ferdyverse!");
+            } else if (type === "donation") {
+                updateTopBar("message", "NEW DONATION!");
             }
 
-            showAlertWithGSAP(type, user);
+            showAlertWithGSAP(type, user, size);
         } else if (data.message) {
             // Update custom message
             updateTopBar("message", data.message);
@@ -41,7 +44,7 @@ function connectWebSocket() {
     // WebSocket connection closed
     socket.onclose = (event) => {
         console.warn("WebSocket connection closed:", event.reason || "No reason provided");
-        updateTopBar("message", "Reconnecting to server...");
+        updateTopBar("message", "WS: reconnecting to server...");
         attemptReconnect(); // Attempt to reconnect
     };
 
