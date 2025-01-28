@@ -43,6 +43,7 @@ body {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); /* Add shadow for depth */
     color: white;
     z-index: 1000;
+    border-bottom: #FFD700 solid 2px;
 }
 
 /* Left Section: Follower and Subscriber */
@@ -150,31 +151,57 @@ body {
 }
 
 #custom-message {
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     background: rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid #FFD700; /* Golden border */
     border-radius: 10px;
-    padding: 10px 15px;
-    overflow: hidden;
-    width: 400px; /* Fixed size for the message box */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    padding: 0; /* Remove padding for better control */
+    overflow: hidden; /* Prevent overflow outside the box */
+    width: 300px; /* Fixed width for the message box */
     display: flex; /* Align icon and text horizontally */
+    align-items: center; /* Vertically center items */
+    gap: 10px; /* Space between icon and text */
+    position: relative;
+}
+
+/* Icon container */
+.icon-container {
+    flex: 0 0 50px; /* Fixed width for the icon container */
+    display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    height: 100%; /* Match the height of the message box */
+    background: #FFD700; /* Golden background for the icon */
+    z-index: 1; /* Ensure icon is always visible */
 }
 
-#custom-message i {
-    color: #FFD700; /* Gold color for icons */
-    font-size: 1.2rem; /* Icon size */
+/* Font Awesome icon inside */
+.icon-container i {
+    color: #000000; /* Black icon for contrast */
+    font-size: 1.5rem; /* Adjust icon size */
 }
 
-#custom-message .scrolling-text {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    animation: scrollText linear infinite; /* Smooth scrolling for long text */
-    animation-duration: calc(10s + var(--message-length) * 0.2s);
+/* Text container */
+.scrolling-text {
+    flex: 1; /* Take up remaining space */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden; /* Hide overflowing text */
+    padding: 0 10px; /* Add padding for spacing */
+    position: relative;
+    z-index: 0; /* Ensure text does not overlap the icon */
+    font-size: 1rem;
+    animation: scrollText 10s linear infinite; /* Horizontal scrolling animation */
+}
+
+/* Keyframes for scrolling animation */
+@keyframes scrollText {
+    0% {
+        transform: translateX(100%); /* Start with text outside on the right */
+    }
+    100% {
+        transform: translateX(-100%); /* Move text fully to the left */
+    }
 }
 
 .alert.subscriber {
@@ -260,13 +287,4 @@ body {
     font-size: 1.5rem; /* Base font size for the paragraph */
     transition: font-size 0.3s ease; /* Smooth font resizing */
     box-sizing: border-box; /* Ensure padding is included in dimensions */
-}
-
-@keyframes scrollText {
-    0% {
-        transform: translateX(100%);
-    }
-    100% {
-        transform: translateX(-100%);
-    }
 }
