@@ -147,6 +147,15 @@ async def send_to_overlay(payload: Any = Body(...)):
                 save_planet(user, size, angle, distance)
                 logger.info(f"Planet created for raider {user}: size={size}, angle={angle}, distance={distance}")
 
+        if "goal" in payload:
+            goal = payload["goal"]
+
+            save_data("goal_text", goal["text"])
+            save_data("goal_current", goal["current"])
+            save_data("goal_target", goal["target"])
+
+            logger.info(f"Current goal: {goal['text']}, {goal['current']}/{goal['target']}")
+
         # Broadcast the data to WebSocket clients
         await broadcast_message(payload)
         logger.info("Data broadcasted to overlay")
@@ -169,6 +178,9 @@ async def get_overlay_data():
     return {
         "last_follower": get_data("last_follower") or "None",
         "last_subscriber": get_data("last_subscriber") or "None",
+        "goal_text": get_data("goal_text") or "None",
+        "goal_current": get_data("goal_current") or "None",
+        "goal_target": get_data("goal_target") or "None"
     }
 
 @app.post(

@@ -1,6 +1,6 @@
 const lastFollowerElement = document.getElementById("last-follower");
 const lastSubscriberElement = document.getElementById("last-subscriber");
-const customMessageElement = document.getElementById("custom-message");
+const customMessageElement = document.getElementById("cm_scrolling");
 const overlayElement = document.getElementById("overlay");
 
 // Function to update scrolling messages
@@ -15,15 +15,15 @@ function updateTopBar(section, content) {
 
     switch (section) {
         case "follower":
-            lastFollowerElement.textContent = `Last Follower: ${content}`;
+            lastFollowerElement.innerHTML = `<strong><i class="fa fa-user"></i>Last Follower</strong><span>${content}</span>`;
             animateTopBar(section);
             break;
         case "subscriber":
-            lastSubscriberElement.textContent = `Last Subscriber: ${content}`;
+            lastSubscriberElement.innerHTML = `<strong><i class="fa fa-star"></i>Last Subscriber</strong><span>${content}</span>`;
             animateTopBar(section);
             break;
         case "message":
-            customMessageElement.textContent = `${content}`;
+            customMessageElement.innerHTML = `${content}`;
             break;
         default:
             console.warn(`Unknown section: ${section}`);
@@ -38,6 +38,57 @@ function animateTopBar(section) {
         { opacity: 0, y: -10 },
         { opacity: 1, y: 0, duration: 0.5 }
     );
+}
+
+function updateGoal(text, current, goal) {
+    const progressBar = document.getElementById('goal-bar');
+    const goalText = document.querySelector('#goal-box span');
+
+    const percentage = Math.min((current / goal) * 100, 100); // Cap at 100%
+    progressBar.style.width = percentage + '%'; // Update progress bar width
+    goalText.textContent = `${text} ${current} / ${goal}`; // Update text
+}
+
+function updateGoal(text, current, goal) {
+    const goalBox = document.getElementById('goal-box');
+    const goalText = document.querySelector('#goal-box span');
+
+    // If there is valid data, update the goal and show the box
+    if (current !== null && goal !== null) {
+        const progressBar = document.getElementById('goal-bar');
+        const goalText = goalBox.querySelector('span');
+
+        const percentage = Math.min((current / goal) * 100, 100); // Cap at 100%
+        progressBar.style.width = percentage + '%'; // Update progress bar width
+        goalText.textContent = `${text} ${current} / ${goal}`; // Update text
+        goalBox.classList.remove('hidden'); // Show the goal box
+    } else {
+        // Hide the goal box if no valid data
+        goalBox.classList.add('hidden');
+    }
+}
+
+// Function to add an icon dynamically
+function addIcon(iconClass, tooltip = '') {
+    const iconContainer = document.getElementById('dynamic-icons');
+
+    // Create a new icon element
+    const newIcon = document.createElement('i');
+    newIcon.className = `fa ${iconClass}`; // Font Awesome icon class
+    newIcon.title = tooltip; // Optional tooltip text
+    newIcon.dataset.iconClass = iconClass; // Add a custom attribute for easy removal
+
+    // Append the icon to the container
+    iconContainer.appendChild(newIcon);
+}
+
+// Function to remove an icon by its class
+function removeIcon(iconClass) {
+    const iconContainer = document.getElementById('dynamic-icons');
+    const icons = iconContainer.querySelectorAll(`i[data-icon-class="${iconClass}"]`);
+
+    // Remove each matching icon
+    icons.forEach((icon) => iconContainer.removeChild(icon));
 }
 
 // Function to play alert sounds
@@ -148,6 +199,12 @@ fetch("/overlay-data")
     .then((data) => {
         updateTopBar("follower", data.last_follower || "None");
         updateTopBar("subscriber", data.last_subscriber || "None");
+        if (data.goal_text != "None") {
+            updateGoal(data.goal_text, data.goal_current, data.goal_target);
+        } else {
+            updateGoal(null, null, null);
+        }
+
     })
     .catch((error) => {
         console.error("Failed to fetch overlay data:", error);

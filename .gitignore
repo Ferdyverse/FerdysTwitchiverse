@@ -173,3 +173,5 @@ cython_debug/
 
 # VsCode
 .vscode
+data.db
+*.webm

@@ -24,54 +24,157 @@ body {
     z-index: 999; /* Ensure it’s above other content */
 }
 
-#status {
-    font-size: 1.2em;
-    margin-top: 10px;
+/* Hide the goal box when this class is applied */
+.hidden {
+    display: none !important; /* Completely hide the element */
 }
 
+/* General top bar styling */
 #top-bar {
     position: fixed;
     top: 0;
     width: 100%;
-    height: 50px;
-    background: rgba(0, 0, 0, 0.8);
+    height: 70px; /* Adjust the height as needed */
+    display: flex; /* Flexbox layout */
+    justify-content: space-between; /* Spread sections evenly */
+    align-items: center; /* Vertically align items */
+    padding: 0 20px; /* Padding inside the bar */
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.8)); /* Subtle gradient */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); /* Add shadow for depth */
     color: white;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
     z-index: 1000;
-    font-family: 'MonaspiceRn NFM', Arial, sans-serif;
+}
+
+/* Left Section: Follower and Subscriber */
+#left-section {
+    display: flex;
+    flex-direction: row; /* Arrange items horizontally */
+    gap: 20px; /* Space between Last Follower and Last Subscriber */
+    align-items: center; /* Vertically align items */
+    margin-left: 15px; /* Add spacing from the left edge */
+}
+
+/* Follower and Subscriber Box Styles */
+#left-section > div {
+    display: flex;
+    flex-direction: column; /* Stack the headline and text */
+    align-items: center; /* Center-align both headline and text */
+    text-align: center; /* Ensure text is centered */
+    gap: 5px; /* Space between the headline and the text */
+}
+
+#left-section strong {
+    font-size: 0.9rem; /* Headline font size */
+    color: #ffffff;
+    text-transform: uppercase;
+    display: flex; /* Flexbox for icon and text alignment */
+    align-items: center; /* Center the icon and text */
+    gap: 5px; /* Space between icon and headline */
+}
+
+#left-section span {
+    font-size: 1.2rem; /* Text font size */
+    color: #FFD700; /* Gold color for emphasis */
+    font-weight: bold; /* Make text bold */
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.8), 0 0 10px rgba(255, 215, 0, 0.5); /* Glow effect */
+}
+
+#left-section i {
+    font-size: 1.2rem; /* Icon size */
+    color: #FFD700; /* Gold color for emphasis */
+    margin-right: 5px; /* Space between icon and text */
+}
+
+/* Middle Section (Always Centered) */
+#middle-section {
+    position: absolute; /* Position it independently of left and right sections */
+    left: 50%; /* Move to the center horizontally */
+    transform: translateX(-50%); /* Adjust to center perfectly */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+
+#goal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px; /* Space between text and progress bar */
+    text-align: center;
+}
+
+#goal-box span {
     font-size: 1rem;
-    text-align: center;
-    padding: 0 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    font-weight: bold;
 }
 
-#top-bar > div {
-    flex: 1;
-    text-align: center;
+#goal-progress {
+    width: 200px; /* Progress bar width */
+    height: 10px; /* Progress bar height */
+    background: rgba(255, 255, 255, 0.2); /* Light background for the empty bar */
+    border-radius: 5px;
+    overflow: hidden; /* Prevent overflow on rounded edges */
 }
 
-#top-bar > div:not(:last-child) {
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
-    padding-right: 10px;
+#goal-bar {
+    width: 0; /* Dynamically updated via JavaScript */
+    height: 100%;
+    background: #FFD700; /* Gold color for the progress */
+    border-radius: 5px;
+    transition: width 0.5s ease; /* Smooth progress bar animation */
+}
+
+/* Right Section */
+#right-section {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    gap: 15px; /* Space between icons and the message box */
+    margin-right: 20px; /* Add more spacing to the right edge */
+    margin-left: auto; /* Push the section to the far right */
+    flex-shrink: 0; /* Prevent shrinking when the bar resizes */
+}
+
+#dynamic-icons {
+    display: flex; /* Arrange icons horizontally */
+    align-items: center;
+    gap: 10px; /* Space between icons */
+}
+
+#dynamic-icons i {
+    font-size: 2.5rem; /* Larger size for emphasis */
+    color: #FFD700; /* Gold color for icons */
+    cursor: pointer; /* Interactive cursor */
+    transition: transform 0.3s ease, color 0.3s ease;
 }
 
 #custom-message {
+    font-size: 1.2rem;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 10px 15px;
+    overflow: hidden;
+    width: 400px; /* Fixed size for the message box */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    display: flex; /* Align icon and text horizontally */
+    align-items: center;
+    gap: 10px;
+}
+
+#custom-message i {
+    color: #FFD700; /* Gold color for icons */
+    font-size: 1.2rem; /* Icon size */
+}
+
+#custom-message .scrolling-text {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    animation: scrollText linear infinite;
+    animation: scrollText linear infinite; /* Smooth scrolling for long text */
     animation-duration: calc(10s + var(--message-length) * 0.2s);
-}
-
-@keyframes scrollText {
-    0% {
-        transform: translateX(100%);
-    }
-    100% {
-        transform: translateX(-100%);
-    }
 }
 
 .alert.subscriber {
@@ -157,4 +260,13 @@ body {
     font-size: 1.5rem; /* Base font size for the paragraph */
     transition: font-size 0.3s ease; /* Smooth font resizing */
     box-sizing: border-box; /* Ensure padding is included in dimensions */
+}
+
+@keyframes scrollText {
+    0% {
+        transform: translateX(100%);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
 }

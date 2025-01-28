@@ -36,6 +36,16 @@ function connectWebSocket() {
         } else if (data.message) {
             // Update custom message
             updateTopBar("message", data.message);
+        } else if (data.goal) {
+            const { text, current, target } = data.goal;
+            updateGoal(text, current, target);
+        } else if (data.icon) {
+            const { state, name } = data.icon;
+            if (state === "add") {
+                addIcon(name);
+            } else {
+                removeIcon(name);
+            }
         } else {
             console.warn("Unknown data format received:", data);
         }

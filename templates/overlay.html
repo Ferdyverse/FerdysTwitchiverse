@@ -5,14 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ferdy’s Twitchiverse - OBS Overlay</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/fontawesome.css">
 </head>
 <body>
     <div id="top-bar">
-        <div id="last_events">
-            <div id="last-follower">Last Follower: None</div>
-            <div id="last-subscriber">Last Subscriber: None</div>
+        <div id="left-section">
+            <div id="last-follower"><strong><i class="fa fa-user"></i>Last Follower</strong><span>None</span></div>
+            <div id="last-subscriber"><strong><i class="fa fa-star"></i>Last Subscriber</strong><span>None</span></div>
         </div>
-        <div id="custom-message">Welcome to the stream!</div>
+        <!-- Middle Section -->
+        <div id="middle-section">
+            <div id="goal-box">
+                <span>Follower Goal: 1 / 100</span>
+                <div id="goal-progress">
+                    <div id="goal-bar" style="width: 1%;"></div>
+                </div>
+            </div>
+        </div>
+        <div id="right-section">
+            <!-- Dynamic Icons Section -->
+            <div id="dynamic-icons"></div>
+            <div id="custom-message">
+                <i class="fa fa-comment"></i>
+                <div class="scrolling-text" id="cm_scrolling">Welcome to the Twitchiverse!</div>
+            </div>
+        </div>
     </div>
     <div id="overlay"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
