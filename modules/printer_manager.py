@@ -25,9 +25,9 @@ class PrinterManager:
                 out_ep=config.PRINTER_OUT_EP,
                 profile=config.PRINTER_PROFILE
             )
-            logger.info("Printer initialized successfully!")
+            logger.info("🖨️ Printer module initialized successfully!")
         except Exception as e:
-            logger.error(f"Failed to initialize the printer: {e}")
+            logger.error(f"🖨️ Failed to initialize the printer module: {e}")
             self.printer = None
 
     def shutdown(self):
@@ -37,7 +37,7 @@ class PrinterManager:
         if self.printer is not None:
             try:
                 self.printer.close()
-                logger.info("Printer connection closed.")
+                logger.info("🖨️ Printer connection closed.")
             except Exception as e:
                 logger.error(f"Error shutting down the printer: {e}")
 
@@ -45,7 +45,7 @@ class PrinterManager:
         """
         Attempt to reconnect the printer.
         """
-        logger.info("Attempting to reconnect to the printer...")
+        logger.info("🖨️ Attempting to reconnect to the printer...")
         self.initialize()
 
     def is_online(self):
@@ -58,7 +58,7 @@ class PrinterManager:
             # Check if the printer is responsive
             return self.printer.is_online()
         except Exception as e:
-            logger.error(f"Error checking printer status: {e}")
+            logger.error(f"🖨️ Error checking printer status: {e}")
             return False
 
     async def get_image(self, image_url: str):

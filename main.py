@@ -21,6 +21,7 @@ import math
 from modules.printer_manager import PrinterManager
 from modules.schemas import PrintRequest, OverlayMessage
 from modules.db_manager import init_db, save_data, get_data, save_planet, get_planets
+from modules.heat_api import HeatAPIClient
 import config
 
 # Configure logger
@@ -28,6 +29,9 @@ logger = logging.getLogger("uvicorn.error")
 
 # Instantiate the PrinterManager
 printer_manager = PrinterManager()
+
+# Heat API
+heat_api_client = HeatAPIClient(config.CHANNEL_ID)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -41,17 +45,19 @@ async def lifespan(app: FastAPI):
     Lifecycle event manager for the FastAPI application.
     Initializes the database and printer manager on startup and shuts them down on exit.
     """
-    logger.info("Initializing printer manager")
+    logger.info("Initializing modules")
     try:
         init_db()
         printer_manager.initialize()
+        heat_api_client.start()
         yield  # The app is running
     except Exception as e:
         logger.error(f"Error during lifespan: {e}")
         yield
     finally:
-        logger.info("Shutting down printer manager")
+        logger.info("Shutting down modules")
         printer_manager.shutdown()
+        heat_api_client.stop()
 
 # App config
 app = FastAPI(
@@ -142,7 +148,7 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
 
                 # Save new planet for raider
                 save_planet(user, size, angle, distance)
-                logger.info(f"Planet created for Raider {user}: Size={size}")
+                logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
 
         # Handle Goal Data
         if payload.goal:

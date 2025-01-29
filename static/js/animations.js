@@ -42,13 +42,11 @@ function animateTopBar(section) {
 
 function updateGoal(text, current, goal) {
     const goalBox = document.getElementById('goal-box');
-    const goalText = document.querySelector('#goal-box span');
+    const progressBar = document.getElementById('goal-bar');
+    const goalText = goalBox.querySelector('span');
 
     // If there is valid data, update the goal and show the box
     if (current !== null && goal !== null) {
-        const progressBar = document.getElementById('goal-bar');
-        const goalText = goalBox.querySelector('span');
-
         const percentage = Math.min((current / goal) * 100, 100); // Cap at 100%
         progressBar.style.width = percentage + '%'; // Update progress bar width
         goalText.textContent = `${text} ${current} / ${goal}`; // Update text
