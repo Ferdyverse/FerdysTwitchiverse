@@ -10,6 +10,7 @@ from fastapi import WebSocket, WebSocketDisconnect, Body
 
 # Other required imports
 from contextlib import asynccontextmanager
+from pydantic import ValidationError
 import uvicorn
 import logging
 from typing import Any
@@ -18,7 +19,7 @@ import math
 
 # Own modules
 from modules.printer_manager import PrinterManager
-from modules.schemas import PrintRequest
+from modules.schemas import PrintRequest, OverlayMessage
 from modules.db_manager import init_db, save_data, get_data, save_planet, get_planets
 import config
 
@@ -113,57 +114,79 @@ async def broadcast_message(message: Any):
     description="Accepts data and broadcasts it to all connected WebSocket clients for overlay updates.",
     response_description="Acknowledges the broadcast status."
 )
-async def send_to_overlay(payload: Any = Body(...)):
+@app.post("/send-to-overlay")
+async def send_to_overlay(payload: OverlayMessage = Body(...)):
     """
     Endpoint to send data to the overlay via WebSocket.
     Saves relevant information to the database for persistence.
     """
     try:
-        # Save last follower, subscriber, or raider
-        if "alert" in payload:
-            alert = payload["alert"]
+        # Handle Alert Data (Follower, Subscriber, Raid)
+        if payload.alert:
+            alert = payload.alert
+            if alert.type == "follower":
+                save_data("last_follower", alert.user)
+                logger.info(f"Saved last follower: {alert.user}")
 
-            # Validate alert data
-            if "type" not in alert or "user" not in alert:
-                raise HTTPException(status_code=400, detail="Invalid alert data")
+            elif alert.type == "subscriber":
+                save_data("last_subscriber", alert.user)
+                logger.info(f"Saved last subscriber: {alert.user}")
 
-            if alert["type"] == "follower":
-                save_data("last_follower", alert["user"])
-                logger.info(f"Saved last follower: {alert['user']}")
+            elif alert.type == "raid":
+                user = alert.user
+                size = alert.size or 0
 
-            elif alert["type"] == "subscriber":
-                save_data("last_subscriber", alert["user"])
-                logger.info(f"Saved last subscriber: {alert['user']}")
-
-            elif alert["type"] == "raid":
-                user = alert["user"]
-                size = alert.get("size", 0)
-
-                # Generiere zufälligen Winkel und Distanz für neuen Planeten
-                angle = random.uniform(0, 2 * math.pi)  # In Radiant
+                # Generate random angle & distance
+                angle = random.uniform(0, 2 * math.pi)
                 distance = random.uniform(200, 700)
 
-                # Speichere neuen Planeten
+                # Save new planet for raider
                 save_planet(user, size, angle, distance)
-                logger.info(f"Planet für Raider {user} erstellt: Größe={size}")
+                logger.info(f"Planet created for Raider {user}: Size={size}")
 
-        if "goal" in payload:
-            goal = payload["goal"]
+        # Handle Goal Data
+        if payload.goal:
+            goal = payload.goal
+            save_data("goal_text", goal.text)
+            save_data("goal_current", goal.current)
+            save_data("goal_target", goal.target)
+            logger.info(f"Current goal: {goal.text}, {goal.current}/{goal.target}")
 
-            save_data("goal_text", goal["text"])
-            save_data("goal_current", goal["current"])
-            save_data("goal_target", goal["target"])
+        # Handle Custom Message
+        if payload.message:
+            logger.info(f"Custom message received: {payload.message}")
+            save_data("last_message", payload.message)
 
-            logger.info(f"Current goal: {goal['text']}, {goal['current']}/{goal['target']}")
+        # Handle Icon Data
+        if payload.icon:
+            icon = payload.icon
+            if icon.state == "add":
+                logger.info(f"Adding icon: {icon.name}")
+                save_data("icon_add", icon.name)
+            elif icon.state == "remove":
+                logger.info(f"Removing icon: {icon.name}")
+                save_data("icon_remove", icon.name)
 
-        # Broadcast the data to WebSocket clients
-        await broadcast_message(payload)
-        logger.info("Data broadcasted to overlay")
-        return {"status": "success", "message": "Data piped to overlay"}
+        # Handle HTML Content
+        if payload.html:
+            html = payload.html
+            logger.info(f"HTML content received: {html.content} (Lifetime: {html.lifetime}ms)")
+            save_data("html_content", html.content)
+            save_data("html_lifetime", html.lifetime)
+
+        # Broadcast to WebSocket clients (using model_dump instead of dict)
+        await broadcast_message(payload.model_dump())
+        logger.info(f"Data broadcasted to overlay: {payload.model_dump()}")
+        return {"status": "success", "message": "Data sent to overlay"}
+
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request format")
 
     except Exception as e:
-        logger.error(f"Error piping data: {e}")
-        raise HTTPException(status_code=500, detail="Failed to pipe data")
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send data")
+
 
 @app.get(
     "/overlay-data",
@@ -232,7 +255,7 @@ async def status():
 @app.get(
     "/solar",
     response_class=HTMLResponse,
-    summary="Display the overlay",
+    summary="Display the Solar-System overlay",
     description="Serves the HTML page that acts as an overlay for OBS."
 )
 def solarsystem(request: Request):
@@ -244,7 +267,7 @@ def solarsystem(request: Request):
 @app.get(
     "/raid",
     response_class=HTMLResponse,
-    summary="Display the overlay",
+    summary="Display the Raid overlay",
     description="Serves the HTML page that acts as an overlay for OBS."
 )
 def raiders(request: Request):

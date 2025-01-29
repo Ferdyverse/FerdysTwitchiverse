@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, RootModel
+from typing import List, Optional, Dict, Union, Any
 
 class PrintElement(BaseModel):
     type: str = Field(
@@ -20,3 +20,30 @@ class PrintRequest(BaseModel):
         ...,
         description="A list of elements to print, such as headlines, messages, or images."
     )
+
+# Specific data models
+class AlertSchema(BaseModel):
+    type: str  # "follower", "subscriber", "raid", "donation"
+    user: str
+    size: Optional[int] = None  # Only for "raid"
+
+class GoalSchema(BaseModel):
+    text: str
+    current: int
+    target: int
+
+class IconSchema(BaseModel):
+    state: str  # "add" or "remove"
+    name: str  # e.g., "fa-bar"
+
+class HtmlSchema(BaseModel):
+    content: str
+    lifetime: Optional[int] = 0  # Default lifetime is 0
+
+# Alternative model with predefined optional fields (for stricter validation)
+class OverlayMessage(BaseModel):
+    alert: Optional[AlertSchema] = None
+    message: Optional[str] = None
+    goal: Optional[GoalSchema] = None
+    icon: Optional[IconSchema] = None
+    html: Optional[HtmlSchema] = None

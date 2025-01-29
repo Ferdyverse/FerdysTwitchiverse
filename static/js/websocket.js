@@ -23,17 +23,18 @@ function connectWebSocket() {
             // Update top bar and show alert
             if (type === "follower") {
                 updateTopBar("follower", user);
+                showAlertWithGSAP(type, user, size);
             } else if (type === "subscriber") {
                 updateTopBar("subscriber", user);
                 updateTopBar("message", "NEW SUBSCRIBER!");
+                showAlertWithGSAP(type, user, size);
             } else if (type === "raid") {
                 updateTopBar("message", "Something changed in the Ferdyverse!");
                 showURL("http://localhost:8000/raid", { raider: user, viewers: size }, 27000);
             } else if (type === "donation") {
                 updateTopBar("message", "NEW DONATION!");
+                showAlertWithGSAP(type, user, size);
             }
-
-            //showAlertWithGSAP(type, user, size);
         } else if (data.message) {
             // Update custom message
             updateTopBar("message", data.message);
