@@ -139,13 +139,13 @@ async def send_to_overlay(payload: Any = Body(...)):
                 user = alert["user"]
                 size = alert.get("size", 0)
 
-                # Generate random angle and distance
-                angle = random.uniform(0, 2 * math.pi)  # In radians
-                distance = random.uniform(200, 500)
+                # Generiere zufälligen Winkel und Distanz für neuen Planeten
+                angle = random.uniform(0, 2 * math.pi)  # In Radiant
+                distance = random.uniform(200, 700)
 
-                # Save the planet (raider) to the database
+                # Speichere neuen Planeten
                 save_planet(user, size, angle, distance)
-                logger.info(f"Planet created for raider {user}: size={size}, angle={angle}, distance={distance}")
+                logger.info(f"Planet für Raider {user} erstellt: Größe={size}")
 
         if "goal" in payload:
             goal = payload["goal"]
@@ -240,6 +240,18 @@ def solarsystem(request: Request):
     Endpoint to serve the OBS overlay HTML page.
     """
     return templates.TemplateResponse("solar-system.html", {"request": request})
+
+@app.get(
+    "/raid",
+    response_class=HTMLResponse,
+    summary="Display the overlay",
+    description="Serves the HTML page that acts as an overlay for OBS."
+)
+def raiders(request: Request):
+    """
+    Endpoint to serve the OBS overlay HTML page.
+    """
+    return templates.TemplateResponse("raid.html", {"request": request})
 
 @app.get(
     "/planets",

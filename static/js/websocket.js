@@ -28,11 +28,12 @@ function connectWebSocket() {
                 updateTopBar("message", "NEW SUBSCRIBER!");
             } else if (type === "raid") {
                 updateTopBar("message", "Something changed in the Ferdyverse!");
+                showURL("http://localhost:8000/raid", { raider: user, viewers: size }, 27000);
             } else if (type === "donation") {
                 updateTopBar("message", "NEW DONATION!");
             }
 
-            showAlertWithGSAP(type, user, size);
+            //showAlertWithGSAP(type, user, size);
         } else if (data.message) {
             // Update custom message
             updateTopBar("message", data.message);
@@ -46,6 +47,9 @@ function connectWebSocket() {
             } else {
                 removeIcon(name);
             }
+        } else if (data.html){
+            const { content, lifetime=0 } = data.html
+            showHTML(content, lifetime)
         } else {
             console.warn("Unknown data format received:", data);
         }

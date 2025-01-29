@@ -7,7 +7,7 @@ import { CSS2DRenderer, CSS2DObject } from "/static/js/three/CSS2DRenderer.js";
 // Create the renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(1920, 1080); // Full HD resolution
-renderer.setClearColor(0xa0d2eb); // Cartoonish sky blue background
+renderer.setClearColor(0x0d0f1f); // Dark universe-like background
 document.body.appendChild(renderer.domElement);
 
 // Create the CSS2DRenderer for labels
@@ -34,59 +34,71 @@ controls.maxDistance = 1000;
 controls.maxPolarAngle = Math.PI / 2;
 
 // Lights
-const sunLight = new THREE.PointLight(0xffcc00, 2, 1000);
+const sunLight = new THREE.PointLight(0xffaa33, 6, 1000);
 sunLight.position.set(0, 0, 0);
 scene.add(sunLight);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(ambientLight);
 
+// Generate random stars in the background
+function createStars() {
+  const starGeometry = new THREE.BufferGeometry();
+  const starVertices = [];
+  const starCount = 500;
+
+  for (let i = 0; i < starCount; i++) {
+    const x = (Math.random() - 0.5) * 2000;
+    const y = (Math.random() - 0.5) * 2000;
+    const z = (Math.random() - 0.5) * 2000;
+    starVertices.push(x, y, z);
+  }
+
+  starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starVertices, 3));
+
+  const starMaterial = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 2,
+    sizeAttenuation: true
+  });
+
+  const stars = new THREE.Points(starGeometry, starMaterial);
+  scene.add(stars);
+}
+createStars();
+
 // Generate a cartoonish sun texture
+// Function to generate a cartoonish sun texture without a border
+// Function to generate a cartoonish sun texture without a border
 function generateCartoonSunTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
 
-  // Create a radial gradient for the sun's base
+  // Create a radial gradient for the sun's surface
   const gradient = ctx.createRadialGradient(256, 256, 50, 256, 256, 256);
-  gradient.addColorStop(0, "hsl(50, 100%, 80%)");
-  gradient.addColorStop(0.6, "hsl(40, 100%, 60%)");
-  gradient.addColorStop(1, "hsl(30, 100%, 40%)");
+  gradient.addColorStop(0, "hsl(45, 100%, 75%)");
+  gradient.addColorStop(0.5, "hsl(35, 100%, 55%)");
+  gradient.addColorStop(1, "hsl(25, 100%, 35%)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 512, 512);
 
-  // Add swirling patterns
-  for (let i = 0; i < 8; i++) {
+  // Add sunspots for extra detail
+  for (let i = 0; i < 10; i++) {
     ctx.beginPath();
-    ctx.arc(
-      Math.random() * 512,
-      Math.random() * 512,
-      Math.random() * 50 + 20,
-      0,
-      Math.PI * 2
-    );
-    ctx.fillStyle = `hsl(${Math.random() * 20 + 30}, 100%, ${Math.random() * 40 + 40}%)`;
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const radius = Math.random() * 30 + 10;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${Math.random() * 10 + 30}, 100%, ${Math.random() * 20 + 25}%)`;
     ctx.fill();
-  }
-
-  // Add radiating lines for a cartoonish effect
-  for (let i = 0; i < 12; i++) {
-    ctx.beginPath();
-    ctx.moveTo(256, 256);
-    const angle = (Math.PI * 2 * i) / 12;
-    const x = 256 + Math.cos(angle) * 300;
-    const y = 256 + Math.sin(angle) * 300;
-    ctx.lineTo(x, y);
-    ctx.lineWidth = Math.random() * 10 + 5;
-    ctx.strokeStyle = `hsl(50, 100%, ${Math.random() * 30 + 50}%)`;
-    ctx.stroke();
   }
 
   return new THREE.CanvasTexture(canvas);
 }
 
-// Sun
+// Create and add the sun object
 const sunGeometry = new THREE.SphereGeometry(50, 32, 32);
 const sunMaterial = new THREE.MeshStandardMaterial({
   map: generateCartoonSunTexture(),
@@ -98,16 +110,43 @@ const sunMaterial = new THREE.MeshStandardMaterial({
 const sun = new THREE.Mesh(sunGeometry, sunMaterial);
 scene.add(sun);
 
-// Add a glowing halo around the sun
-const sunHaloGeometry = new THREE.SphereGeometry(60, 32, 32);
-const sunHaloMaterial = new THREE.MeshBasicMaterial({
-  color: 0xffcc00,
-  transparent: true,
-  opacity: 0.5,
-  blending: THREE.AdditiveBlending,
-});
-const sunHalo = new THREE.Mesh(sunHaloGeometry, sunHaloMaterial);
-scene.add(sunHalo);
+// Add a PointLight for visible pulsing light effect
+
+
+// Function to animate the sun pulsing light
+function animateSun() {
+  let scaleFactor = 1; // Initial scale factor
+  let lightIntensity = 6; // Base light intensity
+  let growing = true; // Direction of scaling
+
+  function pulse() {
+    requestAnimationFrame(pulse);
+
+    // Small sun pulsing effect
+    if (growing) {
+      scaleFactor += 0.0005; // Very subtle pulse
+      if (scaleFactor >= 1.03) growing = false; // Max size reached
+    } else {
+      scaleFactor -= 0.0005;
+      if (scaleFactor <= 0.97) growing = true; // Min size reached
+    }
+    sun.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+    // Light Burst Effect (smoother and more visible)
+    if (Math.random() > 0.98) { // Random burst chance
+      lightIntensity = 9 + Math.random() * 3; // Increase intensity for flare
+    } else {
+      lightIntensity = 6 + Math.sin(Date.now() * 0.002) * 2; // Smooth flickering
+    }
+    sunLight.intensity = lightIntensity;
+  }
+
+  pulse();
+}
+
+// Start the sun pulse animation with light bursts
+animateSun();
+
 
 /* ------------------ CARTOONISH PLANET TEXTURES ------------------ */
 function generateCartoonPlanetTexture() {
@@ -164,6 +203,7 @@ async function fetchPlanets() {
   }
 }
 
+// Update planet labels for better aesthetics and increased distance from planets
 function createPlanets(planetsData) {
   const planetObjects = [];
   const scaleFactor = 0.8;
@@ -180,15 +220,22 @@ function createPlanets(planetsData) {
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
 
-    // Label
+    // Label with improved aesthetics (smaller size + significantly increased distance from planet)
     const labelDiv = document.createElement("div");
     labelDiv.className = "planet-label";
     labelDiv.textContent = data.raider_name;
-    labelDiv.style.color = "black";
-    labelDiv.style.textShadow = "0 0 5px white";
+    labelDiv.style.color = "#FFD700"; // Golden yellow for contrast
+    labelDiv.style.backgroundColor = "rgba(20, 20, 20, 0.6)"; // Semi-transparent dark background
+    labelDiv.style.padding = "3px 8px"; // Compact padding
+    labelDiv.style.borderRadius = "6px"; // Rounded corners
+    labelDiv.style.fontWeight = "bold";
+    labelDiv.style.fontSize = "14px"; // Readable size
+    labelDiv.style.textAlign = "center";
+    labelDiv.style.textShadow = "1px 1px 3px rgba(0, 0, 0, 0.7)"; // Subtle shadow
+    labelDiv.style.border = "1px solid rgba(255, 215, 0, 0.5)"; // Soft golden border
 
     const label = new CSS2DObject(labelDiv);
-    label.position.set(0, planetSize + 2, 0);
+    label.position.set(0, planetSize + 10, 0); // **Increased distance from planet**
     planet.add(label);
 
     // Scale distance
@@ -225,6 +272,7 @@ function createPlanets(planetsData) {
 
   animatePlanets(planetObjects);
 }
+
 
 function animatePlanets(planetObjects) {
   function animate() {

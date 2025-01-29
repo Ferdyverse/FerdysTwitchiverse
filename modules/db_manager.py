@@ -57,10 +57,14 @@ def save_planet(raider_name: str, raid_size: int, angle: float, distance: float)
     conn.commit()
     conn.close()
 
-def get_planets():
+
+def get_planets(raider_name=None):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT raider_name, raid_size, angle, distance FROM planets")
+    if raider_name:
+        cursor.execute("SELECT raider_name, raid_size, angle, distance FROM planets WHERE raider_name = ?", (raider_name,))
+    else:
+        cursor.execute("SELECT raider_name, raid_size, angle, distance FROM planets")
     planets = cursor.fetchall()
     conn.close()
     return planets

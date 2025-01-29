@@ -41,15 +41,6 @@ function animateTopBar(section) {
 }
 
 function updateGoal(text, current, goal) {
-    const progressBar = document.getElementById('goal-bar');
-    const goalText = document.querySelector('#goal-box span');
-
-    const percentage = Math.min((current / goal) * 100, 100); // Cap at 100%
-    progressBar.style.width = percentage + '%'; // Update progress bar width
-    goalText.textContent = `${text} ${current} / ${goal}`; // Update text
-}
-
-function updateGoal(text, current, goal) {
     const goalBox = document.getElementById('goal-box');
     const goalText = document.querySelector('#goal-box span');
 
@@ -191,6 +182,115 @@ function cleanupOldAlerts() {
     if (alerts.length > 5) {
         alerts[0].remove(); // Remove the oldest alert
     }
+}
+
+function showHTML(html, lifetime) {
+    console.log(html);
+
+    const htmlElement = document.createElement("div");
+    htmlElement.className = "raw";
+    htmlElement.style.opacity = "0";
+    htmlElement.style.transition = "opacity 0.5s ease-in-out"; // Smooth fade-in transition
+    htmlElement.innerHTML = html;
+
+    // Append element first
+    overlayElement.appendChild(htmlElement);
+
+    // Ensure the browser registers the element before applying fade-in
+    setTimeout(() => {
+        htmlElement.style.opacity = "1"; // Trigger fade-in
+    }, 50); // Small delay ensures CSS transition applies
+
+    // If a lifetime is set, schedule fade-out and removal
+    if (lifetime > 0) {
+        setTimeout(() => {
+            htmlElement.style.opacity = "0"; // Trigger fade-out
+
+            setTimeout(() => {
+                htmlElement.remove(); // Remove after fade-out
+            }, 500); // Match fade-out duration
+        }, lifetime);
+    }
+}
+
+function createPlanet(size) {
+    const planet = document.createElement("div");
+    planet.classList.add("planet");
+    planet.style.width = `${size}px`;
+    planet.style.height = `${size}px`;
+    planet.style.left = `50%`;
+    planet.style.top = `50%`;
+
+    document.body.appendChild(planet);
+
+    // Remove planet after some time
+    setTimeout(() => {
+        planet.remove();
+    }, 10000); // Remove after 10 seconds
+}
+
+function showURL(baseUrl, params, duration) {
+    // Construct the full URL with query parameters
+    const url = new URL(baseUrl, window.location.origin);
+    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+
+    // Create a full-screen div container
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.top = "0";
+    container.style.left = "0";
+    container.style.width = "100vw";
+    container.style.height = "100vh";
+    container.style.backgroundColor = "black";
+    container.style.zIndex = "9999"; // Ensure it's on top
+    container.style.overflow = "hidden";
+    container.style.display = "flex";
+    container.style.alignItems = "center";
+    container.style.justifyContent = "center";
+    container.style.color = "white";
+    container.style.opacity = "0"; // Start invisible
+    container.style.transition = "opacity 2s ease-in-out"; // Smooth fade-in/out effect
+    container.innerHTML = "<p>Loading...</p>"; // Temporary text
+
+    document.body.appendChild(container);
+
+    // Fade-in effect
+    setTimeout(() => {
+        container.style.opacity = "1";
+    }, 10); // Small delay to trigger CSS transition
+
+    // Fetch the content of the page and insert it
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            // Replace placeholders in the fetched HTML with actual values
+            Object.entries(params).forEach(([key, value]) => {
+                const regex = new RegExp(`\\[${key.toUpperCase()}\\]`, "g"); // Replace [RAIDER] and [VIEWERS]
+                html = html.replace(regex, value);
+            });
+
+            container.innerHTML = html;
+
+            // Manually execute scripts inside the fetched HTML
+            container.querySelectorAll("script").forEach(script => {
+                const newScript = document.createElement("script");
+                newScript.textContent = script.textContent;
+                document.body.appendChild(newScript);
+                document.body.removeChild(newScript); // Cleanup
+            });
+        })
+        .catch(error => {
+            console.error("Error loading content:", error);
+            container.innerHTML = "<p>Error loading content.</p>";
+        });
+
+    // Fade-out effect before removal
+    setTimeout(() => {
+        container.style.opacity = "0"; // Start fading out
+        setTimeout(() => {
+            container.remove(); // Remove after fade-out completes
+        }, 1000); // Match this to fade-out duration
+    }, duration - 1000); // Start fade-out 1 second before removal
 }
 
 // Fetch initial data for the top bar

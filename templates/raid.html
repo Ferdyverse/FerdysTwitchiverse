@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferdyverse: Star Wars Raid Intro</title>
+    <style>
+        /* Basic Styling */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            color: yellow;
+            font-family: 'MonaspiceRn NFM', 'Arial', sans-serif;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        /* Static Starry Background */
+        .stars {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: url('/static/images/stardust.png');
+            background-size: cover;
+        }
+
+        /* Container for Scrolling Text */
+        .intro {
+            position: absolute;
+            width: 100%;
+            height: 100vh;
+            perspective: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            overflow: hidden;
+        }
+
+        /* Scrolling Text */
+        .crawl {
+            position: absolute;
+            color: yellow;
+            width: 60%;
+            bottom: -100vh;
+            font-size: 2rem;
+            font-weight: bold;
+            line-height: 1.5;
+            text-align: justify;
+            transform-origin: 50% 100%;
+            animation: crawl 28s linear forwards, fadeOut 2s ease-out 26s forwards;
+        }
+
+        @keyframes crawl {
+            0% { bottom: -100vh; transform: rotateX(20deg) translateZ(0); }
+            100% { bottom: 100vh; transform: rotateX(25deg) translateZ(-500px); }
+        }
+
+        /* Fade Out Effect */
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Raider and Viewer Count Styling */
+        .raider-name {
+            color: #00FFFF; /* Cyan */
+            font-weight: bold;
+            text-shadow: 0px 0px 10px cyan;
+        }
+
+        .viewer-count {
+            color: #FF4444; /* Red */
+            font-weight: bold;
+            text-shadow: 0px 0px 10px red;
+        }
+    </style>
+</head>
+<body> <!-- Auto-starts on page load -->
+
+    <div class="stars"></div> <!-- Static Starry Background -->
+
+    <div class="intro" id="intro">
+        <div class="crawl">
+            <div class="title">Ferdyverse: Eine neue Ära</div>
+            <div class="subtitle">Ein neuer Planet erwacht</div>
+            <p>
+                In den unendlichen Weiten des Ferdyverse ist eine neue Welt geboren worden.
+                Eine gewaltige kosmische Energie hat einen Planeten erschaffen, der nun seine ersten
+                Umlaufbahnen um den mächtigen Zentrum-Planeten zieht.
+            </p>
+            <p id="raidText">
+                Doch dieses Mal ist etwas anders. Eine unerwartete Störung wurde entfacht – ein Reisender,
+                bekannt als <span id="raiderName" class="raider-name">[RAIDER]</span>, hat das Universum mit
+                <span id="viewerCount" class="viewer-count">[VIEWERS]</span> treuen Gefährten durchquert und mit seiner Ankunft
+                die Geburt dieser neuen Welt beschleunigt.
+            </p>
+            <p>
+                Diese intergalaktischen Entdecker haben sich in das Ferdyverse gewagt, um neue Möglichkeiten zu erforschen
+                und das Gleichgewicht der Mächte zu beeinflussen. Ihre Spuren sind nun im Kern dieses Planeten verwoben –
+                und seine Zukunft liegt in ihren Händen.
+            </p>
+            <p>
+                Was wird aus dieser neuen Welt? Wird sie zum Zentrum einer neuen galaktischen Ordnung
+                oder in das Chaos der Geschichte verfallen? Nur die Zeit wird es zeigen...
+            </p>
+        </div>
+    </div>
+</body>
+</html>
