@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -13,30 +13,47 @@ from contextlib import asynccontextmanager
 from pydantic import ValidationError
 import uvicorn
 import logging
-from typing import Any
+from typing import Any, List
 import random
 import math
+import asyncio
 
 # Own modules
 from modules.printer_manager import PrinterManager
-from modules.schemas import PrintRequest, OverlayMessage
+from modules.schemas import PrintRequest, OverlayMessage, ClickData
 from modules.db_manager import init_db, save_data, get_data, save_planet, get_planets
 from modules.heat_api import HeatAPIClient
+from modules.firebot_api import FirebotAPI
 import config
 
 # Configure logger
 logger = logging.getLogger("uvicorn.error")
 
+formatter = logging.Formatter(
+    "%(asctime)s - %(levelname)s - %(module)s - %(message)s"
+)
+
+# ✅ Apply format to all Uvicorn handlers
+for handler in logging.getLogger("uvicorn").handlers:
+    handler.setFormatter(formatter)
+
 # Instantiate the PrinterManager
 printer_manager = PrinterManager()
 
 # Heat API
-heat_api_client = HeatAPIClient(config.CHANNEL_ID)
+heat_api_client: HeatAPIClient = None
+
+# ✅ Initialize Firebot API Client
+firebot = FirebotAPI(config.FIREBOT_API_URL)
 
 templates = Jinja2Templates(directory="templates")
 
 # Keep track of connected clients
 connected_clients = []
+clicks: List[ClickData] = []
+
+# ✅ Create an async queue for event sharing
+event_queue = asyncio.Queue()
 
 # Required for Startup and Shutdown
 @asynccontextmanager
@@ -49,7 +66,15 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
         printer_manager.initialize()
-        heat_api_client.start()
+        global heat_api_client
+        heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue, connected_clients)
+
+        try:
+            heat_api_client.start()  # ✅ Start Heat API with error handling
+            logger.info("🔥 Heat API started successfully")
+        except Exception as e:
+            logger.error(f"❌ Heat API startup failed: {e}")
+
         yield  # The app is running
     except Exception as e:
         logger.error(f"Error during lifespan: {e}")
@@ -57,7 +82,9 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down modules")
         printer_manager.shutdown()
-        heat_api_client.stop()
+        if heat_api_client:
+            heat_api_client.stop()
+
 
 # App config
 app = FastAPI(
@@ -120,7 +147,6 @@ async def broadcast_message(message: Any):
     description="Accepts data and broadcasts it to all connected WebSocket clients for overlay updates.",
     response_description="Acknowledges the broadcast status."
 )
-@app.post("/send-to-overlay")
 async def send_to_overlay(payload: OverlayMessage = Body(...)):
     """
     Endpoint to send data to the overlay via WebSocket.
@@ -168,10 +194,8 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
             icon = payload.icon
             if icon.state == "add":
                 logger.info(f"Adding icon: {icon.name}")
-                save_data("icon_add", icon.name)
             elif icon.state == "remove":
                 logger.info(f"Removing icon: {icon.name}")
-                save_data("icon_remove", icon.name)
 
         # Handle HTML Content
         if payload.html:
@@ -180,7 +204,7 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
             save_data("html_content", html.content)
             save_data("html_lifetime", html.lifetime)
 
-        # Broadcast to WebSocket clients (using model_dump instead of dict)
+        # Broadcast to WebSocket clients
         await broadcast_message(payload.model_dump())
         logger.info(f"Data broadcasted to overlay: {payload.model_dump()}")
         return {"status": "success", "message": "Data sent to overlay"}

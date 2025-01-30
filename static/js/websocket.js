@@ -42,11 +42,11 @@ function connectWebSocket() {
             const { text, current, target } = data.goal;
             updateGoal(text, current, target);
         } else if (data.icon) {
-            const { state, name } = data.icon;
+            const { id, state, name } = data.icon;
             if (state === "add") {
-                addIcon(name);
+                addIcon(id, name);
             } else {
-                removeIcon(name);
+                removeIcon(id);
             }
         } else if (data.html){
             const { content, lifetime=0 } = data.html

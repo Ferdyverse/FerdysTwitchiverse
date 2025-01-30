@@ -33,6 +33,7 @@ class GoalSchema(BaseModel):
     target: int
 
 class IconSchema(BaseModel):
+    id: str # html id
     state: str  # "add" or "remove"
     name: str  # e.g., "fa-bar"
 
@@ -47,3 +48,10 @@ class OverlayMessage(BaseModel):
     goal: Optional[GoalSchema] = None
     icon: Optional[IconSchema] = None
     html: Optional[HtmlSchema] = None
+
+# user click data
+class ClickData(BaseModel):
+    user_id: str
+    x: int
+    y: int
+    object_id: str = None  # Optional: Track which object was clicked

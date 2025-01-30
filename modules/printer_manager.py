@@ -6,7 +6,7 @@ import requests
 from modules.schemas import PrintElement  # Import the schema
 import config
 
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("uvicorn.error.printer")
 
 class PrinterManager:
     def __init__(self):

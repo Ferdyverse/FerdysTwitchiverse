@@ -12,6 +12,9 @@ PRINTER_IN_EP = 0x81
 PRINTER_OUT_EP = 0x02
 PRINTER_PROFILE = "TH230"
 
-# Twitch Channel ID
-CHANNEL_ID = 136134545 # Ferdyverse
-# CHANNEL_ID = 549112855 # Jvpeek
+# Twitch Channel STUFF
+TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
+# TWITCH_CHANNEL_ID = 549112855 # Jvpeek
+
+# FIREBOT
+FIREBOT_API_URL = "http://localhost:7474/api"

@@ -58,23 +58,22 @@ function updateGoal(text, current, goal) {
 }
 
 // Function to add an icon dynamically
-function addIcon(iconClass, tooltip = '') {
+function addIcon(iconID, iconClass) {
     const iconContainer = document.getElementById('dynamic-icons');
 
     // Create a new icon element
     const newIcon = document.createElement('i');
+    newIcon.id = `${iconID}`;
     newIcon.className = `fa ${iconClass}`; // Font Awesome icon class
-    newIcon.title = tooltip; // Optional tooltip text
-    newIcon.dataset.iconClass = iconClass; // Add a custom attribute for easy removal
 
     // Append the icon to the container
     iconContainer.appendChild(newIcon);
 }
 
 // Function to remove an icon by its class
-function removeIcon(iconClass) {
+function removeIcon(iconID) {
     const iconContainer = document.getElementById('dynamic-icons');
-    const icons = iconContainer.querySelectorAll(`i[data-icon-class="${iconClass}"]`);
+    const icons = iconContainer.querySelectorAll(`i[id="${iconID}"]`);
 
     // Remove each matching icon
     icons.forEach((icon) => iconContainer.removeChild(icon));
@@ -209,22 +208,6 @@ function showHTML(html, lifetime) {
             }, 500); // Match fade-out duration
         }, lifetime);
     }
-}
-
-function createPlanet(size) {
-    const planet = document.createElement("div");
-    planet.classList.add("planet");
-    planet.style.width = `${size}px`;
-    planet.style.height = `${size}px`;
-    planet.style.left = `50%`;
-    planet.style.top = `50%`;
-
-    document.body.appendChild(planet);
-
-    // Remove planet after some time
-    setTimeout(() => {
-        planet.remove();
-    }, 10000); // Remove after 10 seconds
 }
 
 function showURL(baseUrl, params, duration) {
