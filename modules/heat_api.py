@@ -40,23 +40,37 @@ class HeatAPIClient:
                     # Log received data
                     logger.info(f"🔥 Heat API Data: {data}")
 
-                    # Ignore anonymous or unverified users
-                    user_id = data.get("user")
-                    if user_id.startswith("A") or user_id.startswith("U"):
-                        logger.info(f"⚠️ Ignoring click from {user_id} (Anonymous/Unverified)")
-                        continue  # Skip processing
+                    if ( data.get("type") == "system" ):
+                        continue
+                    elif ( data.get("type") == "click"):
+                        # Ignore anonymous or unverified users
+                        user_id = data.get("id")
 
-                    # Detect what object was clicked
-                    processed_click = process_click(data)
+                        coord_x = int(float(data.get("x"))*1920)
+                        coord_y = int(float(data.get("y"))*1080)
 
-                    # Send verified user clicks to the FastAPI queue
-                    await self.event_queue.put(processed_click)
+                        logger.info(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
 
-                    # Broadcast click to all connected WebSocket clients (Overlay)
-                    await self.broadcast_to_clients(processed_click)
+                        if user_id.startswith("A") or user_id.startswith("U"):
+                            if user_id.startswith("A"):
+                                username = "Anonymous"
+                            elif user_id.startswith("U"):
+                                username = "Unverified"
+                            logger.info(f"⚠️ Ignoring click from {username}")
+                            #continue  # Skip processing
+
+                        # Detect what object was clicked
+                        processed_click = process_click(data)
+
+                        # Send verified user clicks to the FastAPI queue
+                        await self.event_queue.put(processed_click)
+
+                        # Broadcast click to all connected WebSocket clients (Overlay)
+                        await self.broadcast_to_clients(processed_click)
 
         except Exception as e:
             logger.error(f"❌ Error in WebSocket connection: {e}")
+            await ws.close()
 
     async def broadcast_to_clients(self, data):
         """Sends Heat API events to all connected WebSocket clients (Overlay)."""
@@ -87,7 +101,7 @@ class HeatAPIClient:
 
 def process_click(data):
     """Detect if a user clicked on a dynamically registered object."""
-    user_id = data.get("user")
+    user_id = data.get("id")
     x = data.get("x")
     y = data.get("y")
 

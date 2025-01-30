@@ -20,9 +20,9 @@ import asyncio
 
 # Own modules
 from modules.printer_manager import PrinterManager
-from modules.schemas import PrintRequest, OverlayMessage, ClickData
+from modules.schemas import PrintRequest, OverlayMessage, ClickData, ClickableObject
 from modules.db_manager import init_db, save_data, get_data, save_planet, get_planets
-from modules.heat_api import HeatAPIClient
+from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
 import config
 
@@ -326,6 +326,67 @@ async def get_all_planets():
         }
         for raider_name, raid_size, angle, distance in planets
     ]
+
+@app.post("/add-clickable-object")
+async def add_clickable_object(obj: ClickableObject):
+    """
+    Add a single clickable object dynamically.
+
+    Example request:
+    POST /add-clickable-object
+    {
+        "object_id": "fire-icon",
+        "x": 100,
+        "y": 200,
+        "width": 50,
+        "height": 50,
+        "iconClass": "fa-fire"
+    }
+    """
+    if obj.object_id in CLICKABLE_OBJECTS:
+        raise HTTPException(status_code=400, detail=f"Object {obj.object_id} already exists")
+
+    # ✅ Add to CLICKABLE_OBJECTS dictionary
+    CLICKABLE_OBJECTS[obj.object_id] = obj.dict()
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    return {"status": "success", "message": f"Clickable object '{obj.object_id}' added"}
+
+@app.delete("/remove-clickable-object")
+async def remove_clickable_object(object_id: str):
+    """
+    Remove a single clickable object dynamically by ID.
+
+    Example request:
+    DELETE /remove-clickable-object?object_id=button1
+    """
+    if object_id not in CLICKABLE_OBJECTS:
+        raise HTTPException(status_code=404, detail=f"Object {object_id} not found")
+
+    # ✅ Remove from CLICKABLE_OBJECTS dictionary
+    del CLICKABLE_OBJECTS[object_id]
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    return {"status": "success", "message": f"Clickable object '{object_id}' removed"}
+
+@app.get("/get-clickable-objects")
+async def get_clickable_objects():
+    """
+    Retrieve all currently defined `.clickable` elements.
+
+    Example Response:
+    {
+        "fire-icon": {
+            "object_id": "fire-icon",
+            "x": 100,
+            "y": 200,
+            "width": 50,
+            "height": 50,
+            "iconClass": "fa-fire"
+        }
+    }
+    """
+    return CLICKABLE_OBJECTS
 
 @app.get(
     "/",

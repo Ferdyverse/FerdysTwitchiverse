@@ -10,7 +10,7 @@ function connectWebSocket() {
     socket.onopen = () => {
         console.log("WebSocket connected!");
         reconnectAttempts = 0; // Reset reconnect attempts
-        updateTopBar("message", "WS: Connected to server");
+        updateTopBar("message", "Ferdyverse online!");
     };
 
     // WebSocket message received
@@ -42,8 +42,8 @@ function connectWebSocket() {
             const { text, current, target } = data.goal;
             updateGoal(text, current, target);
         } else if (data.icon) {
-            const { id, state, name } = data.icon;
-            if (state === "add") {
+            const { id, action, name } = data.icon;
+            if (action === "add") {
                 addIcon(id, name);
             } else {
                 removeIcon(id);
@@ -51,6 +51,13 @@ function connectWebSocket() {
         } else if (data.html){
             const { content, lifetime=0 } = data.html
             showHTML(content, lifetime)
+        } else if (data.clickable) {
+            const { action, object_id, data } = data.clickable
+            if (action === "add") {
+                createClickableElement(object_id, data);
+            } else if (action === "remove") {
+                removeClickableElement(object_id);
+            }
         } else {
             console.warn("Unknown data format received:", data);
         }

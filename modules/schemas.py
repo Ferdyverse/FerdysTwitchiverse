@@ -34,7 +34,7 @@ class GoalSchema(BaseModel):
 
 class IconSchema(BaseModel):
     id: str # html id
-    state: str  # "add" or "remove"
+    action: str  # "add" or "remove"
     name: str  # e.g., "fa-bar"
 
 class HtmlSchema(BaseModel):
@@ -55,3 +55,12 @@ class ClickData(BaseModel):
     x: int
     y: int
     object_id: str = None  # Optional: Track which object was clicked
+
+class ClickableObject(BaseModel):
+    object_id: str  # ✅ Unique identifier for the object
+    x: int
+    y: int
+    width: int
+    height: int
+    iconClass: str = None  # Optional FontAwesome class
+    html: str = None
