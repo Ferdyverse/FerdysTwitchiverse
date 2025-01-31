@@ -52,9 +52,9 @@ function connectWebSocket() {
             const { content, lifetime=0 } = data.html
             showHTML(content, lifetime)
         } else if (data.clickable) {
-            const { action, object_id, data } = data.clickable
+            const { action, object_id } = data.clickable
             if (action === "add") {
-                createClickableElement(object_id, data);
+                createClickableElement(object_id, data.clickable);
             } else if (action === "remove") {
                 removeClickableElement(object_id);
             }

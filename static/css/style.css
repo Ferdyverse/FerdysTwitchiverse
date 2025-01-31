@@ -289,3 +289,12 @@ body {
     transition: font-size 0.3s ease; /* Smooth font resizing */
     box-sizing: border-box; /* Ensure padding is included in dimensions */
 }
+
+.clickable {
+    color: black;
+}
+
+.clickable i {
+    color: #FFD700;
+    font-size: 2rem;
+}

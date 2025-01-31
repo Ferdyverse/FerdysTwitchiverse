@@ -192,9 +192,9 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
         # Handle Icon Data
         if payload.icon:
             icon = payload.icon
-            if icon.state == "add":
+            if icon.action == "add":
                 logger.info(f"Adding icon: {icon.name}")
-            elif icon.state == "remove":
+            elif icon.action == "remove":
                 logger.info(f"Removing icon: {icon.name}")
 
         # Handle HTML Content
@@ -203,6 +203,17 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
             logger.info(f"HTML content received: {html.content} (Lifetime: {html.lifetime}ms)")
             save_data("html_content", html.content)
             save_data("html_lifetime", html.lifetime)
+
+        # Handle clickable object
+        if payload.clickable:
+            clickable = payload.clickable
+            if clickable.action == "add":
+                logger.info(f"Adding clickable: {clickable.object_id}")
+                await add_clickable_object(payload.clickable)
+            elif clickable.action == "remove":
+                logger.info(f"Removing icclickableon: {clickable.object_id}")
+                await remove_clickable_object(clickable.object_id)
+
 
         # Broadcast to WebSocket clients
         await broadcast_message(payload.model_dump())
@@ -327,39 +338,17 @@ async def get_all_planets():
         for raider_name, raid_size, angle, distance in planets
     ]
 
-@app.post("/add-clickable-object")
 async def add_clickable_object(obj: ClickableObject):
-    """
-    Add a single clickable object dynamically.
-
-    Example request:
-    POST /add-clickable-object
-    {
-        "object_id": "fire-icon",
-        "x": 100,
-        "y": 200,
-        "width": 50,
-        "height": 50,
-        "iconClass": "fa-fire"
-    }
-    """
     if obj.object_id in CLICKABLE_OBJECTS:
         raise HTTPException(status_code=400, detail=f"Object {obj.object_id} already exists")
 
     # ✅ Add to CLICKABLE_OBJECTS dictionary
-    CLICKABLE_OBJECTS[obj.object_id] = obj.dict()
+    CLICKABLE_OBJECTS[obj.object_id] = obj.model_dump()
     update_clickable_objects(CLICKABLE_OBJECTS)
 
     return {"status": "success", "message": f"Clickable object '{obj.object_id}' added"}
 
-@app.delete("/remove-clickable-object")
 async def remove_clickable_object(object_id: str):
-    """
-    Remove a single clickable object dynamically by ID.
-
-    Example request:
-    DELETE /remove-clickable-object?object_id=button1
-    """
     if object_id not in CLICKABLE_OBJECTS:
         raise HTTPException(status_code=404, detail=f"Object {object_id} not found")
 

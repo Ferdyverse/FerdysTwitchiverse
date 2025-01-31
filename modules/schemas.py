@@ -41,22 +41,8 @@ class HtmlSchema(BaseModel):
     content: str
     lifetime: Optional[int] = 0  # Default lifetime is 0
 
-# Alternative model with predefined optional fields (for stricter validation)
-class OverlayMessage(BaseModel):
-    alert: Optional[AlertSchema] = None
-    message: Optional[str] = None
-    goal: Optional[GoalSchema] = None
-    icon: Optional[IconSchema] = None
-    html: Optional[HtmlSchema] = None
-
-# user click data
-class ClickData(BaseModel):
-    user_id: str
-    x: int
-    y: int
-    object_id: str = None  # Optional: Track which object was clicked
-
 class ClickableObject(BaseModel):
+    action: str
     object_id: str  # ✅ Unique identifier for the object
     x: int
     y: int
@@ -64,3 +50,19 @@ class ClickableObject(BaseModel):
     height: int
     iconClass: str = None  # Optional FontAwesome class
     html: str = None
+
+# Alternative model with predefined optional fields (for stricter validation)
+class OverlayMessage(BaseModel):
+    alert: Optional[AlertSchema] = None
+    message: Optional[str] = None
+    goal: Optional[GoalSchema] = None
+    icon: Optional[IconSchema] = None
+    html: Optional[HtmlSchema] = None
+    clickable: Optional[ClickableObject] = None
+
+# user click data
+class ClickData(BaseModel):
+    user_id: str
+    x: int
+    y: int
+    object_id: str = None  # Optional: Track which object was clicked
