@@ -29,48 +29,64 @@ class HeatAPIClient:
 
     async def connect(self):
         """Connects to the Twitch Heat API WebSocket and sends data to connected clients."""
+        while True:  # 🔄 Auto-reconnect if disconnected
+            try:
+                logger.info(f"🔗 Connecting to Heat API WebSocket: {self.heat_api_url}")
+
+                async with websockets.connect(self.heat_api_url, ping_interval=30) as ws:  # ✅ Ping alle 30 Sekunden
+                    logger.info(f"✅ Connected to Heat API for channel {self.channel_id}")
+
+                    # Start background ping task
+                    asyncio.create_task(self.send_ping(ws))
+
+                    while True:
+                        message = await ws.recv()
+                        data = json.loads(message)
+
+                        # Log received data
+                        logger.info(f"🔥 Heat API Data: {data}")
+
+                        if data.get("type") == "system":
+                            continue
+                        elif data.get("type") == "click":
+                            # Ignore anonymous or unverified users
+                            user_id = data.get("id")
+
+                            # We need to multiply with the canvas size
+                            coord_x = int(float(data.get("x")) * 1920)
+                            coord_y = int(float(data.get("y")) * 1080)
+
+                            logger.info(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
+
+                            if user_id.startswith("A") or user_id.startswith("U"):
+                                username = "Anonymous" if user_id.startswith("A") else "Unverified"
+                                logger.info(f"⚠️ Ignoring click from {username}")
+
+                            # Detect what object was clicked
+                            processed_click = process_click(data)
+
+                            # Send verified user clicks to the FastAPI queue
+                            await self.event_queue.put(processed_click)
+
+                            # Broadcast click to all connected WebSocket clients (Overlay)
+                            await self.broadcast_to_clients(processed_click)
+
+            except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError) as e:
+                logger.error(f"❌ WebSocket connection error: {e}. Retrying in 5 seconds...")
+                await asyncio.sleep(5)  # 🔄 Retry after delay
+            except Exception as e:
+                logger.error(f"❌ Unexpected WebSocket error: {e}")
+                await asyncio.sleep(5)  # Retry in case of unexpected failure
+
+    async def send_ping(self, ws):
+        """Send periodic ping messages to keep the connection alive."""
         try:
-            async with websockets.connect(self.heat_api_url) as ws:
-                logger.info(f"✅ Connected to Heat API for channel {self.channel_id}")
-
-                while True:
-                    message = await ws.recv()
-                    data = json.loads(message)
-
-                    # Log received data
-                    logger.info(f"🔥 Heat API Data: {data}")
-
-                    if ( data.get("type") == "system" ):
-                        continue
-                    elif ( data.get("type") == "click"):
-                        # Ignore anonymous or unverified users
-                        user_id = data.get("id")
-
-                        coord_x = int(float(data.get("x"))*1920)
-                        coord_y = int(float(data.get("y"))*1080)
-
-                        logger.info(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
-
-                        if user_id.startswith("A") or user_id.startswith("U"):
-                            if user_id.startswith("A"):
-                                username = "Anonymous"
-                            elif user_id.startswith("U"):
-                                username = "Unverified"
-                            logger.info(f"⚠️ Ignoring click from {username}")
-                            #continue  # Skip processing
-
-                        # Detect what object was clicked
-                        processed_click = process_click(data)
-
-                        # Send verified user clicks to the FastAPI queue
-                        await self.event_queue.put(processed_click)
-
-                        # Broadcast click to all connected WebSocket clients (Overlay)
-                        await self.broadcast_to_clients(processed_click)
-
+            while True:
+                await asyncio.sleep(120)  # ✅ Send ping every 120 seconds
+                await ws.ping()
+                logger.info("📡 Sent WebSocket ping to Heat API")
         except Exception as e:
-            logger.error(f"❌ Error in WebSocket connection: {e}")
-            await ws.close()
+            logger.warning(f"⚠️ Ping failed: {e}")
 
     async def broadcast_to_clients(self, data):
         """Sends Heat API events to all connected WebSocket clients (Overlay)."""

@@ -1,4 +1,8 @@
 const backendURL = "http://localhost:8000";  // FastAPI backend URL
+const canvas = document.getElementById("spaceCanvas");
+const ctx = canvas.getContext("2d");
+
+let spaceObjects = [];
 
 // ✅ Fetch and create clickable objects
 async function loadClickableObjects() {

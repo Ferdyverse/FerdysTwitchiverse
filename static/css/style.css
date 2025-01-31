@@ -298,3 +298,12 @@ body {
     color: #FFD700;
     font-size: 2rem;
 }
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: -1; /* Keeps it behind everything */
+}

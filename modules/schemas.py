@@ -42,7 +42,7 @@ class HtmlSchema(BaseModel):
     lifetime: Optional[int] = 0  # Default lifetime is 0
 
 class ClickableObject(BaseModel):
-    action: str
+    action: str # add/remove
     object_id: str  # ✅ Unique identifier for the object
     x: int
     y: int
