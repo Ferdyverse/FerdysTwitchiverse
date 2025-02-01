@@ -58,6 +58,12 @@ function connectWebSocket() {
             } else if (action === "remove") {
                 removeClickableElement(object_id);
             }
+        } else if (data.hidden) {
+            const { action, user, x, y} = data.hidden
+            if (action === "found") {
+                triggerStarExplosion(x, y)
+                updateTopBar("message", `${user} hat eine Sternenexplosion ausgelöst!`);
+            }
         } else {
             console.warn("Unknown data format received:", data);
         }

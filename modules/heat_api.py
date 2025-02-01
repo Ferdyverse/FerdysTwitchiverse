@@ -13,17 +13,15 @@ class HeatAPIClient:
     Connects to Twitch Heat API WebSocket and processes user clicks.
     """
 
-    def __init__(self, channel_id: int, event_queue: asyncio.Queue, websocket_clients: list):
+    def __init__(self, channel_id: int, event_queue: asyncio.Queue):
         """
         Initialize the Heat API client.
 
         :param channel_id: Twitch Channel ID for Heat API.
         :param event_queue: asyncio.Queue to store events.
-        :param websocket_clients: List of connected WebSocket clients.
         """
         self.channel_id = channel_id
         self.event_queue = event_queue
-        self.websocket_clients = websocket_clients
         self.websocket_task = None
         self.heat_api_url = f"wss://heat-api.j38.net/channel/{self.channel_id}"
 
@@ -64,12 +62,10 @@ class HeatAPIClient:
 
                             # Detect what object was clicked
                             processed_click = process_click(data)
+                            logger.info(f"Clicked Object: {processed_click}")
 
                             # Send verified user clicks to the FastAPI queue
                             await self.event_queue.put(processed_click)
-
-                            # Broadcast click to all connected WebSocket clients (Overlay)
-                            await self.broadcast_to_clients(processed_click)
 
             except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError) as e:
                 logger.error(f"❌ WebSocket connection error: {e}. Retrying in 5 seconds...")
@@ -87,20 +83,6 @@ class HeatAPIClient:
                 logger.info("📡 Sent WebSocket ping to Heat API")
         except Exception as e:
             logger.warning(f"⚠️ Ping failed: {e}")
-
-    async def broadcast_to_clients(self, data):
-        """Sends Heat API events to all connected WebSocket clients (Overlay)."""
-        disconnected_clients = []
-        for client in self.websocket_clients:
-            try:
-                await client.send_json(data)  # Send data to WebSocket client
-            except Exception as e:
-                logger.error(f"WebSocket client error: {e}")
-                disconnected_clients.append(client)
-
-        # Remove disconnected clients
-        for client in disconnected_clients:
-            self.websocket_clients.remove(client)
 
     def start(self):
         """Starts the WebSocket listener asynchronously."""
@@ -131,10 +113,12 @@ def process_click(data):
             break
 
     return {
-        "user_id": user_id,
-        "x": x,
-        "y": y,
-        "object_id": clicked_object,
+        "heat_click": {
+            "user_id": user_id,
+            "x": x,
+            "y": y,
+            "object_id": clicked_object,
+        }
     }
 
 def update_clickable_objects(new_objects):

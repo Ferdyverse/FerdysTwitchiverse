@@ -210,68 +210,84 @@ function showHTML(html, lifetime) {
     }
 }
 
-function showURL(baseUrl, params, duration) {
-    // Construct the full URL with query parameters
-    const url = new URL(baseUrl, window.location.origin);
-    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+function triggerStarExplosion(x, y) {
+    // Create the big rotating star
+    const bigStar = document.createElement("i");
+    bigStar.className = "fa fa-star big-star";
+    bigStar.style.position = "absolute";
+    bigStar.style.left = `${x - 25}px`; // Adjust for center alignment
+    bigStar.style.top = `${y - 25}px`;
+    bigStar.style.fontSize = "50px";
+    bigStar.style.color = "gold";
+    bigStar.style.opacity = "1";
+    bigStar.style.transformOrigin = "center";
+    overlayElement.appendChild(bigStar);
 
-    // Create a full-screen div container
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.top = "0";
-    container.style.left = "0";
-    container.style.width = "100vw";
-    container.style.height = "100vh";
-    container.style.backgroundColor = "black";
-    container.style.zIndex = "9999"; // Ensure it's on top
-    container.style.overflow = "hidden";
-    container.style.display = "flex";
-    container.style.alignItems = "center";
-    container.style.justifyContent = "center";
-    container.style.color = "white";
-    container.style.opacity = "0"; // Start invisible
-    container.style.transition = "opacity 2s ease-in-out"; // Smooth fade-in/out effect
-    container.innerHTML = "<p>Loading...</p>"; // Temporary text
-
-    document.body.appendChild(container);
-
-    // Fade-in effect
+    // ✅ Rotate and scale the big star
     setTimeout(() => {
-        container.style.opacity = "1";
-    }, 10); // Small delay to trigger CSS transition
+        bigStar.style.transform = "scale(1.5) rotate(360deg)"; // Grow and rotate
+    }, 50);
 
-    // Fetch the content of the page and insert it
-    fetch(url)
-        .then(response => response.text())
-        .then(html => {
-            // Replace placeholders in the fetched HTML with actual values
-            Object.entries(params).forEach(([key, value]) => {
-                const regex = new RegExp(`\\[${key.toUpperCase()}\\]`, "g"); // Replace [RAIDER] and [VIEWERS]
-                html = html.replace(regex, value);
-            });
-
-            container.innerHTML = html;
-
-            // Manually execute scripts inside the fetched HTML
-            container.querySelectorAll("script").forEach(script => {
-                const newScript = document.createElement("script");
-                newScript.textContent = script.textContent;
-                document.body.appendChild(newScript);
-                document.body.removeChild(newScript); // Cleanup
-            });
-        })
-        .catch(error => {
-            console.error("Error loading content:", error);
-            container.innerHTML = "<p>Error loading content.</p>";
-        });
-
-    // Fade-out effect before removal
     setTimeout(() => {
-        container.style.opacity = "0"; // Start fading out
-        setTimeout(() => {
-            container.remove(); // Remove after fade-out completes
-        }, 1000); // Match this to fade-out duration
-    }, duration - 1000); // Start fade-out 1 second before removal
+        bigStar.style.opacity = "0";
+        bigStar.style.transform = "scale(0.5) rotate(720deg)"; // Shrink while rotating more
+    }, 800);
+
+    // Remove the big star after fading out
+    setTimeout(() => {
+        bigStar.remove();
+    }, 1200);
+
+    // ✅ Spawn mini stars **exactly from the center of the big star**
+    setTimeout(() => {
+        const numParticles = 30; // More stars for better explosion effect
+        for (let i = 0; i < numParticles; i++) {
+            createMiniStar(x, y);
+        }
+    }, 200);
+}
+
+// ✅ Function to create mini stars that fly outward
+function createMiniStar(x, y) {
+    const star = document.createElement("i");
+    star.className = "fa fa-star mini-star";
+    star.style.position = "absolute";
+    star.style.left = `${x}px`;
+    star.style.top = `${y}px`;
+    star.style.fontSize = "12px";
+    star.style.color = getRandomColor();
+    star.style.opacity = "1";
+    overlayElement.appendChild(star);
+
+    // Random explosion direction
+    const angle = Math.random() * 2 * Math.PI;
+    const distance = Math.random() * 180 + 80; // **Increased explosion radius**
+
+    const newX = x + Math.cos(angle) * distance;
+    const newY = y + Math.sin(angle) * distance;
+
+    // Apply explosion outward effect
+    setTimeout(() => {
+        star.style.transform = `translate(${newX - x}px, ${newY - y}px) scale(1.5) rotate(${Math.random() * 360}deg)`;
+    }, 100);
+
+    // ✅ Apply raining effect (fall down after explosion)
+    setTimeout(() => {
+        const fallDistance = Math.random() * 200 + 100; // Random fall distance
+        star.style.transition = "transform 1s linear, opacity 1s ease-out";
+        star.style.transform = `translate(${newX - x}px, ${newY - y + fallDistance}px) scale(0.8) rotate(${Math.random() * 180}deg)`;
+        star.style.opacity = "0";
+    }, 600);
+
+    // Remove after animation
+    setTimeout(() => {
+        star.remove();
+    }, 1600);
+}
+
+function getRandomColor() {
+    const colors = ["#FFD700", "#FFA500", "#FF4500", "#FFFF00", "#FF69B4"];
+    return colors[Math.floor(Math.random() * colors.length)];
 }
 
 // Fetch initial data for the top bar

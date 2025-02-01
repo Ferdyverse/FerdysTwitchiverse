@@ -69,3 +69,48 @@ curl -X POST http://localhost:8000/send-to-overlay -H "Content-Type: application
 
 curl -X POST http://localhost:8000/send-to-overlay -H "Content-Type: application/json" -d '{"alert": { "type": "raid", "user": "Ferdyverse", "size": 20 } }'
 ```
+
+## Message
+```shell
+curl -X POST http://localhost:8000/send-to-overlay -H "Content-Type: application/json" -d '{"message": "Hallo ich bin eine Nachricht!" }'
+```
+
+## Debug stuff
+```shell
+curl -X POST http://localhost:8000/debug -H "Content-Type: application/json" -d '{
+    "hidden": {
+        "action": "found",
+        "user": "Ferdyverse",
+        "x": 400,
+        "y": 600
+    }
+}'
+
+curl -X POST "http://localhost:8000/send-to-overlay" \
+     -H "Content-Type: application/json" \
+     -d '{ "clickable": {
+            "action": "add",
+            "object_id": "hidden_star",
+            "x": 400,
+            "y": 600,
+            "width": 10,
+            "height": 10,
+            "iconClass": "fa-star"
+        }
+    }'
+
+curl -X POST http://localhost:8000/send-to-overlay -H "Content-Type: application/json" -d '{"icon": { "id": "hidden_star", "action": "add", "name": "fa-star" } }'
+
+curl -X POST "http://localhost:8000/send-to-overlay" \
+     -H "Content-Type: application/json" \
+     -d '{ "clickable": {
+            "action": "remove",
+            "object_id": "hidden_star",
+            "x": 400,
+            "y": 600,
+            "width": 10,
+            "height": 10,
+            "iconClass": "fa-star"
+        }
+    }'
+```

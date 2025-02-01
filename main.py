@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -10,20 +10,18 @@ from fastapi import WebSocket, WebSocketDisconnect, Body
 
 # Other required imports
 from contextlib import asynccontextmanager
-from pydantic import ValidationError
 import uvicorn
 import logging
 from typing import Any, List
-import random
-import math
 import asyncio
 
 # Own modules
 from modules.printer_manager import PrinterManager
 from modules.schemas import PrintRequest, OverlayMessage, ClickData, ClickableObject
-from modules.db_manager import init_db, save_data, get_data, save_planet, get_planets
+from modules.db_manager import init_db, get_data, get_planets
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
+from modules import event_handlers
 import config
 
 # Configure logger
@@ -66,9 +64,13 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
         printer_manager.initialize()
-        global heat_api_client
-        heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue, connected_clients)
 
+        logger.info("🚀 Starting queue processor")
+        asyncio.create_task(process_queue())  # Run in background
+
+        # Load Heat  API
+        global heat_api_client
+        heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue)
         try:
             heat_api_client.start()  # ✅ Start Heat API with error handling
             logger.info("🔥 Heat API started successfully")
@@ -150,84 +152,22 @@ async def broadcast_message(message: Any):
 async def send_to_overlay(payload: OverlayMessage = Body(...)):
     """
     Endpoint to send data to the overlay via WebSocket.
-    Saves relevant information to the database for persistence.
+    Dynamically calls the appropriate event handler.
     """
     try:
-        # Handle Alert Data (Follower, Subscriber, Raid)
-        if payload.alert:
-            alert = payload.alert
-            if alert.type == "follower":
-                save_data("last_follower", alert.user)
-                logger.info(f"Saved last follower: {alert.user}")
-
-            elif alert.type == "subscriber":
-                save_data("last_subscriber", alert.user)
-                logger.info(f"Saved last subscriber: {alert.user}")
-
-            elif alert.type == "raid":
-                user = alert.user
-                size = alert.size or 0
-
-                # Generate random angle & distance
-                angle = random.uniform(0, 2 * math.pi)
-                distance = random.uniform(200, 700)
-
-                # Save new planet for raider
-                save_planet(user, size, angle, distance)
-                logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
-
-        # Handle Goal Data
-        if payload.goal:
-            goal = payload.goal
-            save_data("goal_text", goal.text)
-            save_data("goal_current", goal.current)
-            save_data("goal_target", goal.target)
-            logger.info(f"Current goal: {goal.text}, {goal.current}/{goal.target}")
-
-        # Handle Custom Message
-        if payload.message:
-            logger.info(f"Custom message received: {payload.message}")
-            save_data("last_message", payload.message)
-
-        # Handle Icon Data
-        if payload.icon:
-            icon = payload.icon
-            if icon.action == "add":
-                logger.info(f"Adding icon: {icon.name}")
-            elif icon.action == "remove":
-                logger.info(f"Removing icon: {icon.name}")
-
-        # Handle HTML Content
-        if payload.html:
-            html = payload.html
-            logger.info(f"HTML content received: {html.content} (Lifetime: {html.lifetime}ms)")
-            save_data("html_content", html.content)
-            save_data("html_lifetime", html.lifetime)
-
-        # Handle clickable object
-        if payload.clickable:
-            clickable = payload.clickable
-            if clickable.action == "add":
-                logger.info(f"Adding clickable: {clickable.object_id}")
-                await add_clickable_object(payload.clickable)
-            elif clickable.action == "remove":
-                logger.info(f"Removing icclickableon: {clickable.object_id}")
-                await remove_clickable_object(clickable.object_id)
-
+        for event_type, event_data in payload.model_dump().items():
+            if event_data:  # Only process non-empty events
+                await event_handlers.handle_event(event_type, event_data, add_clickable_object, remove_clickable_object)
 
         # Broadcast to WebSocket clients
         await broadcast_message(payload.model_dump())
-        logger.info(f"Data broadcasted to overlay: {payload.model_dump()}")
+        logger.info(f"📡 Data broadcasted to overlay: {payload.model_dump()}")
+
         return {"status": "success", "message": "Data sent to overlay"}
 
-    except ValidationError as e:
-        logger.error(f"Validation error: {e}")
-        raise HTTPException(status_code=400, detail="Invalid request format")
-
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"❌ Error in send_to_overlay: {e}")
         raise HTTPException(status_code=500, detail="Failed to send data")
-
 
 @app.get(
     "/overlay-data",
@@ -246,6 +186,29 @@ async def get_overlay_data():
         "goal_current": get_data("goal_current") or "None",
         "goal_target": get_data("goal_target") or "None"
     }
+
+# ✅ Background task to process queue events
+async def process_queue():
+    """ Continuously processes events from the queue """
+    while True:
+        event = await event_queue.get()  # Wait for an event
+        logger.info(f"📥 Processing event from queue: {event}")
+
+        if event.heat_click:
+            data = event.heat_click
+            clicked_object = data.object_id
+            user = data.user_id
+            x = data.x
+            y = data.y
+            real_user = firebot.get_username(user)
+
+            logger.info(f"{real_user} ({user}) clicked on {clicked_object}")
+
+            if clicked_object == "hidden_star":
+                await remove_clickable_object(clicked_object)
+                await broadcast_message({ "hidden": { "action": "found", "user": real_user, "x": x, "y": y } })
+
+        event_queue.task_done()  # Mark task as complete
 
 @app.post(
     "/print",
@@ -339,22 +302,26 @@ async def get_all_planets():
     ]
 
 async def add_clickable_object(obj: ClickableObject):
-    if obj.object_id in CLICKABLE_OBJECTS:
-        raise HTTPException(status_code=400, detail=f"Object {obj.object_id} already exists")
+    object_id = obj.object_id
 
-    # ✅ Add to CLICKABLE_OBJECTS dictionary
-    CLICKABLE_OBJECTS[obj.object_id] = obj.model_dump()
+    if object_id in CLICKABLE_OBJECTS:
+        raise HTTPException(status_code=400, detail=f"Object {object_id} already exists")
+
+    # ✅ Ensure we store a dictionary, not a Pydantic model
+    CLICKABLE_OBJECTS[object_id] = obj.model_dump()
     update_clickable_objects(CLICKABLE_OBJECTS)
 
-    return {"status": "success", "message": f"Clickable object '{obj.object_id}' added"}
+    return {"status": "success", "message": f"Clickable object '{object_id}' added"}
 
 async def remove_clickable_object(object_id: str):
     if object_id not in CLICKABLE_OBJECTS:
         raise HTTPException(status_code=404, detail=f"Object {object_id} not found")
 
     # ✅ Remove from CLICKABLE_OBJECTS dictionary
-    del CLICKABLE_OBJECTS[object_id]
+    removed_obj = CLICKABLE_OBJECTS.pop(object_id)
     update_clickable_objects(CLICKABLE_OBJECTS)
+
+    logger.info(f"🗑️ Clickable object '{object_id}' removed: {removed_obj}")
 
     return {"status": "success", "message": f"Clickable object '{object_id}' removed"}
 
@@ -362,20 +329,25 @@ async def remove_clickable_object(object_id: str):
 async def get_clickable_objects():
     """
     Retrieve all currently defined `.clickable` elements.
-
-    Example Response:
-    {
-        "fire-icon": {
-            "object_id": "fire-icon",
-            "x": 100,
-            "y": 200,
-            "width": 50,
-            "height": 50,
-            "iconClass": "fa-fire"
-        }
-    }
     """
     return CLICKABLE_OBJECTS
+
+@app.post("/debug")
+async def test_debug(payload: Any = Body(...)):
+    try:
+        # Ensure it's a dictionary before calling .model_dump()
+        payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload
+        logger.info(f"📡 Debug Payload: {payload_data}")
+
+        # Broadcast to WebSocket clients
+        await broadcast_message(payload_data)
+
+        return {"status": "success", "message": "Debug message sent"}
+
+    except Exception as e:
+        logger.error(f"❌ Error in /debug: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send debug data")
+
 
 @app.get(
     "/",

@@ -48,8 +48,8 @@ class ClickableObject(BaseModel):
     y: int
     width: int
     height: int
-    iconClass: str = None  # Optional FontAwesome class
-    html: str = None
+    iconClass: Optional[str] = None  # Optional FontAwesome class
+    html: Optional[str] = None
 
 # Alternative model with predefined optional fields (for stricter validation)
 class OverlayMessage(BaseModel):
