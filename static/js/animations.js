@@ -213,12 +213,12 @@ function showHTML(html, lifetime) {
 function triggerStarExplosion(x, y) {
     // Create the big rotating star
     const bigStar = document.createElement("i");
-    bigStar.className = "fa fa-star big-star";
+    bigStar.className = "fa fa-poo big-star";
     bigStar.style.position = "absolute";
     bigStar.style.left = `${x - 25}px`; // Adjust for center alignment
     bigStar.style.top = `${y - 25}px`;
     bigStar.style.fontSize = "50px";
-    bigStar.style.color = "gold";
+    bigStar.style.color = "#7e5210ec";
     bigStar.style.opacity = "1";
     bigStar.style.transformOrigin = "center";
     overlayElement.appendChild(bigStar);
@@ -250,11 +250,11 @@ function triggerStarExplosion(x, y) {
 // ✅ Function to create mini stars that fly outward
 function createMiniStar(x, y) {
     const star = document.createElement("i");
-    star.className = "fa fa-star mini-star";
+    star.className = "fa fa-poo mini-star";
     star.style.position = "absolute";
     star.style.left = `${x}px`;
     star.style.top = `${y}px`;
-    star.style.fontSize = "12px";
+    star.style.fontSize = "40px";
     star.style.color = getRandomColor();
     star.style.opacity = "1";
     overlayElement.appendChild(star);

@@ -17,4 +17,4 @@ TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
 # TWITCH_CHANNEL_ID = 549112855 # Jvpeek
 
 # FIREBOT
-FIREBOT_API_URL = "http://localhost:7474/api"
+FIREBOT_API_URL = "http://localhost:7472/api/v1"

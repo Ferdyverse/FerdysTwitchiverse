@@ -58,10 +58,10 @@ class HeatAPIClient:
 
                             if user_id.startswith("A") or user_id.startswith("U"):
                                 username = "Anonymous" if user_id.startswith("A") else "Unverified"
-                                logger.info(f"⚠️ Ignoring click from {username}")
+                                logger.info(f"⚠️ Got click from {username}")
 
                             # Detect what object was clicked
-                            processed_click = process_click(data)
+                            processed_click = process_click(data, coord_x, coord_y)
                             logger.info(f"Clicked Object: {processed_click}")
 
                             # Send verified user clicks to the FastAPI queue
@@ -97,11 +97,11 @@ class HeatAPIClient:
             self.websocket_task = None
             logger.info(f"🛑 Heat API listener stopped for channel {self.channel_id}.")
 
-def process_click(data):
+def process_click(data, x, y):
     """Detect if a user clicked on a dynamically registered object."""
     user_id = data.get("id")
-    x = data.get("x")
-    y = data.get("y")
+
+    logger.info(f"Searching for object at {x} : {y}")
 
     clicked_object = None
     for obj_name, obj_data in CLICKABLE_OBJECTS.items():

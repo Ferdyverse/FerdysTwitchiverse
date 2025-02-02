@@ -1,7 +1,8 @@
 import requests
 import logging
+import httpx
 
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("uvicorn.error.firebot")
 
 class FirebotAPI:
     """
@@ -11,7 +12,7 @@ class FirebotAPI:
     playing sounds, and more.
     """
 
-    def __init__(self, base_url="http://localhost:7474/api"):
+    def __init__(self, base_url="http://localhost:7472/api/v1"):
         """
         Initialize the Firebot API client.
 
@@ -27,7 +28,7 @@ class FirebotAPI:
         :return: The Twitch username (or None if not found)
         """
         try:
-            response = requests.get(f"{self.base_url}/users/{user_id}")
+            response = requests.get(f"{self.base_url}/viewers/{user_id}")
 
             if response.status_code == 200:
                 data = response.json()
@@ -107,3 +108,31 @@ class FirebotAPI:
             logger.error(f"❌ Firebot API request failed: {e}")
 
         return False
+
+    async def run_effect_list(self, list_id: str, data: dict = None) -> bool:
+        """Triggers a Firebot effect list asynchronously."""
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"📡 Sending request to Firebot for effect: {list_id}, Data: {data}")
+
+                if data is not None:
+                    response = await client.post(
+                        f"{self.base_url}/effects/preset/{list_id}",
+                        json=data,
+                        headers={ "Content-Type": "application/json" }
+                    )
+                else:
+                    response = await client.get(f"{self.base_url}/effects/preset/{list_id}")
+
+                logger.info(f"🔥 Response Status: {response.status_code}, Response Body: {response.text}")
+
+                if response.status_code == 200:
+                    logger.info(f"✅ Successfully triggered effect list: {list_id}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Firebot API returned {response.status_code}: {response.text}")
+                    return False
+
+            except httpx.RequestError as e:
+                logger.error(f"❌ Firebot API request failed: {e}")
+                return False

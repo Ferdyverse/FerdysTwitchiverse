@@ -24,10 +24,28 @@ from modules.firebot_api import FirebotAPI
 from modules import event_handlers
 import config
 
-# Configure logger
+# ✅ ANSI escape codes for colors
+LOG_COLORS = {
+    "DEBUG": "\033[94m",    # Blue
+    "INFO": "\033[92m",     # Green
+    "WARNING": "\033[93m",  # Yellow
+    "ERROR": "\033[91m",    # Red
+    "CRITICAL": "\033[91;1m",  # Bold Red
+    "RESET": "\033[0m",     # Reset color
+}
+
+class ColorFormatter(logging.Formatter):
+    """Custom formatter to add colors to log levels."""
+    def format(self, record):
+        log_color = LOG_COLORS.get(record.levelname, LOG_COLORS["RESET"])
+        log_message = super().format(record)
+        return f"{log_color}{log_message}{LOG_COLORS['RESET']}"
+
+# ✅ Configure the logger
 logger = logging.getLogger("uvicorn.error")
 
-formatter = logging.Formatter(
+# ✅ Apply custom format with colors
+formatter = ColorFormatter(
     "%(asctime)s - %(levelname)s - %(module)s - %(message)s"
 )
 
@@ -152,22 +170,31 @@ async def broadcast_message(message: Any):
 async def send_to_overlay(payload: OverlayMessage = Body(...)):
     """
     Endpoint to send data to the overlay via WebSocket.
-    Dynamically calls the appropriate event handler.
+    Ensures errors in event processing do not trigger a broadcast.
     """
+    all_success = True  # ✅ Track success
+
     try:
         for event_type, event_data in payload.model_dump().items():
             if event_data:  # Only process non-empty events
-                await event_handlers.handle_event(event_type, event_data, add_clickable_object, remove_clickable_object)
+                success = await event_handlers.handle_event(event_type, event_data, add_clickable_object, remove_clickable_object)
+                logger.info(f"🔍 handle_event() returned: {success}")
+                if not success:
+                    logger.error(f"❌ Event failed: {event_type}")
+                    all_success = False  # ✅ Mark failure
 
-        # Broadcast to WebSocket clients
-        await broadcast_message(payload.model_dump())
-        logger.info(f"📡 Data broadcasted to overlay: {payload.model_dump()}")
-
-        return {"status": "success", "message": "Data sent to overlay"}
+        # ✅ Only broadcast if all events succeeded
+        if all_success:
+            await broadcast_message(payload.model_dump())
+            logger.info(f"📡 Data broadcasted to overlay: {payload.model_dump()}")
+            return {"status": "success", "message": "Data sent to overlay"}
+        else:
+            logger.error("❌ Some events failed, skipping broadcast.")
+            return {"status": "error", "message": "One or more events failed. No broadcast sent."}
 
     except Exception as e:
         logger.error(f"❌ Error in send_to_overlay: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send data")
+        return {"status": "error", "message": "Failed to send data"}
 
 @app.get(
     "/overlay-data",
@@ -191,22 +218,32 @@ async def get_overlay_data():
 async def process_queue():
     """ Continuously processes events from the queue """
     while True:
-        event = await event_queue.get()  # Wait for an event
-        logger.info(f"📥 Processing event from queue: {event}")
+        data = await event_queue.get()
 
-        if event.heat_click:
-            data = event.heat_click
-            clicked_object = data.object_id
-            user = data.user_id
-            x = data.x
-            y = data.y
-            real_user = firebot.get_username(user)
+        logger.info(f"📥 Processing event from queue: {data}")
 
-            logger.info(f"{real_user} ({user}) clicked on {clicked_object}")
+        # ✅ Ensure data is correctly accessed as a dictionary
+        if "heat_click" in data:
+            click_event = data["heat_click"]  # Extract nested dictionary
+
+            user = click_event.get("user_id")
+            x = click_event.get("x")
+            y = click_event.get("y")
+            clicked_object = click_event.get("object_id")  # ✅ Corrected access
+
+            if user.startswith("A") or user.startswith("U"):
+                real_user = "Anonymous" if user.startswith("A") else "Unverified"
+            else:
+                real_user = firebot.get_username(user)
+
+            logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
 
             if clicked_object == "hidden_star":
-                await remove_clickable_object(clicked_object)
+                logger.info("Broadcast star found")
                 await broadcast_message({ "hidden": { "action": "found", "user": real_user, "x": x, "y": y } })
+                logger.info(await firebot.run_effect_list("0977a5a0-e189-11ef-b16a-cbaddbeeb72a"))
+                args = {"args": { "star_user": real_user } }
+                logger.info(await firebot.run_effect_list("3dc732a0-e19b-11ef-b16a-cbaddbeeb72a", args))
 
         event_queue.task_done()  # Mark task as complete
 
@@ -305,7 +342,7 @@ async def add_clickable_object(obj: ClickableObject):
     object_id = obj.object_id
 
     if object_id in CLICKABLE_OBJECTS:
-        raise HTTPException(status_code=400, detail=f"Object {object_id} already exists")
+        return {"status": "error", "message": f"Clickable object {object_id} already exists"}
 
     # ✅ Ensure we store a dictionary, not a Pydantic model
     CLICKABLE_OBJECTS[object_id] = obj.model_dump()
@@ -315,7 +352,7 @@ async def add_clickable_object(obj: ClickableObject):
 
 async def remove_clickable_object(object_id: str):
     if object_id not in CLICKABLE_OBJECTS:
-        raise HTTPException(status_code=404, detail=f"Object {object_id} not found")
+        return {"status": "error", "message": f"Clickable object '{object_id}' not found"}
 
     # ✅ Remove from CLICKABLE_OBJECTS dictionary
     removed_obj = CLICKABLE_OBJECTS.pop(object_id)
