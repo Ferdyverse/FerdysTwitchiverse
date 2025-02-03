@@ -321,3 +321,62 @@ canvas {
     height: 1080px;
     z-index: -1; /* Keeps it behind everything */
 }
+
+.box {
+	width: 1900px;
+	height: 300px;
+	box-sizing: border-box;
+	padding: 20px;
+	position: relative;
+	overflow: hidden;
+}
+
+.box .content {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: black;
+    position: relative;
+	flex-direction: column;
+	box-sizing: border-box;
+	padding: 10px;
+	text-align: center;
+	font-family: sans-serif;
+	z-index: 2;
+}
+
+.box::before {
+	content: '';
+	position: absolute;
+	width: 150%;
+	height: 1300%;
+	background: repeating-linear-gradient(
+        black 0%,
+        black 7.5px,
+        yellow 7.5px,
+        yellow 15px,
+        black 15px,
+        black 22.5px,
+        yellow 22.5px,
+        yellow 30px);
+	transform: translateX(-50%) translateY(-50%) rotate(-45deg);
+	animation: animate 30s linear infinite;
+}
+
+.box,
+.box .content {border-radius: 2px;}
+
+.box .content p {
+	color: white;
+    text-transform: uppercase;
+    font-weight: 800;
+    font-size: 5rem;
+    letter-spacing: .075rem;
+    font-family: 'MonaspiceRn NFM', Arial, sans-serif;
+}
+
+@keyframes animate {
+	from {background-position: 0;}
+	to {background-position: 0 250px;}
+}

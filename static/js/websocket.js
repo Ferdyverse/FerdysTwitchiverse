@@ -27,7 +27,7 @@ function connectWebSocket() {
             } else if (type === "subscriber") {
                 updateTopBar("subscriber", user);
                 updateTopBar("message", "NEW SUBSCRIBER!");
-                showAlertWithGSAP(type, user, size);
+                showSubBanner(user);
             } else if (type === "raid") {
                 updateTopBar("message", "Something changed in the Ferdyverse!");
                 showURL("http://localhost:8000/raid", { raider: user, viewers: size }, 27000);

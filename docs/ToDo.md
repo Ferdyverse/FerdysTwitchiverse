@@ -9,6 +9,14 @@
             -> "icon1": {"x": 300, "y": 400, "width": 60, "height": 60}
     - Bei Follow -> Hub triggern
 
+    - Sonderzeichen drucken
+        - ┻━┻ ︵ ¯\(ツ)/¯ ︵ ┻━┻
+        - ¯\(◉◡◔)/¯
+        - __̴ı̴̴̡ ̡͌l̡̡̡ ̡͌l̡*̡̡ ̴̡ı̴̴̡ ̡̡͡|̲̲͡ ̲▫̲͡ ̲̲͡π̲̲͡ ̲̲͡▫̲̲͡ ̲|̡̡̡ ̡ ̴̡ı̴̡̡ ̡͌l̡̡̡.___
+
+        - Bild statt Text drucken bei !print
+
+
 # Ideen zum umsetzen
 
     - Clicking a hidden Easter Egg could show a special message on stream
