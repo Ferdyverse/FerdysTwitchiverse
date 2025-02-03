@@ -39,6 +39,7 @@ class FirebotAPI:
                     return username
                 else:
                     logger.warning(f"⚠️ Firebot API did not return a username for ID {user_id}")
+                    return "Unknown"
             else:
                 logger.warning(f"⚠️ Firebot API returned {response.status_code}: {response.text}")
 

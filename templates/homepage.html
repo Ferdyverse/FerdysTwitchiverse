@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferdyverse API - Home</title>
+    <link rel="stylesheet" href="/static/css/homepage.css">
+    <script>
+        function copyToClipboard(element) {
+            const text = element.previousElementSibling.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy: ", err);
+            });
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Ferdyverse API</h1>
+        <p>Your gateway to managing Twitch-integrated events and overlays.</p>
+    </header>
+
+    <main class="content-container">
+        <section>
+            <h2>API Overview</h2>
+            <p>The Ferdyverse API allows you to manage overlays, Twitch events, and more. Below are some useful endpoints.</p>
+        </section>
+
+        <section>
+            <h2>Available Endpoints</h2>
+            <ul>
+                <li><strong>WebSocket Connection:</strong> <code>/ws</code></li>
+                <li><strong>Overlay Display:</strong> <code>/overlay</code></li>
+                <li><strong>Send Data to Overlay:</strong> <code>/send-to-overlay</code></li>
+                <li><strong>Fetch Overlay Data:</strong> <code>/overlay-data</code></li>
+                <li><strong>Manage Clickable Objects:</strong> <code>/get-clickable-objects</code></li>
+                <li><strong>Trigger Alerts:</strong> <code>/alerts</code></li>
+                <li><strong>System Status:</strong> <code>/state</code></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Useful curl Commands</h2>
+
+            <h3>Clickable Objects</h3>
+            <h4>Add Clickable Icon</h4>
+            <pre><code>curl -X POST "http://localhost:8000/send-to-overlay" \
+     -H "Content-Type: application/json" \
+     -d '{ "clickable": {
+            "action": "add",
+            "object_id": "star-icon",
+            "x": 300,
+            "y": 400,
+            "width": 60,
+            "height": 60,
+            "iconClass": "fa-star"
+        }
+    }'</code></pre>
+            <button onclick="copyToClipboard(this)">Copy</button>
+
+            <h4>Add Clickable HTML</h4>
+            <pre><code>curl -X POST "http://localhost:8000/send-to-overlay" \
+     -H "Content-Type: application/json" \
+     -d '{ "clickable": {
+            "action": "add",
+            "object_id": "html-test",
+            "x": 400,
+            "y": 600,
+            "width": 300,
+            "height": 60,
+            "html": "Ich bin ein Test!"
+        }
+    }'</code></pre>
+            <button onclick="copyToClipboard(this)">Copy</button>
+
+            <h4>Get All Clickable Objects</h4>
+            <pre><code>curl -X GET "http://localhost:8000/get-clickable-objects"</code></pre>
+            <button onclick="copyToClipboard(this)">Copy</button>
+
+            <h4>Remove Clickable Object</h4>
+            <pre><code>curl -X DELETE "http://localhost:8000/remove-clickable-object?object_id=star-icon"</code></pre>
+            <button onclick="copyToClipboard(this)">Copy</button>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2025 Ferdyverse. All rights reserved.</p>
+    </footer>
+</body>
+</html>

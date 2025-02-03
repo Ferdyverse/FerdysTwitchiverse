@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
         global heat_api_client
         heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue)
         try:
-            heat_api_client.start()  # ✅ Start Heat API with error handling
+            #heat_api_client.start()  # ✅ Start Heat API with error handling
             logger.info("🔥 Heat API started successfully")
         except Exception as e:
             logger.error(f"❌ Heat API startup failed: {e}")
@@ -239,11 +239,13 @@ async def process_queue():
             logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
 
             if clicked_object == "hidden_star":
-                logger.info("Broadcast star found")
+                logger.debug("Broadcast star found")
                 await broadcast_message({ "hidden": { "action": "found", "user": real_user, "x": x, "y": y } })
-                logger.info(await firebot.run_effect_list("0977a5a0-e189-11ef-b16a-cbaddbeeb72a"))
+                # Reset hidden object
+                await firebot.run_effect_list("0977a5a0-e189-11ef-b16a-cbaddbeeb72a")
+                # Message to chat
                 args = {"args": { "star_user": real_user } }
-                logger.info(await firebot.run_effect_list("3dc732a0-e19b-11ef-b16a-cbaddbeeb72a", args))
+                await firebot.run_effect_list("3dc732a0-e19b-11ef-b16a-cbaddbeeb72a", args)
 
         event_queue.task_done()  # Mark task as complete
 
@@ -392,11 +394,10 @@ async def test_debug(payload: Any = Body(...)):
     description="Provides links to the API documentation, overlay, and status endpoints.",
     response_description="Links to API resources."
 )
-async def home():
-    """
-    Default home endpoint with links to API resources.
-    """
-    return { "docs": "/docs", "overlay": "/overlay", "state": "/state"}
+@app.get("/", response_class=HTMLResponse)
+async def homepage(request: Request):
+    """Serve the API Overview Homepage."""
+    return templates.TemplateResponse("homepage.html", {"request": request})
 
 if __name__ == "__main__":
     uvicorn.run(
