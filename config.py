@@ -3,7 +3,8 @@
 # App configuration
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
-APP_LOG_LEVEL = "debug"
+APP_LOG_LEVEL = "info"
+APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Printer configuration
 PRINTER_VENDOR_ID = 0x0aa7  # WINCOR NIXDORF

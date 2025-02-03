@@ -14,6 +14,7 @@ import uvicorn
 import logging
 from typing import Any, List
 import asyncio
+import os
 
 # Own modules
 from modules.printer_manager import PrinterManager
@@ -41,12 +42,17 @@ class ColorFormatter(logging.Formatter):
         log_message = super().format(record)
         return f"{log_color}{log_message}{LOG_COLORS['RESET']}"
 
+DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
+DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
+DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
+
 # ✅ Configure the logger
 logger = logging.getLogger("uvicorn.error")
 
 # ✅ Apply custom format with colors
 formatter = ColorFormatter(
-    "%(asctime)s - %(levelname)s - %(module)s - %(message)s"
+    "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
+    datefmt=config.APP_LOG_TIME_FORMAT
 )
 
 # ✅ Apply format to all Uvicorn handlers
@@ -81,19 +87,27 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing modules")
     try:
         init_db()
-        printer_manager.initialize()
-
-        logger.info("🚀 Starting queue processor")
         asyncio.create_task(process_queue())  # Run in background
 
-        # Load Heat  API
-        global heat_api_client
-        heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue)
-        try:
-            #heat_api_client.start()  # ✅ Start Heat API with error handling
+        if not DISABLE_PRINTER:
+            printer_manager.initialize()
+        else:
+            logger.info("🚫 Printer is disabled.")
+
+        if not DISABLE_HEAT_API:
+            global heat_api_client
+            heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue)
+            heat_api_client.start()
             logger.info("🔥 Heat API started successfully")
-        except Exception as e:
-            logger.error(f"❌ Heat API startup failed: {e}")
+        else:
+            logger.info("🚫 Heat API is disabled.")
+
+        if not DISABLE_FIREBOT:
+            global firebot
+            firebot = FirebotAPI(config.FIREBOT_API_URL)
+            logger.info("🔥 Firebot API started successfully")
+        else:
+            logger.info("🚫 Firebot API is disabled.")
 
         yield  # The app is running
     except Exception as e:
@@ -101,8 +115,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Shutting down modules")
-        printer_manager.shutdown()
-        if heat_api_client:
+        if not DISABLE_PRINTER:
+            printer_manager.shutdown()
+
+        if not DISABLE_HEAT_API and heat_api_client:
             heat_api_client.stop()
 
 
