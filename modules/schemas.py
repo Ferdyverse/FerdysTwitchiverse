@@ -20,6 +20,7 @@ class PrintRequest(BaseModel):
         ...,
         description="A list of elements to print, such as headlines, messages, or images."
     )
+    print_as_image: Optional[bool] = False
 
 # Specific data models
 class AlertSchema(BaseModel):

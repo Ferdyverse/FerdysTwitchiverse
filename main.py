@@ -245,7 +245,7 @@ async def process_queue():
             user = click_event.get("user_id")
             x = click_event.get("x")
             y = click_event.get("y")
-            clicked_object = click_event.get("object_id")  # ✅ Corrected access
+            clicked_object = click_event.get("object_id")  # Corrected access
 
             if user.startswith("A") or user.startswith("U"):
                 real_user = "Anonymous" if user.startswith("A") else "Unverified"
@@ -282,9 +282,19 @@ async def print_data(request: PrintRequest):
             raise HTTPException(status_code=500, detail="Printer not available")
 
     try:
-        for element in request.print_elements:
-            if await printer_manager.print_element(element):
-                printer_manager.newline(1)
+        if request.print_as_image:
+            # Print a image
+            pimage = await printer_manager.create_image(elements=request.print_elements)
+            printer_manager.printer.image(pimage,
+                        high_density_horizontal=True,
+                        high_density_vertical=True,
+                        impl="bitImageColumn",
+                        fragment_height=960,
+                        center=True)
+        else:
+            for element in request.print_elements:
+                if await printer_manager.print_element(element):
+                    printer_manager.newline(1)
         printer_manager.cut_paper(partial=True)
         return {"status": "success", "message": "Print done!"}
     except Exception as e:

@@ -1,10 +1,11 @@
 import logging
 from escpos.printer import Usb
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
 from modules.schemas import PrintElement  # Import the schema
 import config
+from typing import List, Optional
 
 logger = logging.getLogger("uvicorn.error.printer")
 
@@ -140,3 +141,101 @@ class PrinterManager:
         if self.printer:
             self.printer.set(align="left", normal_textsize=True)
             self.printer.ln(count)
+
+    async def create_image(self, elements: List[PrintElement]) -> Optional[Image.Image]:
+        """
+        Create a single image that contains all the print elements accumulated.
+        :param elements: A list of PrintElement objects to be rendered.
+        :return: A PIL Image object with the combined content or None if no elements exist.
+        """
+        if not elements:
+            logger.warning("No elements to create image from.")
+            return None
+
+        # Define printer width and spacing settings.
+        printer_width = 384
+        line_spacing = 10
+
+        # Setup fonts. Attempt to load TrueType fonts, falling back to the default if unavailable.
+        try:
+            mona = "static/webfonts/MonaspiceRnNerdFontMono-Regular.otf"  # Removed trailing comma.
+            default_font = ImageFont.truetype(mona, 20)
+            headline_font_1 = ImageFont.truetype(mona, 28)
+            headline_font_2 = ImageFont.truetype(mona, 26)
+        except Exception as e:
+            logger.warning("Could not load truetype fonts, falling back to default.")
+            default_font = ImageFont.load_default()
+            headline_font_1 = default_font
+            headline_font_2 = default_font
+
+        # First pass: calculate the total height needed for the final image.
+        total_height = 0
+
+        for element in elements:
+            if element.type in ["headline_1", "headline_2", "message"]:
+                text = element.text or ""
+                if element.type == "headline_1":
+                    font = headline_font_1
+                elif element.type == "headline_2":
+                    font = headline_font_2
+                else:
+                    font = default_font
+                lines = text.splitlines()
+                element_height = 0
+                for line in lines:
+                    # Use font.getsize() to get text dimensions.
+                    w, h = font.getsize(line)
+                    element_height += h + line_spacing
+                total_height += element_height
+            elif element.type == "image":
+                pimage = await self.get_image(element.url)
+                if pimage:
+                    total_height += pimage.height + line_spacing
+
+        if total_height == 0:
+            logger.error("Total height for image creation is 0.")
+            return None
+
+        # Create a new blank white image that will serve as our canvas.
+        combined_image = Image.new("RGB", (printer_width, total_height), "white")
+        draw = ImageDraw.Draw(combined_image)
+
+        # Second pass: render each element on the canvas.
+        current_y = 0
+        for element in elements:
+            if element.type in ["headline_1", "headline_2", "message"]:
+                text = element.text or ""
+                if element.type == "headline_1":
+                    font = headline_font_1
+                    lines = text.splitlines()
+                    for line in lines:
+                        w, h = font.getsize(line)
+                        # Center the headline text.
+                        x = (printer_width - w) // 2
+                        draw.text((x, current_y), line, fill="black", font=font)
+                        current_y += h + line_spacing
+                elif element.type == "headline_2":
+                    font = headline_font_2
+                    lines = text.splitlines()
+                    for line in lines:
+                        w, h = font.getsize(line)
+                        x = (printer_width - w) // 2
+                        draw.text((x, current_y), line, fill="black", font=font)
+                        current_y += h + line_spacing
+                else:  # message (left-aligned)
+                    font = default_font
+                    lines = text.splitlines()
+                    for line in lines:
+                        w, h = font.getsize(line)
+                        x = 0
+                        draw.text((x, current_y), line, fill="black", font=font)
+                        current_y += h + line_spacing
+            elif element.type == "image":
+                pimage = await self.get_image(element.url)
+                if pimage:
+                    # Center the image horizontally.
+                    x = (printer_width - pimage.width) // 2
+                    combined_image.paste(pimage.convert("RGB"), (x, current_y))
+                    current_y += pimage.height + line_spacing
+
+        return combined_image
