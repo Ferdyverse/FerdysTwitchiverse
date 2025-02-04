@@ -158,7 +158,7 @@ class PrinterManager:
 
         # Setup fonts. Attempt to load TrueType fonts, falling back to the default if unavailable.
         try:
-            mona = "static/webfonts/MonaspiceRnNerdFontMono-Regular.otf"  # Removed trailing comma.
+            mona = "static/webfonts/MonaspiceRnNerdFontMono-Regular.otf"  # Ensure this is a string.
             default_font = ImageFont.truetype(mona, 20)
             headline_font_1 = ImageFont.truetype(mona, 28)
             headline_font_2 = ImageFont.truetype(mona, 26)
@@ -180,11 +180,13 @@ class PrinterManager:
                     font = headline_font_2
                 else:
                     font = default_font
+                # Split the text by newline. (Add text wrapping here if needed.)
                 lines = text.splitlines()
                 element_height = 0
                 for line in lines:
-                    # Use font.getsize() to get text dimensions.
-                    w, h = font.getsize(line)
+                    bbox = font.getbbox(line)
+                    w = bbox[2] - bbox[0]
+                    h = bbox[3] - bbox[1]
                     element_height += h + line_spacing
                 total_height += element_height
             elif element.type == "image":
@@ -209,7 +211,9 @@ class PrinterManager:
                     font = headline_font_1
                     lines = text.splitlines()
                     for line in lines:
-                        w, h = font.getsize(line)
+                        bbox = font.getbbox(line)
+                        w = bbox[2] - bbox[0]
+                        h = bbox[3] - bbox[1]
                         # Center the headline text.
                         x = (printer_width - w) // 2
                         draw.text((x, current_y), line, fill="black", font=font)
@@ -218,7 +222,9 @@ class PrinterManager:
                     font = headline_font_2
                     lines = text.splitlines()
                     for line in lines:
-                        w, h = font.getsize(line)
+                        bbox = font.getbbox(line)
+                        w = bbox[2] - bbox[0]
+                        h = bbox[3] - bbox[1]
                         x = (printer_width - w) // 2
                         draw.text((x, current_y), line, fill="black", font=font)
                         current_y += h + line_spacing
@@ -226,7 +232,9 @@ class PrinterManager:
                     font = default_font
                     lines = text.splitlines()
                     for line in lines:
-                        w, h = font.getsize(line)
+                        bbox = font.getbbox(line)
+                        w = bbox[2] - bbox[0]
+                        h = bbox[3] - bbox[1]
                         x = 0
                         draw.text((x, current_y), line, fill="black", font=font)
                         current_y += h + line_spacing
