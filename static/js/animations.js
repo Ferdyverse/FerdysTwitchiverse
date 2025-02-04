@@ -80,12 +80,8 @@ function removeIcon(iconID) {
 }
 
 // Function to play alert sounds
-function playSoundForAlert(type) {
-    const audio = new Audio(
-        type === "subscriber"
-            ? "/static/sounds/subscriber.mp3"
-            : "/static/sounds/follower.mp3"
-    );
+function playSoundForAlert(file) {
+    const audio = new Audio(`/static/sounds/${file}.mp3`);
     audio.play();
 }
 
@@ -98,16 +94,12 @@ function showAlertWithGSAP(type, user, additionalInfo) {
             <source src="/static/videos/${type}.webm" type="video/webm">
         </video>
         <div class="alert-content">
-            <h1>${type === "subscriber"
-                ? "New Subscriber!"
-                : type === "follower"
+            <h1>${type === "follower"
                 ? "New Follower!"
                 : type === "raid"
                 ? "Incoming Raid!"
                 : "Alert!"}</h1>
-            <p>${type === "raid"
-                ? `${user} is raiding with ${additionalInfo || 0} viewers!`
-                : `${user}`}</p>
+            <p>${user}</p>
         </div>
     `;
 
@@ -359,6 +351,9 @@ function showSubBanner(user) {
     subBanner.className = "box";
     overlayElement.appendChild(subBanner);
     subBanner.innerHTML= `<div class="content"><p>${user}</p></div>`;
+
+    // Play sound for the alert
+    playSoundForAlert("subscriber");
 
     setTimeout(() => {
         subBanner.remove();
