@@ -279,7 +279,7 @@ function triggerStarExplosion(x, y) {
     bigStar.style.transformOrigin = "center";
     overlayElement.appendChild(bigStar);
 
-    // ✅ Rotate and scale the big star
+    // Rotate and scale the big star
     setTimeout(() => {
         bigStar.style.transform = "scale(1.5) rotate(360deg)"; // Grow and rotate
     }, 50);
@@ -294,7 +294,7 @@ function triggerStarExplosion(x, y) {
         bigStar.remove();
     }, 1200);
 
-    // ✅ Spawn mini stars **exactly from the center of the big star**
+    // Spawn mini stars **exactly from the center of the big star**
     setTimeout(() => {
         const numParticles = 30; // More stars for better explosion effect
         for (let i = 0; i < numParticles; i++) {
@@ -303,7 +303,7 @@ function triggerStarExplosion(x, y) {
     }, 200);
 }
 
-// ✅ Function to create mini stars that fly outward
+// Function to create mini stars that fly outward
 function createMiniStar(x, y) {
     const star = document.createElement("i");
     star.className = "fa fa-poo mini-star";
@@ -327,7 +327,7 @@ function createMiniStar(x, y) {
         star.style.transform = `translate(${newX - x}px, ${newY - y}px) scale(1.5) rotate(${Math.random() * 360}deg)`;
     }, 100);
 
-    // ✅ Apply raining effect (fall down after explosion)
+    // Apply raining effect (fall down after explosion)
     setTimeout(() => {
         const fallDistance = Math.random() * 200 + 100; // Random fall distance
         star.style.transition = "transform 1s linear, opacity 1s ease-out";

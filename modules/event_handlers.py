@@ -29,9 +29,9 @@ async def handle_event(event_type, event_data, add_clickable_object=None, remove
         logger.error(f"❌ No handler found for event type: {event_type}")
         return False
 
-    schema, handler_name = event_info  # ✅ Unpack Schema and Handler Name
+    schema, handler_name = event_info  # Unpack Schema and Handler Name
 
-    handler = globals().get(handler_name)  # ✅ Get function dynamically
+    handler = globals().get(handler_name)  # Get function dynamically
     if not handler:
         logger.error(f"❌ Handler function '{handler_name}' not found in globals()")
         return False

@@ -46,16 +46,16 @@ DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
 DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
 DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
 
-# ✅ Configure the logger
+# Configure the logger
 logger = logging.getLogger("uvicorn.error")
 
-# ✅ Apply custom format with colors
+# Apply custom format with colors
 formatter = ColorFormatter(
     "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     datefmt=config.APP_LOG_TIME_FORMAT
 )
 
-# ✅ Apply format to all Uvicorn handlers
+# Apply format to all Uvicorn handlers
 for handler in logging.getLogger("uvicorn").handlers:
     handler.setFormatter(formatter)
 
@@ -65,7 +65,7 @@ printer_manager = PrinterManager()
 # Heat API
 heat_api_client: HeatAPIClient = None
 
-# ✅ Initialize Firebot API Client
+# Initialize Firebot API Client
 firebot = FirebotAPI(config.FIREBOT_API_URL)
 
 templates = Jinja2Templates(directory="templates")
@@ -74,7 +74,7 @@ templates = Jinja2Templates(directory="templates")
 connected_clients = []
 clicks: List[ClickData] = []
 
-# ✅ Create an async queue for event sharing
+# Create an async queue for event sharing
 event_queue = asyncio.Queue()
 
 # Required for Startup and Shutdown
@@ -188,7 +188,7 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
     Endpoint to send data to the overlay via WebSocket.
     Ensures errors in event processing do not trigger a broadcast.
     """
-    all_success = True  # ✅ Track success
+    all_success = True  # Track success
 
     try:
         for event_type, event_data in payload.model_dump().items():
@@ -197,9 +197,9 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
                 logger.info(f"🔍 handle_event() returned: {success}")
                 if not success:
                     logger.error(f"❌ Event failed: {event_type}")
-                    all_success = False  # ✅ Mark failure
+                    all_success = False  # Mark failure
 
-        # ✅ Only broadcast if all events succeeded
+        # Only broadcast if all events succeeded
         if all_success:
             await broadcast_message(payload.model_dump())
             logger.info(f"📡 Data broadcasted to overlay: {payload.model_dump()}")
@@ -230,7 +230,7 @@ async def get_overlay_data():
         "goal_target": get_data("goal_target") or "None"
     }
 
-# ✅ Background task to process queue events
+# Background task to process queue events
 async def process_queue():
     """ Continuously processes events from the queue """
     while True:
@@ -238,7 +238,7 @@ async def process_queue():
 
         logger.info(f"📥 Processing event from queue: {data}")
 
-        # ✅ Ensure data is correctly accessed as a dictionary
+        # Ensure data is correctly accessed as a dictionary
         if "heat_click" in data:
             click_event = data["heat_click"]  # Extract nested dictionary
 
@@ -362,7 +362,7 @@ async def add_clickable_object(obj: ClickableObject):
     if object_id in CLICKABLE_OBJECTS:
         return {"status": "error", "message": f"Clickable object {object_id} already exists"}
 
-    # ✅ Ensure we store a dictionary, not a Pydantic model
+    # Ensure we store a dictionary, not a Pydantic model
     CLICKABLE_OBJECTS[object_id] = obj.model_dump()
     update_clickable_objects(CLICKABLE_OBJECTS)
 
@@ -372,7 +372,7 @@ async def remove_clickable_object(object_id: str):
     if object_id not in CLICKABLE_OBJECTS:
         return {"status": "error", "message": f"Clickable object '{object_id}' not found"}
 
-    # ✅ Remove from CLICKABLE_OBJECTS dictionary
+    # Remove from CLICKABLE_OBJECTS dictionary
     removed_obj = CLICKABLE_OBJECTS.pop(object_id)
     update_clickable_objects(CLICKABLE_OBJECTS)
 

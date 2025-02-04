@@ -43,7 +43,7 @@ class HtmlSchema(BaseModel):
 
 class ClickableObject(BaseModel):
     action: str # add/remove
-    object_id: str  # ✅ Unique identifier for the object
+    object_id: str  # Unique identifier for the object
     x: int
     y: int
     width: int

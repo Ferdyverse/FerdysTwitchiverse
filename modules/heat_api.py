@@ -27,11 +27,11 @@ class HeatAPIClient:
 
     async def connect(self):
         """Connects to the Twitch Heat API WebSocket and sends data to connected clients."""
-        while True:  # 🔄 Auto-reconnect if disconnected
+        while True:
             try:
                 logger.info(f"🔗 Connecting to Heat API WebSocket: {self.heat_api_url}")
 
-                async with websockets.connect(self.heat_api_url, ping_interval=30) as ws:  # ✅ Ping alle 30 Sekunden
+                async with websockets.connect(self.heat_api_url, ping_interval=30) as ws:  # Ping alle 30 Sekunden
                     logger.info(f"✅ Connected to Heat API for channel {self.channel_id}")
 
                     # Start background ping task
@@ -69,7 +69,7 @@ class HeatAPIClient:
 
             except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError) as e:
                 logger.error(f"❌ WebSocket connection error: {e}. Retrying in 5 seconds...")
-                await asyncio.sleep(5)  # 🔄 Retry after delay
+                await asyncio.sleep(5)  # Retry after delay
             except Exception as e:
                 logger.error(f"❌ Unexpected WebSocket error: {e}")
                 await asyncio.sleep(5)  # Retry in case of unexpected failure
@@ -78,7 +78,7 @@ class HeatAPIClient:
         """Send periodic ping messages to keep the connection alive."""
         try:
             while True:
-                await asyncio.sleep(120)  # ✅ Send ping every 120 seconds
+                await asyncio.sleep(120)  # Send ping every 120 seconds
                 await ws.ping()
                 logger.info("📡 Sent WebSocket ping to Heat API")
         except Exception as e:

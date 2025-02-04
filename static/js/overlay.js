@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 
 let spaceObjects = [];
 
-// ✅ Fetch and create clickable objects
+// Fetch and create clickable objects
 async function loadClickableObjects() {
     try {
         const response = await fetch(`${backendURL}/get-clickable-objects`);
@@ -23,7 +23,7 @@ async function loadClickableObjects() {
     }
 }
 
-// ✅ Function to create a new clickable element with FIXED position
+// Function to create a new clickable element with FIXED position
 function createClickableElement(id, obj) {
     const container = document.getElementById("overlay");
 
@@ -51,7 +51,7 @@ function createClickableElement(id, obj) {
     console.log(`✅ Clickable element created: ${id}`);
 }
 
-// ✅ Function to remove an element from the overlay
+// Function to remove an element from the overlay
 function removeClickableElement(id) {
     const element = document.getElementById(id);
     if (element) {
@@ -60,5 +60,5 @@ function removeClickableElement(id) {
     }
 }
 
-// ✅ Load initial objects when overlay loads
+// Load initial objects when overlay loads
 window.onload = loadClickableObjects;
