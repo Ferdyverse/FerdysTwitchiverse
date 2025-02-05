@@ -8,3 +8,5 @@ jinja2
 sqlite-utils
 httpx
 argparse
+python-dotenv
+twitchAPI

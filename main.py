@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -15,6 +15,8 @@ import logging
 from typing import Any, List
 import asyncio
 import os
+import requests
+import json
 
 # Own modules
 from modules.printer_manager import PrinterManager
@@ -23,6 +25,8 @@ from modules.db_manager import init_db, get_data, get_planets
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
 from modules import event_handlers
+from modules.twitch_api import TwitchAPI
+from modules.twitch_chat import TwitchChatBot
 import config
 
 # ✅ ANSI escape codes for colors
@@ -45,6 +49,7 @@ class ColorFormatter(logging.Formatter):
 DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
 DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
 DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
+DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
 
 # Configure the logger
 logger = logging.getLogger("uvicorn.error")
@@ -68,6 +73,10 @@ heat_api_client: HeatAPIClient = None
 # Initialize Firebot API Client
 firebot = FirebotAPI(config.FIREBOT_API_URL)
 
+# Global variable for the Twitch module
+twitch_api = None
+twitch_chat = TwitchChatBot(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, config.TWITCH_CHANNEL)
+
 templates = Jinja2Templates(directory="templates")
 
 # Keep track of connected clients
@@ -82,12 +91,12 @@ event_queue = asyncio.Queue()
 async def lifespan(app: FastAPI):
     """
     Lifecycle event manager for the FastAPI application.
-    Initializes the database and printer manager on startup and shuts them down on exit.
+    Initializes modules and ensures Twitch authentication does not block startup.
     """
     logger.info("Initializing modules")
     try:
         init_db()
-        asyncio.create_task(process_queue())  # Run in background
+        asyncio.create_task(process_queue())  # Run queue processor in background
 
         if not DISABLE_PRINTER:
             printer_manager.initialize()
@@ -109,18 +118,29 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("🚫 Firebot API is disabled.")
 
-        yield  # The app is running
+        if not DISABLE_TWITCH:
+            global twitch_api
+            global twitch_chat
+            twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
+            asyncio.create_task(twitch_chat.start_chat())
+
+        yield  # ✅ FastAPI starts without blocking!
+
     except Exception as e:
         logger.error(f"Error during lifespan: {e}")
         yield
     finally:
         logger.info("Shutting down modules")
+
         if not DISABLE_PRINTER:
             printer_manager.shutdown()
 
         if not DISABLE_HEAT_API and heat_api_client:
             heat_api_client.stop()
 
+        if not DISABLE_TWITCH and twitch_chat:
+            logger.info("🛑 Stopping Twitch ChatBot...")
+            await twitch_chat.stop()
 
 # App config
 app = FastAPI(
@@ -237,6 +257,14 @@ async def process_queue():
         data = await event_queue.get()
 
         logger.info(f"📥 Processing event from queue: {data}")
+
+        if "command" in data:
+            command = data["command"]
+            user = data["user"]
+
+            if command == "print":
+                logger.info(f"🖨️ Printing triggered by {user}")
+                await broadcast_message({"message": f"Printing triggered by {user}"})
 
         # Ensure data is correctly accessed as a dictionary
         if "heat_click" in data:
@@ -413,17 +441,68 @@ async def test_debug(payload: Any = Body(...)):
         logger.error(f"❌ Error in /debug: {e}")
         raise HTTPException(status_code=500, detail="Failed to send debug data")
 
+@app.get("/auth")
+async def auth_callback(request: Request, code: str = Query(None)):
+    """
+    Handles the OAuth callback from Twitch. Exchanges the authorization code for an access token.
+    Automatically starts the Twitch chat bot if authentication succeeds.
+    """
+    if not code:
+        return {"error": "Authorization failed. No code received."}
+
+    logger.info(f"✅ Received OAuth code: {code}")
+
+    payload = {
+        "client_id": config.TWITCH_CLIENT_ID,
+        "client_secret": config.TWITCH_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": "http://localhost:8000/auth",
+    }
+
+    response = requests.post(config.TWITCH_TOKEN_URL, data=payload)
+    token_data = response.json()
+
+    if "access_token" in token_data:
+        access_token = token_data["access_token"]
+        refresh_token = token_data["refresh_token"]
+        save_tokens(access_token, refresh_token)
+
+        logger.info("✅ Authentication successful. Restarting Twitch chat bot...")
+
+        # ✅ Restart Twitch bot after successful authentication
+        if twitch_chat.is_running:
+            await twitch_chat.stop()
+        asyncio.create_task(twitch_chat.initialize())  # Restart bot with new tokens
+
+        return {"message": "Authentication successful! Twitch bot is restarting."}
+
+    else:
+        logger.error(f"❌ Failed to exchange OAuth code: {token_data}")
+        return {"error": "Failed to get access token", "details": token_data}
 
 @app.get(
     "/",
     summary="API home",
     description="Provides links to the API documentation, overlay, and status endpoints.",
-    response_description="Links to API resources."
-)
-@app.get("/", response_class=HTMLResponse)
+    response_description="Links to API resources.",
+    response_class=HTMLResponse)
 async def homepage(request: Request):
     """Serve the API Overview Homepage."""
     return templates.TemplateResponse("homepage.html", {"request": request})
+
+def save_tokens(access_token, refresh_token):
+    """Save Twitch tokens to a config file."""
+    with open("twitch_tokens.json", "w") as f:
+        json.dump({"access_token": access_token, "refresh_token": refresh_token}, f)
+
+def load_tokens():
+    """Load Twitch tokens from a config file."""
+    try:
+        with open("twitch_tokens.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
 
 if __name__ == "__main__":
     uvicorn.run(

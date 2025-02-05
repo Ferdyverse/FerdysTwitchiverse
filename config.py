@@ -1,4 +1,8 @@
 # config.py
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # App configuration
 APP_HOST = "0.0.0.0"
@@ -14,8 +18,12 @@ PRINTER_OUT_EP = 0x02
 PRINTER_PROFILE = "TH230"
 
 # Twitch Channel STUFF
+TWITCH_CHANNEL = "Ferdyverse"
 TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
 # TWITCH_CHANNEL_ID = 549112855 # Jvpeek
+TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 
 # FIREBOT
 FIREBOT_API_URL = "http://localhost:7472/api/v1"

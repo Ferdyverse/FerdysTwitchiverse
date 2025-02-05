@@ -175,3 +175,5 @@ cython_debug/
 .vscode
 data.db
 *.webm
+
+twitch_tokens.json
