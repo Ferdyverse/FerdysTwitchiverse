@@ -26,10 +26,9 @@ class TwitchAPI:
         if not self.twitch:
             raise Exception("❌ Twitch API not initialized.")
 
-        # ✅ Ensure at least one valid identifier is provided
         if not username and not user_id:
             logger.error("❌ get_user_info() called without a username or user_id!")
-            return None  # ❌ Do not make an API call if both are missing
+            return None
 
         try:
             # ✅ Filter out None values before making the API request

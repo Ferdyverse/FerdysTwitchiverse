@@ -283,7 +283,9 @@ async def process_queue():
             if user.startswith("A") or user.startswith("U"):
                 real_user = "Anonymous" if user.startswith("A") else "Unverified"
             else:
-                real_user = firebot.get_username(user)
+                # real_user = firebot.get_username(user)
+                real_user = await twitch_api.get_user_info(user_id=user)
+                real_user = real_user.display_name
 
             logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
 

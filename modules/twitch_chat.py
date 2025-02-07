@@ -79,7 +79,7 @@ class TwitchChatBot:
             # Register event handlers
             self.chat.register_event(ChatEvent.READY, self.on_ready)
             self.chat.register_event(ChatEvent.MESSAGE, self.on_message)
-            self.chat.register_command("print", self.on_command_print)
+            # self.chat.register_command("print", self.on_command_print)
 
             logger.info("🚀 Starting Twitch chat bot...")
             self.chat.start()
@@ -136,7 +136,7 @@ class TwitchChatBot:
         # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        # Schedule message removal after 19s (15s + 4s fade)
+        # Schedule message removal after 19s (15s + 4s fade)w
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
 
     async def remove_message_after_delay(self, message_id, delay):
