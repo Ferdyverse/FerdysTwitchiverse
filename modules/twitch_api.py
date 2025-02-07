@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from twitchAPI.twitch import Twitch
 from twitchAPI.helper import first
@@ -21,13 +20,28 @@ class TwitchAPI:
             logger.error(f"❌ Error initializing Twitch API: {e}")
             raise
 
-    async def get_user_info(self, username: str):
-        """Retrieve Twitch user info"""
+    async def get_user_info(self, username: str = None, user_id: str = None):
+        """Retrieve Twitch user info by username or user_id"""
+
         if not self.twitch:
             raise Exception("❌ Twitch API not initialized.")
+
+        # ✅ Ensure at least one valid identifier is provided
+        if not username and not user_id:
+            logger.error("❌ get_user_info() called without a username or user_id!")
+            return None  # ❌ Do not make an API call if both are missing
+
         try:
-            users = await self.twitch.get_users(logins=[username])
-            return first(users)
+            # ✅ Filter out None values before making the API request
+            params = {}
+            if username:
+                params["logins"] = [username]
+            if user_id:
+                params["user_ids"] = [user_id]
+
+            async for users in self.twitch.get_users(**params):
+                return users
+
         except Exception as e:
-            logger.error(f"❌ Error fetching user info for {username}: {e}")
+            logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
             return None

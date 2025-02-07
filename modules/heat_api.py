@@ -80,9 +80,10 @@ class HeatAPIClient:
             while True:
                 await asyncio.sleep(120)  # Send ping every 120 seconds
                 await ws.ping()
-                logger.info("📡 Sent WebSocket ping to Heat API")
+                logger.debug("📡 Sent WebSocket ping to Heat API")
         except Exception as e:
             logger.warning(f"⚠️ Ping failed: {e}")
+            await self.connect()
 
     def start(self):
         """Starts the WebSocket listener asynchronously."""

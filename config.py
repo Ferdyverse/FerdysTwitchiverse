@@ -24,6 +24,7 @@ TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
 TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
+TOKEN_FILE = "twitch_tokens.json"
 
 # FIREBOT
 FIREBOT_API_URL = "http://localhost:7472/api/v1"

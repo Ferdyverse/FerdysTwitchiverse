@@ -20,7 +20,8 @@ import json
 
 # Own modules
 from modules.printer_manager import PrinterManager
-from modules.schemas import PrintRequest, OverlayMessage, ClickData, ClickableObject
+from modules.websocket_handler import websocket_endpoint, broadcast_message
+from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
 from modules.db_manager import init_db, get_data, get_planets
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
@@ -29,22 +30,37 @@ from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
 import config
 
-# ✅ ANSI escape codes for colors
-LOG_COLORS = {
-    "DEBUG": "\033[94m",    # Blue
-    "INFO": "\033[92m",     # Green
-    "WARNING": "\033[93m",  # Yellow
-    "ERROR": "\033[91m",    # Red
-    "CRITICAL": "\033[91;1m",  # Bold Red
-    "RESET": "\033[0m",     # Reset color
+# ✅ ANSI escape codes for module-based colors
+MODULE_COLORS = {
+    "twitch_api": "\033[95m",  # Purple
+    "twitch_chat": "\033[94m",  # Blue
+    "heat_api": "\033[93m",  # Yellow
+    "firebot_api": "\033[92m",  # Green
+    "printer_manager": "\033[96m",  # Cyan
+    "uvicorn.error": "\033[91m",  # Red (Uvicorn errors)
 }
 
+# ✅ Reset color
+RESET_COLOR = "\033[0m"
+
 class ColorFormatter(logging.Formatter):
-    """Custom formatter to add colors to log levels."""
+    """Custom formatter to apply colors based on module names only."""
+
     def format(self, record):
-        log_color = LOG_COLORS.get(record.levelname, LOG_COLORS["RESET"])
+        # ✅ Get color based on module (default to white)
+        module_color = MODULE_COLORS.get(record.module, "\033[97m")
+
         log_message = super().format(record)
-        return f"{log_color}{log_message}{LOG_COLORS['RESET']}"
+
+        return f"{module_color}{log_message}{RESET_COLOR}"
+
+# ✅ Apply to all Uvicorn and custom loggers
+formatter = ColorFormatter(
+    "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
+    datefmt=config.APP_LOG_TIME_FORMAT)
+
+for handler in logging.getLogger("uvicorn").handlers:
+    handler.setFormatter(formatter)
 
 DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
 DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
@@ -53,12 +69,6 @@ DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
 
 # Configure the logger
 logger = logging.getLogger("uvicorn.error")
-
-# Apply custom format with colors
-formatter = ColorFormatter(
-    "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-    datefmt=config.APP_LOG_TIME_FORMAT
-)
 
 # Apply format to all Uvicorn handlers
 for handler in logging.getLogger("uvicorn").handlers:
@@ -73,18 +83,18 @@ heat_api_client: HeatAPIClient = None
 # Initialize Firebot API Client
 firebot = FirebotAPI(config.FIREBOT_API_URL)
 
+# Create an async queue for event sharing
+event_queue = asyncio.Queue()
+
 # Global variable for the Twitch module
 twitch_api = None
-twitch_chat = TwitchChatBot(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, config.TWITCH_CHANNEL)
+twitch_chat = TwitchChatBot(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, config.TWITCH_CHANNEL, event_queue)
 
 templates = Jinja2Templates(directory="templates")
 
 # Keep track of connected clients
 connected_clients = []
 clicks: List[ClickData] = []
-
-# Create an async queue for event sharing
-event_queue = asyncio.Queue()
 
 # Required for Startup and Shutdown
 @asynccontextmanager
@@ -122,9 +132,10 @@ async def lifespan(app: FastAPI):
             global twitch_api
             global twitch_chat
             twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
+            await twitch_api.initialize()
             asyncio.create_task(twitch_chat.start_chat())
 
-        yield  # ✅ FastAPI starts without blocking!
+        yield
 
     except Exception as e:
         logger.error(f"Error during lifespan: {e}")
@@ -138,7 +149,7 @@ async def lifespan(app: FastAPI):
         if not DISABLE_HEAT_API and heat_api_client:
             heat_api_client.stop()
 
-        if not DISABLE_TWITCH and twitch_chat:
+        if not DISABLE_TWITCH and twitch_chat.is_running:
             logger.info("🛑 Stopping Twitch ChatBot...")
             await twitch_chat.stop()
 
@@ -156,6 +167,9 @@ app = FastAPI(
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Add the WebSocket route
+app.add_api_websocket_route("/ws", websocket_endpoint)
+
 @app.get(
     "/overlay",
     response_class=HTMLResponse,
@@ -167,35 +181,6 @@ def overlay(request: Request):
     Endpoint to serve the OBS overlay HTML page.
     """
     return templates.TemplateResponse("overlay.html", {"request": request})
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket connection to communicate with the frontend overlay in real-time.
-    Keeps the connection alive and allows broadcasting data.
-    """
-    await websocket.accept()
-    connected_clients.append(websocket)
-    try:
-        while True:
-            # Keep the WebSocket connection alive
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
-        connected_clients.remove(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        connected_clients.remove(websocket)
-
-async def broadcast_message(message: Any):
-    """
-    Sends a message to all connected WebSocket clients.
-    """
-    for client in connected_clients:
-        try:
-            await client.send_json(message)
-        except Exception as e:
-            logger.error(f"Error sending message: {e}")
 
 @app.post(
     "/send-to-overlay",
@@ -261,10 +246,30 @@ async def process_queue():
         if "command" in data:
             command = data["command"]
             user = data["user"]
+            user_id = data["user_id"]
+
+            user_data = await twitch_api.get_user_info(user_id=user_id)
 
             if command == "print":
-                logger.info(f"🖨️ Printing triggered by {user}")
-                await broadcast_message({"message": f"Printing triggered by {user}"})
+                message = data.get("message", "")
+                logger.info(f"🖨️ Printing requested by {user}: {message}")
+
+                print_request = PrintRequest(
+                    print_elements=[
+                        PrintElement(type="headline_1", text="Chatogram"),
+                        PrintElement(type="image", url=user_data.profile_image_url),
+                        PrintElement(type="headline_2", text=user),
+                        PrintElement(type="message", text=message)
+                    ],
+                    print_as_image=True
+                )
+
+                try:
+                    response = await print_data(print_request)  # Call print_data with our constructed request
+                    logger.info(f"🖨️ Print status: {response}")
+                except Exception as e:
+                    logger.error(f"❌ Error in printing from Twitch command: {e}")
+                # await broadcast_message({"message": f"Printing triggered by {user}"})
 
         # Ensure data is correctly accessed as a dictionary
         if "heat_click" in data:
@@ -470,7 +475,7 @@ async def auth_callback(request: Request, code: str = Query(None)):
 
         logger.info("✅ Authentication successful. Restarting Twitch chat bot...")
 
-        # ✅ Restart Twitch bot after successful authentication
+        # Restart Twitch bot after successful authentication
         if twitch_chat.is_running:
             await twitch_chat.stop()
         asyncio.create_task(twitch_chat.initialize())  # Restart bot with new tokens
@@ -493,16 +498,8 @@ async def homepage(request: Request):
 
 def save_tokens(access_token, refresh_token):
     """Save Twitch tokens to a config file."""
-    with open("twitch_tokens.json", "w") as f:
+    with open(config.TOKEN_FILE, "w") as f:
         json.dump({"access_token": access_token, "refresh_token": refresh_token}, f)
-
-def load_tokens():
-    """Load Twitch tokens from a config file."""
-    try:
-        with open("twitch_tokens.json", "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
 
 if __name__ == "__main__":
     uvicorn.run(

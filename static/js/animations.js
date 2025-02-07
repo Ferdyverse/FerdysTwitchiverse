@@ -1,6 +1,7 @@
 const lastFollowerElement = document.getElementById("last-follower");
 const lastSubscriberElement = document.getElementById("last-subscriber");
 const customMessageElement = document.getElementById("cm_scrolling");
+const chatContainer = document.getElementById("chat-container");
 const overlayElement = document.getElementById("overlay");
 
 // Function to update scrolling messages
@@ -46,7 +47,7 @@ function updateGoal(text, current, goal) {
     const goalText = goalBox.querySelector('span');
 
     // If there is valid data, update the goal and show the box
-    if (current !== null && goal !== null) {
+    if ((current !== null && goal !== null && goal !== 0)) {
         const percentage = Math.min((current / goal) * 100, 100); // Cap at 100%
         progressBar.style.width = percentage + '%'; // Update progress bar width
         goalText.textContent = `${text} ${current} / ${goal}`; // Update text
@@ -360,13 +361,49 @@ function showSubBanner(user) {
     }, 6000)
 }
 
+function updateChat(messages) {
+    const chatContainer = document.getElementById("chat-container");
+
+    // Remove excess messages to maintain a max of 5
+    while (messages.length > 5) {
+        messages.shift();
+    }
+
+    chatContainer.innerHTML = ""; // Clear chat container before updating
+
+    messages.forEach((msg) => {
+        const chatMessage = document.createElement("div");
+        chatMessage.className = "chat-message";
+        chatMessage.id = `msg-${msg.id}`;
+
+        chatMessage.innerHTML = `
+            <div class="chat-content">
+                <p class="chat-user">${msg.user}</p>
+                <p class="chat-text">${msg.message}</p>
+            </div>
+        `;
+
+        chatContainer.appendChild(chatMessage);
+
+        // Ensure messages always appear at the bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Start fade-out timer for each message
+        setTimeout(() => {
+            chatMessage.style.transition = "opacity 4s ease-out";
+            chatMessage.style.opacity = "0";
+            setTimeout(() => chatMessage.remove(), 4000); // Remove after fade-out
+        }, 15000); // ✅ 15s delay before fade-out starts
+    });
+}
+
 // Fetch initial data for the top bar
 fetch("/overlay-data")
     .then((response) => response.json())
     .then((data) => {
         updateTopBar("follower", data.last_follower || "None");
         updateTopBar("subscriber", data.last_subscriber || "None");
-        if (data.goal_text != "None") {
+        if (data.goal_text != "None" && data.goal_target != 0) {
             updateGoal(data.goal_text, data.goal_current, data.goal_target);
         } else {
             updateGoal(null, null, null);

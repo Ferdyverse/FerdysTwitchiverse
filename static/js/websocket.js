@@ -62,8 +62,10 @@ function connectWebSocket() {
             const { action, user, x, y} = data.hidden
             if (action === "found") {
                 triggerStarExplosion(x, y)
-                updateTopBar("message", `${user} hat eine Sternenexplosion ausgelöst!`);
+                updateTopBar("message", `${user} hat etwas gefunden!`);
             }
+        } else if (data.chat) {
+            updateChat(data.chat);
         } else {
             console.warn("Unknown data format received:", data);
         }

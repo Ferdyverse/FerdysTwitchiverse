@@ -159,7 +159,8 @@ class PrinterManager:
         # Setup fonts. Attempt to load TrueType fonts, falling back to the default if unavailable.
         try:
             mona = "static/webfonts/MonaspiceRnNerdFontMono-Regular.otf"  # Ensure this is a string.
-            default_font = ImageFont.truetype(mona, 20)
+            noto = "static/webfonts/NotoSansMono-Regular.ttf"
+            default_font = ImageFont.truetype(noto, 20)
             headline_font_1 = ImageFont.truetype(mona, 28)
             headline_font_2 = ImageFont.truetype(mona, 26)
         except Exception as e:
