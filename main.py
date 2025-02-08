@@ -87,7 +87,7 @@ firebot = FirebotAPI(config.FIREBOT_API_URL)
 event_queue = asyncio.Queue()
 
 # Global variable for the Twitch module
-twitch_api = None
+twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
 twitch_chat = TwitchChatBot(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, config.TWITCH_CHANNEL, event_queue)
 
 templates = Jinja2Templates(directory="templates")
@@ -128,12 +128,17 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("🚫 Firebot API is disabled.")
 
-        if not DISABLE_TWITCH:
+        logger.info(f"ta: {config.TWITCH_CLIENT_ID}")
+
+        if (not DISABLE_TWITCH) and (config.TWITCH_CLIENT_ID is not None):
             global twitch_api
             global twitch_chat
-            twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
             await twitch_api.initialize()
             asyncio.create_task(twitch_chat.start_chat())
+        else:
+            if config.TWITCH_CLIENT_ID is None:
+                logger.warning("No Twitch login found!")
+            logger.info("🚫 Twitch API is disabled.")
 
         yield
 
@@ -339,21 +344,44 @@ async def print_data(request: PrintRequest):
 @app.get(
     "/state",
     summary="Get API state",
-    description="Checks the current status of the API and the printer.",
-    response_description="Returns the API and printer status."
+    description="Checks the current status of all modules (Printer, Twitch, Heat API, Firebot, etc.).",
+    response_description="Returns the API and module statuses."
 )
 async def status():
     """
-    Endpoint to check the current status of the API and printer.
-    Provides details about printer availability and operational status.
+    Dynamically fetches the status of all active modules.
     """
-    is_online = printer_manager.is_online()
+
+    # Check printer status
+    printer_status = {
+        "is_online": printer_manager.is_online(),
+        "message": "Printer is operational" if printer_manager.is_online() else "Printer is offline",
+    }
+
+    # Check Firebot status
+    firebot_status = {
+        "is_connected": firebot is not None,
+        "message": "Firebot API connected" if firebot else "Firebot API offline",
+    }
+
+    # Check Twitch API & Chat Bot
+    twitch_api_status = {
+        "is_authenticated": twitch_api is not None and twitch_api.twitch.has_required_auth([]),
+        "message": "Twitch API authenticated" if twitch_api and twitch_api.twitch.has_required_auth([]) else "Twitch API not authenticated",
+    }
+
+    twitch_chat_status = {
+        "is_running": twitch_chat is not None and twitch_chat.is_running,
+        "message": "Twitch Chat Bot running" if twitch_chat and twitch_chat.is_running else "Twitch Chat Bot offline",
+    }
+
     return {
         "status": "online",
-        "printer": {
-            "is_online": is_online,
-            "message": "Printer is operational" if is_online else "Printer is offline",
-        },
+        "printer": printer_status,
+        "heat_api": heat_api_status,
+        "firebot": firebot_status,
+        "twitch_api": twitch_api_status,
+        "twitch_chat": twitch_chat_status,
     }
 
 @app.get(
