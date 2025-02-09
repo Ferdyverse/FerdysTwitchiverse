@@ -31,6 +31,18 @@ body {
     display: none !important; /* Completely hide the element */
 }
 
+.channel_logo {
+    position: absolute;
+    top: 0px;
+    left: 50%;
+    transform: translate(-50%,-0%);
+    z-index: 9999;
+}
+
+.channel_logo img {
+    height: 100px;
+}
+
 /* General top bar styling */
 #top-bar {
     position: fixed;
@@ -52,7 +64,7 @@ body {
 #left-section {
     display: flex;
     flex-direction: row; /* Arrange items horizontally */
-    gap: 20px; /* Space between Last Follower and Last Subscriber */
+    gap: 40px; /* Space between Last Follower and Last Subscriber */
     align-items: center; /* Vertically align items */
     margin-left: 15px; /* Add spacing from the left edge */
 }
