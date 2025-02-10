@@ -18,6 +18,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS planets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date DATETIME DEFAULT current_timestamp,
         raider_name TEXT NOT NULL,
         raid_size INTEGER NOT NULL,
         angle REAL NOT NULL,
