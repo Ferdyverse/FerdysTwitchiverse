@@ -79,6 +79,7 @@ class TwitchChatBot:
             # Register event handlers
             self.chat.register_event(ChatEvent.READY, self.on_ready)
             self.chat.register_event(ChatEvent.MESSAGE, self.on_message)
+            self.chat.register_event(ChatEvent.JOIN, self.user_join)
             # self.chat.register_command("print", self.on_command_print)
 
             logger.info("🚀 Starting Twitch chat bot...")
@@ -144,3 +145,6 @@ class TwitchChatBot:
         await asyncio.sleep(delay)
         self.recent_messages = [msg for msg in self.recent_messages if msg["id"] != message_id]
         await broadcast_message({"chat": self.recent_messages})
+
+    async def user_join(self, event: EventData):
+        logger.info(event)

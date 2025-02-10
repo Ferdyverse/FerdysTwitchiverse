@@ -14,6 +14,7 @@ def init_db():
         value TEXT
     )
     """)
+
     # Create table planets
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS planets (
@@ -25,6 +26,24 @@ def init_db():
         distance REAL NOT NULL
     )
     """)
+
+    # Create table users
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at DATETIME DEFAULT current_timestamp,
+        twitch_id INTEGER NOT NULL,
+        login TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        account_type TEXT,
+        broadcaster_type TEXT,
+        profile_image_url TEXT NOT NULL,
+        account_age TEXT NOT NULL,
+        follower_date DATETIME,
+        subscriber_date DATETIME
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -57,7 +76,6 @@ def save_planet(raider_name: str, raid_size: int, angle: float, distance: float)
     """, (raider_name, raid_size, angle, distance))
     conn.commit()
     conn.close()
-
 
 def get_planets(raider_name=None):
     conn = sqlite3.connect(DB_PATH)

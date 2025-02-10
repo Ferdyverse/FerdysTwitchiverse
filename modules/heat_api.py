@@ -21,6 +21,7 @@ class HeatAPIClient:
         :param event_queue: asyncio.Queue to store events.
         """
         self.channel_id = channel_id
+        self.is_connected = False
         self.event_queue = event_queue
         self.websocket_task = None
         self.heat_api_url = f"wss://heat-api.j38.net/channel/{self.channel_id}"
@@ -36,6 +37,7 @@ class HeatAPIClient:
 
                     # Start background ping task
                     asyncio.create_task(self.send_ping(ws))
+                    self.is_connected = True
 
                     while True:
                         message = await ws.recv()
@@ -81,8 +83,10 @@ class HeatAPIClient:
                 await asyncio.sleep(120)  # Send ping every 120 seconds
                 await ws.ping()
                 logger.debug("📡 Sent WebSocket ping to Heat API")
+                self.is_connected = True
         except Exception as e:
             logger.warning(f"⚠️ Ping failed: {e}")
+            self.is_connected = False
             await self.connect()
 
     def start(self):
@@ -96,6 +100,7 @@ class HeatAPIClient:
         if self.websocket_task:
             self.websocket_task.cancel()
             self.websocket_task = None
+            self.is_connected = False
             logger.info(f"🛑 Heat API listener stopped for channel {self.channel_id}.")
 
 def process_click(data, x, y):

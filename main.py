@@ -128,12 +128,10 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("🚫 Firebot API is disabled.")
 
-        logger.info(f"ta: {config.TWITCH_CLIENT_ID}")
-
         if (not DISABLE_TWITCH) and (config.TWITCH_CLIENT_ID is not None):
             global twitch_api
             global twitch_chat
-            await twitch_api.initialize()
+            asyncio.create_task(twitch_api.initialize())
             asyncio.create_task(twitch_chat.start_chat())
         else:
             if config.TWITCH_CLIENT_ID is None:
@@ -364,10 +362,16 @@ async def status():
         "message": "Firebot API connected" if firebot else "Firebot API offline",
     }
 
+    # Check heat api status
+    heat_api_status = {
+        "is_connected": heat_api_client.is_connected,
+        "message": "Heat API is connected" if heat_api_client.is_connected else "Heat API is offline"
+    }
+
     # Check Twitch API & Chat Bot
     twitch_api_status = {
-        "is_authenticated": twitch_api is not None and twitch_api.twitch.has_required_auth([]),
-        "message": "Twitch API authenticated" if twitch_api and twitch_api.twitch.has_required_auth([]) else "Twitch API not authenticated",
+        "is_authenticated": twitch_api is not None,
+        "message": "Twitch API authenticated" if twitch_api else "Twitch API not authenticated",
     }
 
     twitch_chat_status = {
@@ -503,12 +507,12 @@ async def auth_callback(request: Request, code: str = Query(None)):
         refresh_token = token_data["refresh_token"]
         save_tokens(access_token, refresh_token)
 
-        logger.info("✅ Authentication successful. Restarting Twitch chat bot...")
+        logger.info("✅ Authentication successful. Restarting Twitch...")
 
         # Restart Twitch bot after successful authentication
         if twitch_chat.is_running:
             await twitch_chat.stop()
-        asyncio.create_task(twitch_chat.initialize())  # Restart bot with new tokens
+        asyncio.create_task(twitch_chat.start_chat())  # Restart bot with new tokens
 
         return {"message": "Authentication successful! Twitch bot is restarting."}
 
