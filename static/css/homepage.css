@@ -1,87 +1,36 @@
-/* Global Styles */
-body {
+body { font-family: Arial, sans-serif; }
+
+.container { max-width: 800px; margin: auto; padding: 20px; }
+
+.event-log { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+
+.btn { padding: 10px; margin: 5px; cursor: pointer; background: #007BFF; color: white; border: none; }
+
+.chat-box {
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #222;
+    padding: 10px;
+    border-radius: 8px;
     font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #121212;
-    color: #ffffff;
 }
 
-header {
-    background-color: #1e1e1e;
-    padding: 20px;
+.chat-message {
+    padding: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-username {
+    font-weight: bold;
+    color: #ffcc00; /* Gold usernames */
+}
+
+.chat-text {
+    color: #ddd;
+}
+
+.chat-placeholder {
+    color: #888;
     text-align: center;
-    border-bottom: 3px solid #ffcc00;
-}
-
-h1 {
-    margin: 0;
-    font-size: 2rem;
-    color: #ffcc00;
-}
-
-p {
-    font-size: 1.2rem;
-}
-
-main {
-    max-width: 900px;
-    margin: 40px auto;
-    padding: 20px;
-    background-color: #1e1e1e;
-    border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(255, 204, 0, 0.2);
-}
-
-h2 {
-    border-bottom: 2px solid #ffcc00;
-    padding-bottom: 5px;
-    color: #ffcc00;
-}
-
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-ul li {
-    background-color: #252525;
-    margin: 5px 0;
     padding: 10px;
-    border-radius: 5px;
-}
-
-code {
-    background-color: #333;
-    padding: 3px 6px;
-    border-radius: 3px;
-    font-family: monospace;
-}
-
-pre {
-    background-color: #252525;
-    padding: 10px;
-    border-radius: 5px;
-    overflow-x: auto;
-}
-
-footer {
-    text-align: center;
-    padding: 20px;
-    background-color: #1e1e1e;
-    border-top: 3px solid #ffcc00;
-    margin-top: 40px;
-}
-
-/* Responsive Design */
-@media (max-width: 600px) {
-    main {
-        width: 90%;
-    }
-    h1 {
-        font-size: 1.5rem;
-    }
-    p {
-        font-size: 1rem;
-    }
 }

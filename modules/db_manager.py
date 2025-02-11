@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi import Depends
 import datetime
+import requests
 
 DATABASE_URL = "sqlite:///./data.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -126,9 +127,11 @@ def get_recent_chat_messages(db: Session, limit: int = 50):
         ChatMessage.id,
         ChatMessage.message,
         ChatMessage.timestamp,
-        Viewer.display_name.label("username")  # Get username from viewers table
+        Viewer.display_name.label("username"),
+        ChatMessage.viewer_id.label("twitch_id")
     ).join(Viewer, ChatMessage.viewer_id == Viewer.twitch_id, isouter=True) \
-    .order_by(ChatMessage.timestamp.desc()).limit(limit).all()
+    .order_by(ChatMessage.timestamp.desc()) \
+    .limit(limit).all()
 
 def save_overlay_data(key: str, value: str, db: Session):
     overlay_data = db.query(OverlayData).filter_by(key=key).first()

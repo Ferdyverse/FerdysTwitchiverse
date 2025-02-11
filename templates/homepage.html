@@ -5,13 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ferdyverse Admin Panel</title>
     <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .container { max-width: 800px; margin: auto; padding: 20px; }
-        .event-log { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
-        .chat-box { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
-        .btn { padding: 10px; margin: 5px; cursor: pointer; background: #007BFF; color: white; border: none; }
-    </style>
+    <link rel="stylesheet" href="/static/css/homepage.css">
 </head>
 <body>
     <div class="container">
@@ -49,6 +43,8 @@
             <input type="text" name="action" placeholder="Action (e.g., show_icon)" required>
             <button type="submit">Add Button</button>
         </form>
+
+        <script type="module" src="/static/js/websocket_admin.js"></script>
 
 </body>
 </html>

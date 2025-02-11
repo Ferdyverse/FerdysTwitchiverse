@@ -8,7 +8,7 @@ import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
 import { showHTML } from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
-import { updateChat, updateAdminChat } from "./modules/chat.js";
+import { updateChat } from "./modules/chat.js";
 import {
   createClickableElement,
   removeClickableElement,
@@ -34,29 +34,35 @@ function connectWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.alert) {
-      const { type, user, size } = data.alert;
+      const { type, user } = data.alert;
 
       // Update top bar and show alert
       if (type === "follower") {
         updateTopBar("follower", user);
-        showAlertWithGSAP(type, user, size);
+        showAlertWithGSAP(type, user, data.alert.size);
       } else if (type === "subscriber") {
         updateTopBar("subscriber", user);
         updateTopBar("message", "NEW SUBSCRIBER!");
         showSubBanner(user);
       } else if (type === "gift_sub") {
-        updateTopBar("message", `${user} gifted ${size} subs!`);
-        showSubBanner(user);
+        updateTopBar("message", `${user} hat ${data.alert.size} subs verschenkt!`);
+        showSubBanner(`${user} hat ${data.alert.size} subs verschenkt!`);
       } else if (type === "raid") {
         updateTopBar("message", "Something changed in the Ferdyverse!");
         showURL(
           "http://localhost:8000/raid",
-          { raider: user, viewers: size },
+          { raider: user, viewers: data.alert.size },
           27000
         );
       } else if (type === "redemption") {
         updateTopBar("message", `${user} redeemed: ${data.alert.message}`);
-        showAlertWithGSAP(type, user, size);
+        showAlertWithGSAP(type, user, data.alert.size);
+      } else if (type === "subscription_message") {
+        updateTopBar("subscriber", user);
+        updateTopBar("message", data.alert.message);
+        showSubBanner(user);
+      } else if (type === "cheer") {
+        showCheerAnimation(data.alert.user, data.alert.bits, data.alert.message);
       }
     } else if (data.message) {
       // Update custom message
@@ -89,13 +95,7 @@ function connectWebSocket() {
       }
     } else if (data.chat) {
       updateChat(data.chat);
-    } else if (data.admin_chat) {
-      const { username, message } = data.admin_chat;
-      updateAdminChat(username, message);
-    } else if (data.admin_alert && data.admin_alert.type === "ad_break") {
-      startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
-    }
-    if (data.overlay_event) {
+    } else if (data.overlay_event) {
       const { action, data: payload } = data.overlay_event;
       handleOverlayAction(action, payload);
     } else {

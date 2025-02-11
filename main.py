@@ -31,6 +31,7 @@ from modules import event_handlers
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
 from modules.admin import router as admin_router
+from modules.misc import save_tokens
 import config
 
 # ✅ ANSI escape codes for module-based colors
@@ -484,8 +485,8 @@ async def test_debug(payload: Any = Body(...)):
         logger.error(f"❌ Error in /debug: {e}")
         raise HTTPException(status_code=500, detail="Failed to send debug data")
 
-@app.get("/auth")
-async def auth_callback(request: Request, code: str = Query(None)):
+@app.get("/auth/{scope}")
+async def auth_callback(scope: str, request: Request, code: str = Query(None)):
     """
     Handles the OAuth callback from Twitch. Exchanges the authorization code for an access token.
     Automatically starts the Twitch chat bot if authentication succeeds.
@@ -500,7 +501,7 @@ async def auth_callback(request: Request, code: str = Query(None)):
         "client_secret": config.TWITCH_CLIENT_SECRET,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": "http://localhost:8000/auth",
+        "redirect_uri": f"http://localhost:8000/auth/{scope}",
     }
 
     response = requests.post(config.TWITCH_TOKEN_URL, data=payload)
@@ -509,14 +510,19 @@ async def auth_callback(request: Request, code: str = Query(None)):
     if "access_token" in token_data:
         access_token = token_data["access_token"]
         refresh_token = token_data["refresh_token"]
-        save_tokens(access_token, refresh_token)
+        save_tokens(scope, access_token, refresh_token)
 
         logger.info("✅ Authentication successful. Restarting Twitch...")
 
         # Restart Twitch bot after successful authentication
-        if twitch_chat.is_running:
-            await twitch_chat.stop()
-        asyncio.create_task(twitch_chat.start_chat())  # Restart bot with new tokens
+        if scope == "chat":
+            if twitch_chat.is_running:
+                await twitch_chat.stop()
+            asyncio.create_task(twitch_chat.start_chat())  # Restart bot with new tokens
+        elif scope == "api":
+            if twitch_api.is_running:
+                await twitch_api.stop()
+            asyncio.create_task(twitch_api.initialize())
 
         return {"message": "Authentication successful! Twitch bot is restarting."}
 
@@ -548,7 +554,29 @@ async def get_chat_messages(db: Session = Depends(get_db)):
     Retrieve the last 50 chat messages from the database.
     """
     messages = get_recent_chat_messages(db)
-    return [{"username": msg.username, "message": msg.message} for msg in reversed(messages)]
+
+    if not messages:
+        return "<p class='chat-placeholder'>No messages yet...</p>"
+
+    chat_html = ""
+
+    for msg in reversed(messages):
+        if msg.username:
+            username = msg.username
+        else:
+            # ✅ Fetch user info safely
+            user = await twitch_api.get_user_info(user_id=msg.viewer_id)
+
+            if user and isinstance(user, dict) and "display_name" in user:
+                username = user["display_name"]
+            elif isinstance(user, list) and user:
+                username = user[0]["display_name"]
+            else:
+                username = "Unknown"
+
+        chat_html += f"<div class='chat-message'><span class='chat-username'>{username}</span>: <span class='chat-text'>{msg.message}</span></div>"
+
+    return chat_html
 
 @app.get("/events/")
 def get_events(db: Session = Depends(get_db)):
@@ -559,12 +587,15 @@ def get_events(db: Session = Depends(get_db)):
     return [{"event_type": event.event_type, "username": event.username, "message": event.message, "timestamp": event.timestamp} for event in reversed(events)]
 
 @app.get("/viewers/{twitch_id}")
-def get_viewer(twitch_id: int, db: Session = Depends(get_db)):
+async def get_viewer(twitch_id: int, db: Session = Depends(get_db)):
     """Fetch viewer data along with stats."""
     viewer_data = get_viewer_stats(twitch_id, db)
 
     if not viewer_data:
-        raise HTTPException(status_code=404, detail="Viewer not found")
+        try:
+            await twitch_api.get_user_info(user_id=twitch_id)
+        except:
+            raise HTTPException(status_code=404, detail="Viewer not found")
 
     return viewer_data
 
@@ -588,11 +619,6 @@ def get_viewer_stats_endpoint(twitch_id: int, db: Session = Depends(get_db)):
 async def homepage(request: Request):
     """Serve the API Overview Homepage."""
     return templates.TemplateResponse("homepage.html", {"request": request})
-
-def save_tokens(access_token, refresh_token):
-    """Save Twitch tokens to a config file."""
-    with open(config.TOKEN_FILE, "w") as f:
-        json.dump({"access_token": access_token, "refresh_token": refresh_token}, f)
 
 if __name__ == "__main__":
     uvicorn.run(

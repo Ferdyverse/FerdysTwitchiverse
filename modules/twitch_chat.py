@@ -1,9 +1,8 @@
 import logging
 import asyncio
 import time
-from modules.db_manager import get_db, save_chat_message, update_viewer_stats
-from sqlalchemy.orm import Session
-from fastapi import Depends
+import datetime
+from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
 from twitchAPI.oauth import UserAuthenticator
@@ -106,17 +105,36 @@ class TwitchChatBot:
             "message": cmd.parameter
         })
 
-    async def on_message(self, event: EventData, db: Session = Depends(get_db)):
+    async def on_message(self, event: EventData):
         """
         Handle incoming chat messages from Twitch, store them in the database,
         and send them to both the overlay and admin panel.
         """
+        db = next(get_db())
         username = event.user.display_name
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
         message = event.text
         stream_id = "current_stream_id"  # Replace with actual stream tracking logic
-        emotes_used = len(event.emotes)  # Count used emotes
-        is_reply = event.tags.get("reply-parent-msg-id") is not None  # Check if message is a reply
+        if event.emotes:
+            emotes_used = len(event.emotes)  # Count used emotes
+        else:
+            emotes_used = 0
+        is_reply = event.reply_parent_msg_id is not None  # Check if message is a reply
+
+        if event.first:
+            # Store viewer data
+            save_viewer(
+                twitch_id=twitch_id,
+                login=event.user.name,
+                display_name=username,
+                account_type=None,
+                broadcaster_type=None,
+                profile_image_url="",
+                account_age="",
+                follower_date=None,
+                subscriber_date=None,
+                db=db
+            )
 
         # Save chat message in the database
         save_chat_message(twitch_id, message, db)
@@ -153,6 +171,20 @@ class TwitchChatBot:
         # Schedule message removal after 19s
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
 
+        db.close()
+
+    async def send_message(self, message: str):
+        """Send a chat message as the bot."""
+        if not self.chat or not self.is_running:
+            logger.error("❌ ChatBot is not running, cannot send message.")
+            return
+
+        try:
+            await self.chat.send_message(self.twitch_channel, message)
+            logger.info(f"✅ Bot sent message to chat: {message}")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to send chat message: {e}")
 
     async def remove_message_after_delay(self, message_id, delay):
         """Remove message from list after a delay."""

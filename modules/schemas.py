@@ -68,6 +68,9 @@ class ClickData(BaseModel):
     y: int
     object_id: str = None  # Optional: Track which object was clicked
 
+class ChatMessageRequest(BaseModel):
+    message: str
+
 # Admin Buttons
 class AdminButtonCreate(BaseModel):
     label: str
