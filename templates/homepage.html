@@ -3,90 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ferdyverse API - Home</title>
-    <link rel="stylesheet" href="/static/css/homepage.css">
-    <script>
-        function copyToClipboard(element) {
-            const text = element.previousElementSibling.innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Copied to clipboard!");
-            }).catch(err => {
-                console.error("Failed to copy: ", err);
-            });
-        }
-    </script>
+    <title>Ferdyverse Admin Panel</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 800px; margin: auto; padding: 20px; }
+        .event-log { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .chat-box { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .btn { padding: 10px; margin: 5px; cursor: pointer; background: #007BFF; color: white; border: none; }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to the Ferdyverse API</h1>
-        <p>Your gateway to managing Twitch-integrated events and overlays.</p>
-    </header>
+    <div class="container">
+        <h2>Admin Panel</h2>
 
-    <main class="content-container">
-        <section>
-            <h2>API Overview</h2>
-            <p>The Ferdyverse API allows you to manage overlays, Twitch events, and more. Below are some useful endpoints.</p>
-        </section>
+        <div id="ad-countdown" style="display: none; background: red; color: white; padding: 10px; font-size: 18px;">
+            Ad break incoming...
+        </div>
 
-        <section>
-            <h2>Available Endpoints</h2>
-            <ul>
-                <li><strong>WebSocket Connection:</strong> <code>/ws</code></li>
-                <li><strong>Overlay Display:</strong> <code>/overlay</code></li>
-                <li><strong>Send Data to Overlay:</strong> <code>/send-to-overlay</code></li>
-                <li><strong>Fetch Overlay Data:</strong> <code>/overlay-data</code></li>
-                <li><strong>Manage Clickable Objects:</strong> <code>/get-clickable-objects</code></li>
-                <li><strong>Trigger Alerts:</strong> <code>/alerts</code></li>
-                <li><strong>System Status:</strong> <code>/state</code></li>
-            </ul>
-        </section>
+        <h3>Event Log</h3>
+        <div id="event-log" class="event-log" hx-get="/events/" hx-trigger="load, every 5s" hx-target="#event-log" hx-swap="innerHTML">
+            Loading events...
+        </div>
 
-        <section>
-            <h2>Useful curl Commands</h2>
+        <h3>Trigger Overlay Effects</h3>
+        <button class="btn" hx-post="/trigger-overlay/" hx-vals='{"effect": "star_animation"}'>Trigger Star Animation</button>
+        <button class="btn" hx-post="/trigger-overlay/" hx-vals='{"effect": "sound_alert"}'>Play Sound Alert</button>
+        <div id="button-container"
+            hx-get="/admin/buttons"
+            hx-trigger="load"
+            hx-target="#button-container"
+            hx-swap="outerHTML">
+        </div>
 
-            <h3>Clickable Objects</h3>
-            <h4>Add Clickable Icon</h4>
-            <pre><code>curl -X POST "http://localhost:8000/send-to-overlay" \
-     -H "Content-Type: application/json" \
-     -d '{ "clickable": {
-            "action": "add",
-            "object_id": "star-icon",
-            "x": 300,
-            "y": 400,
-            "width": 60,
-            "height": 60,
-            "iconClass": "fa-star"
-        }
-    }'</code></pre>
-            <button onclick="copyToClipboard(this)">Copy</button>
+        <h3>Live Chat</h3>
+        <div id="chat-box" class="chat-box" hx-get="/chat/" hx-trigger="load" hx-target="#chat-box" hx-swap="innerHTML"></div>
 
-            <h4>Add Clickable HTML</h4>
-            <pre><code>curl -X POST "http://localhost:8000/send-to-overlay" \
-     -H "Content-Type: application/json" \
-     -d '{ "clickable": {
-            "action": "add",
-            "object_id": "html-test",
-            "x": 400,
-            "y": 600,
-            "width": 300,
-            "height": 60,
-            "html": "Ich bin ein Test!"
-        }
-    }'</code></pre>
-            <button onclick="copyToClipboard(this)">Copy</button>
+        <!-- Form to add buttons -->
+        <form hx-post="/admin/buttons/add/"
+            hx-target="#button-container"
+            hx-swap="outerHTML"
+            hx-headers='{"Content-Type": "application/json"}'
+            hx-ext="json-enc">
+            <input type="text" name="label" placeholder="Button Label" required>
+            <input type="text" name="action" placeholder="Action (e.g., show_icon)" required>
+            <button type="submit">Add Button</button>
+        </form>
 
-            <h4>Get All Clickable Objects</h4>
-            <pre><code>curl -X GET "http://localhost:8000/get-clickable-objects"</code></pre>
-            <button onclick="copyToClipboard(this)">Copy</button>
-
-            <h4>Remove Clickable Object</h4>
-            <pre><code>curl -X DELETE "http://localhost:8000/remove-clickable-object?object_id=star-icon"</code></pre>
-            <button onclick="copyToClipboard(this)">Copy</button>
-        </section>
-    </main>
-
-    <footer>
-        <p>© 2025 Ferdyverse. All rights reserved.</p>
-    </footer>
 </body>
 </html>

@@ -10,3 +10,4 @@ httpx
 argparse
 python-dotenv
 twitchAPI
+sqlalchemy

@@ -67,3 +67,8 @@ class ClickData(BaseModel):
     x: int
     y: int
     object_id: str = None  # Optional: Track which object was clicked
+
+# Admin Buttons
+class AdminButtonCreate(BaseModel):
+    label: str
+    action: str

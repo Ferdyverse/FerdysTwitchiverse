@@ -1,31 +1,23 @@
 import logging
-import json
 import asyncio
 import time
-import config
+from modules.db_manager import get_db, save_chat_message, update_viewer_stats
+from sqlalchemy.orm import Session
+from fastapi import Depends
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
+from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_chat")
 
-
-def save_tokens(access_token, refresh_token):
-    """Save Twitch tokens to a file."""
-    with open(config.TOKEN_FILE, "w") as f:
-        json.dump({"access_token": access_token, "refresh_token": refresh_token}, f)
-
-
-def load_tokens():
-    """Load Twitch tokens from a file."""
-    try:
-        with open(config.TOKEN_FILE, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-
+scopes = [
+    AuthScope.CHAT_READ,
+    AuthScope.CHAT_EDIT,
+    AuthScope.MODERATOR_READ_CHATTERS,
+]
 
 class TwitchChatBot:
     def __init__(self, client_id: str, client_secret: str, twitch_channel: str, event_queue: asyncio.Queue):
@@ -45,7 +37,7 @@ class TwitchChatBot:
         """Authenticate with Twitch and retrieve access tokens."""
         try:
             logger.info("🔄 Checking stored tokens before authentication...")
-            tokens = load_tokens()
+            tokens = load_tokens("bot")
             if tokens:
                 self.token = tokens["access_token"]
                 self.refresh_token = tokens["refresh_token"]
@@ -55,11 +47,11 @@ class TwitchChatBot:
 
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, [AuthScope.CHAT_READ, AuthScope.CHAT_EDIT])
+                auth = UserAuthenticator(self.twitch, scopes)
                 self.token, self.refresh_token = await auth.authenticate()
-                save_tokens(self.token, self.refresh_token)
+                save_tokens("bot", self.token, self.refresh_token)
 
-            await self.twitch.set_user_authentication(self.token, [AuthScope.CHAT_READ, AuthScope.CHAT_EDIT], self.refresh_token)
+            await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
             logger.info("✅ Twitch authentication successful.")
             return True
 
@@ -114,13 +106,25 @@ class TwitchChatBot:
             "message": cmd.parameter
         })
 
-    async def on_message(self, event: EventData):
+    async def on_message(self, event: EventData, db: Session = Depends(get_db)):
         """
-        Handle incoming chat messages from Twitch and send them to the overlay.
+        Handle incoming chat messages from Twitch, store them in the database,
+        and send them to both the overlay and admin panel.
         """
         username = event.user.display_name
+        twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
         message = event.text
+        stream_id = "current_stream_id"  # Replace with actual stream tracking logic
+        emotes_used = len(event.emotes)  # Count used emotes
+        is_reply = event.tags.get("reply-parent-msg-id") is not None  # Check if message is a reply
 
+        # Save chat message in the database
+        save_chat_message(twitch_id, message, db)
+
+        # Update viewer stats (both per stream and overall)
+        update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply, db)
+
+        # Prepare message for overlay
         message_id = f"{username}_{int(time.time())}"  # Unique ID
         chat_message = {
             "id": message_id,
@@ -137,8 +141,18 @@ class TwitchChatBot:
         # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        # Schedule message removal after 19s (15s + 4s fade)w
+        # Also send chat update to admin panel (single latest message)
+        admin_chat_message = {
+            "admin_chat": {
+                "username": username,
+                "message": message
+            }
+        }
+        await broadcast_message(admin_chat_message)
+
+        # Schedule message removal after 19s
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
+
 
     async def remove_message_after_delay(self, message_id, delay):
         """Remove message from list after a delay."""
@@ -147,4 +161,4 @@ class TwitchChatBot:
         await broadcast_message({"chat": self.recent_messages})
 
     async def user_join(self, event: EventData):
-        logger.info(event)
+        logger.info(f"User: {event.user_name} joined the chat!")

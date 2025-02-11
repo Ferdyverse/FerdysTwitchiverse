@@ -1,10 +1,14 @@
 import { updateTopBar } from "./modules/topbar.js";
-import { showAlertWithGSAP, showSubBanner } from "./modules/alerts.js";
+import {
+  showAlertWithGSAP,
+  showSubBanner,
+  startAdCountdown,
+} from "./modules/alerts.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
 import { showHTML } from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
-import { updateChat } from "./modules/chat.js";
+import { updateChat, updateAdminChat } from "./modules/chat.js";
 import {
   createClickableElement,
   removeClickableElement,
@@ -40,6 +44,9 @@ function connectWebSocket() {
         updateTopBar("subscriber", user);
         updateTopBar("message", "NEW SUBSCRIBER!");
         showSubBanner(user);
+      } else if (type === "gift_sub") {
+        updateTopBar("message", `${user} gifted ${size} subs!`);
+        showSubBanner(user);
       } else if (type === "raid") {
         updateTopBar("message", "Something changed in the Ferdyverse!");
         showURL(
@@ -47,8 +54,8 @@ function connectWebSocket() {
           { raider: user, viewers: size },
           27000
         );
-      } else if (type === "donation") {
-        updateTopBar("message", "NEW DONATION!");
+      } else if (type === "redemption") {
+        updateTopBar("message", `${user} redeemed: ${data.alert.message}`);
         showAlertWithGSAP(type, user, size);
       }
     } else if (data.message) {
@@ -82,6 +89,15 @@ function connectWebSocket() {
       }
     } else if (data.chat) {
       updateChat(data.chat);
+    } else if (data.admin_chat) {
+      const { username, message } = data.admin_chat;
+      updateAdminChat(username, message);
+    } else if (data.admin_alert && data.admin_alert.type === "ad_break") {
+      startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
+    }
+    if (data.overlay_event) {
+      const { action, data: payload } = data.overlay_event;
+      handleOverlayAction(action, payload);
     } else {
       console.warn("Unknown data format received:", data);
     }
@@ -112,6 +128,19 @@ function attemptReconnect() {
   setTimeout(() => {
     connectWebSocket();
   }, delay);
+}
+
+function handleOverlayAction(action, payload) {
+  switch (action) {
+    case "show_icon":
+      addIcon(payload.id, payload.name);
+      break;
+    case "play_animation":
+      showAlertWithGSAP(payload.type, payload.user, payload.size);
+      break;
+    default:
+      console.warn("Unknown overlay action:", action);
+  }
 }
 
 // Establish WebSocket connection

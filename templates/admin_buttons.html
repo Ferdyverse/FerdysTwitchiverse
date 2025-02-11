@@ -1,0 +1,9 @@
+{% for button in buttons %}
+    <button
+        hx-delete="/admin/buttons/remove/{{ button.id }}"
+        hx-target="#button-container"
+        hx-swap="outerHTML"
+    >
+        {{ button.label }}
+    </button>
+{% endfor %}

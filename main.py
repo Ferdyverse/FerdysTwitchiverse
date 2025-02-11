@@ -6,7 +6,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi import WebSocket, WebSocketDisconnect, Body
+from fastapi import Body
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
 # Other required imports
 from contextlib import asynccontextmanager
@@ -22,12 +24,13 @@ import json
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
 from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
-from modules.db_manager import init_db, get_data, get_planets
+from modules.db_manager import init_db, get_data, get_planets, get_db, get_recent_chat_messages, get_recent_events, get_viewer_stats, save_event
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
 from modules import event_handlers
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
+from modules.admin import router as admin_router
 import config
 
 # ✅ ANSI escape codes for module-based colors
@@ -172,6 +175,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Add the WebSocket route
 app.add_api_websocket_route("/ws", websocket_endpoint)
+app.include_router(admin_router)
 
 @app.get(
     "/overlay",
@@ -226,16 +230,16 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
     description="Retrieves the last follower and subscriber from the database.",
     response_description="Returns the last follower and subscriber."
 )
-async def get_overlay_data():
+async def get_overlay_data(db: Session = Depends(get_db)):
     """
     Endpoint to fetch the most recent follower and subscriber from the database.
     """
     return {
-        "last_follower": get_data("last_follower") or "None",
-        "last_subscriber": get_data("last_subscriber") or "None",
-        "goal_text": get_data("goal_text") or "None",
-        "goal_current": get_data("goal_current") or "None",
-        "goal_target": get_data("goal_target") or "None"
+        "last_follower": get_data("last_follower", db) or "None",
+        "last_subscriber": get_data("last_subscriber", db) or "None",
+        "goal_text": get_data("goal_text", db) or "None",
+        "goal_current": get_data("goal_current", db) or "None",
+        "goal_target": get_data("goal_target", db) or "None"
     }
 
 # Background task to process queue events
@@ -519,6 +523,61 @@ async def auth_callback(request: Request, code: str = Query(None)):
     else:
         logger.error(f"❌ Failed to exchange OAuth code: {token_data}")
         return {"error": "Failed to get access token", "details": token_data}
+
+@app.post("/trigger-overlay/")
+async def trigger_overlay(action: str, data: dict, db: Session = Depends(get_db)):
+    """
+    Trigger an overlay event from the admin panel.
+    - `action`: The type of action (e.g., "show_icon", "play_animation").
+    - `data`: Any additional parameters for the action.
+    """
+    if not action:
+        raise HTTPException(status_code=400, detail="Missing action type")
+
+    # Log the action in the database (optional)
+    save_event("admin_action", None, f"Triggered overlay: {action}", db)
+
+    # Broadcast event to the overlay WebSocket
+    await broadcast_message({"overlay_event": {"action": action, "data": data}})
+
+    return {"status": "success", "message": f"Overlay triggered: {action}"}
+
+@app.get("/chat/")
+async def get_chat_messages(db: Session = Depends(get_db)):
+    """
+    Retrieve the last 50 chat messages from the database.
+    """
+    messages = get_recent_chat_messages(db)
+    return [{"username": msg.username, "message": msg.message} for msg in reversed(messages)]
+
+@app.get("/events/")
+def get_events(db: Session = Depends(get_db)):
+    """
+    Retrieve the last 50 stored events.
+    """
+    events = get_recent_events(db)
+    return [{"event_type": event.event_type, "username": event.username, "message": event.message, "timestamp": event.timestamp} for event in reversed(events)]
+
+@app.get("/viewers/{twitch_id}")
+def get_viewer(twitch_id: int, db: Session = Depends(get_db)):
+    """Fetch viewer data along with stats."""
+    viewer_data = get_viewer_stats(twitch_id, db)
+
+    if not viewer_data:
+        raise HTTPException(status_code=404, detail="Viewer not found")
+
+    return viewer_data
+
+@app.get("/viewers/{twitch_id}/stats")
+def get_viewer_stats_endpoint(twitch_id: int, db: Session = Depends(get_db)):
+    """Fetch a viewer's stats including per-stream details."""
+    viewer_data = get_viewer_stats(twitch_id, db)
+
+    if not viewer_data:
+        raise HTTPException(status_code=404, detail="Viewer not found")
+
+    return viewer_data
+
 
 @app.get(
     "/",

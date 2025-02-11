@@ -83,3 +83,20 @@ export function showSubBanner(user) {
     subBanner.remove();
   }, 6000);
 }
+
+export function startAdCountdown(duration, startTime) {
+  const countdownElement = document.getElementById("ad-countdown");
+
+  let remainingTime = duration - (Math.floor(Date.now() / 1000) - startTime);
+  countdownElement.style.display = "block"; // Show countdown
+
+  const interval = setInterval(() => {
+    if (remainingTime <= 0) {
+      clearInterval(interval);
+      countdownElement.style.display = "none"; // Hide countdown
+    } else {
+      countdownElement.innerText = `Ad break in: ${remainingTime}s`;
+      remainingTime--;
+    }
+  }, 1000);
+}
