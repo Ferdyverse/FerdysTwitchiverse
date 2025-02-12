@@ -329,6 +329,16 @@ class TwitchAPI:
             }
         })
 
+    async def send_message_as_streamer(self, message: str):
+        """
+        Sends a message to Twitch chat as the Streamer.
+        """
+        try:
+            await self.twitch.send_chat_message(self.broadcaster_id, message)
+            logger.info(f"✅ Streamer sent message: {message}")
+        except Exception as e:
+            logger.error(f"❌ Error sending message as Streamer: {e}")
+
     async def get_user_info(self, username: str = None, user_id: str = None):
         """Retrieve Twitch user info and store it in the database"""
 

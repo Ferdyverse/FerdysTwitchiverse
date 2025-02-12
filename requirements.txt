@@ -11,3 +11,4 @@ argparse
 python-dotenv
 twitchAPI
 sqlalchemy
+python-multipart

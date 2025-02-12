@@ -1,36 +1,246 @@
-body { font-family: Arial, sans-serif; }
+/* === Global Styles === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
 
-.container { max-width: 800px; margin: auto; padding: 20px; }
+body {
+    background-color: #1E1E2E;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
 
-.event-log { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+/* === Admin Panel Layout === */
+.admin-container {
+    display: flex;
+    width: 90%;
+    max-width: 1400px;
+    height: 90vh;
+    gap: 15px;
+}
 
-.btn { padding: 10px; margin: 5px; cursor: pointer; background: #007BFF; color: white; border: none; }
-
-.chat-box {
-    max-height: 400px;
+/* === Columns === */
+.admin-column {
+    flex: 1;
+    background: #282A36;
+    border-radius: 10px;
+    padding: 15px;
     overflow-y: auto;
-    background-color: #222;
+}
+
+.admin-middle {
+    flex: 2;
+}
+
+/* === Buttons & Controls === */
+#button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Button Row */
+.button-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #3B3F4E;
     padding: 10px;
     border-radius: 8px;
-    font-family: Arial, sans-serif;
+    transition: background 0.3s ease;
+}
+
+.button-row:hover {
+    background: #50546A;
+}
+
+/* Main Button */
+.main-btn {
+    flex-grow: 1;
+    background: #6272A4;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.main-btn:hover {
+    background: #50FA7B;
+}
+
+/* Small Action Buttons */
+.btn-small {
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-edit {
+    color: #FFC107;
+}
+
+.btn-delete {
+    color: #FF5555;
+}
+
+.btn-edit:hover, .btn-delete:hover {
+    opacity: 0.7;
+}
+
+/* === Modal Styling === */
+/* === MODAL STYLING === */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: #222;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    width: 400px;
+    max-width: 90%;
+    position: relative;
+}
+
+.close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: white;
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #333;
+    color: white;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-save {
+    flex: 1;
+    background: #50fa7b;
+    color: black;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    flex: 1;
+    background: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+}
+
+/* === Button Container Fix === */
+#button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+/* === Chat Styling === */
+.chat-box {
+    height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    background: #1e1e2e;
+    border-radius: 8px;
+    box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.1);
+    font-size: 14px;
 }
 
 .chat-message {
     padding: 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    color: white;
 }
 
 .chat-username {
     font-weight: bold;
-    color: #ffcc00; /* Gold usernames */
+    color: #ffcc00;
 }
 
 .chat-text {
     color: #ddd;
 }
 
-.chat-placeholder {
-    color: #888;
-    text-align: center;
-    padding: 10px;
+.chat-input-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.chat-input-container select,
+.chat-input-container input,
+.chat-input-container button {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.chat-input-container input {
+    flex-grow: 1;
+    background: #282a36;
+    color: white;
+}
+
+.chat-input-container button {
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+}
+
+.chat-input-container button:hover {
+    background-color: #45a049;
+}
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .admin-container {
+        flex-direction: column;
+        height: auto;
+    }
 }

@@ -75,3 +75,4 @@ class ChatMessageRequest(BaseModel):
 class AdminButtonCreate(BaseModel):
     label: str
     action: str
+    data: Optional[str] = "{}"  # Default to empty JSON object

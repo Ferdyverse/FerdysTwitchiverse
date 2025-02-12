@@ -24,14 +24,3 @@ export function updateChat(messages) {
     }, 15000);
   });
 }
-
-export function updateAdminChat(username, message) {
-  const chatBox = document.getElementById("chat-box");
-  const newMessage = document.createElement("div");
-  newMessage.classList.add("chat-message");
-  newMessage.innerHTML = `<span class="chat-username">${username}</span>: <span class="chat-text">${message}</span>`;
-  chatBox.appendChild(newMessage);
-
-  // Auto-scroll to the latest message
-  chatBox.scrollTop = chatBox.scrollHeight;
-}

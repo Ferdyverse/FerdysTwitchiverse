@@ -1,9 +1,17 @@
-{% for button in buttons %}
-    <button
-        hx-delete="/admin/buttons/remove/{{ button.id }}"
-        hx-target="#button-container"
-        hx-swap="outerHTML"
-    >
-        {{ button.label }}
-    </button>
-{% endfor %}
+<div id="button-container">
+    {% for button in buttons %}
+        <div class="button-row" id="button-{{ button.id }}">
+            <button class="btn main-btn"
+                hx-post="/trigger-overlay/"
+                hx-vals='{"effect": "{{ button.action }}"}'>
+                {{ button.label }}
+            </button>
+            <button class="btn-small btn-edit"
+                onclick="openModal(true, {{ button.id }}, '{{ button.label }}', '{{ button.action }}', {{ button.data | tojson | safe }})">
+                ✏️
+            </button>
+            <button class="btn-small btn-delete"
+                onclick="confirmDelete({{ button.id }})">🗑️</button>
+        </div>
+    {% endfor %}
+</div>

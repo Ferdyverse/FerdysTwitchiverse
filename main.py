@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from fastapi.responses import Response
 from fastapi import Body
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -561,10 +562,10 @@ async def get_chat_messages(db: Session = Depends(get_db)):
     chat_html = ""
 
     for msg in reversed(messages):
-        if msg.username:
-            username = msg.username
-        else:
-            # ✅ Fetch user info safely
+        username = msg.username  # Try to get from database first
+
+        if not username:
+            # ✅ Run user fetch in background to avoid blocking
             user = await twitch_api.get_user_info(user_id=msg.viewer_id)
 
             if user and isinstance(user, dict) and "display_name" in user:
@@ -576,15 +577,24 @@ async def get_chat_messages(db: Session = Depends(get_db)):
 
         chat_html += f"<div class='chat-message'><span class='chat-username'>{username}</span>: <span class='chat-text'>{msg.message}</span></div>"
 
-    return chat_html
+    return Response(chat_html, media_type="text/html")
 
-@app.get("/events/")
+@app.get("/events/", response_class=HTMLResponse)
 def get_events(db: Session = Depends(get_db)):
     """
-    Retrieve the last 50 stored events.
+    Retrieve the last 50 stored events and return them as an HTML snippet.
     """
     events = get_recent_events(db)
-    return [{"event_type": event.event_type, "username": event.username, "message": event.message, "timestamp": event.timestamp} for event in reversed(events)]
+
+    if not events:
+        return "<p class='event-placeholder'>No events yet...</p>"
+
+    event_html = "".join(
+        f"<div class='event-item'><strong>{event.event_type}</strong> - {event.username if event.username else 'Unknown'}: {event.message} <span class='event-timestamp'>{event.timestamp}</span></div>"
+        for event in reversed(events)
+    )
+
+    return event_html
 
 @app.get("/viewers/{twitch_id}")
 async def get_viewer(twitch_id: int, db: Session = Depends(get_db)):
@@ -608,6 +618,25 @@ def get_viewer_stats_endpoint(twitch_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Viewer not found")
 
     return viewer_data
+
+@app.post("/send-chat/")
+async def send_chat_message(
+    message: str = Form(...),
+    sender: str = Form("streamer")  # Default to Bot
+):
+    """
+    Send a chat message from the admin panel as either the Bot or the Streamer.
+    """
+    if not message.strip():
+        return Response("", media_type="text/html")  # Don't send empty messages
+
+    if sender == "bot":
+        await twitch_chat.send_message(message)
+    elif sender == "streamer":
+        await twitch_api.send_message_as_streamer(message)
+
+    # Return an empty response (WebSocket will update the chat)
+    return Response("", media_type="text/html")
 
 
 @app.get(

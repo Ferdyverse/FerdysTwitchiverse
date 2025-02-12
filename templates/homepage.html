@@ -8,43 +8,92 @@
     <link rel="stylesheet" href="/static/css/homepage.css">
 </head>
 <body>
-    <div class="container">
-        <h2>Admin Panel</h2>
 
-        <div id="ad-countdown" style="display: none; background: red; color: white; padding: 10px; font-size: 18px;">
-            Ad break incoming...
+    <!-- Modal Window (Used for Both Add & Edit) -->
+    <div id="button-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">✖</button>
+            <h3 id="modal-title">Add Button</h3>
+
+            <label for="modal-label">Label:</label>
+            <input type="text" id="modal-label" required>
+
+            <label for="modal-action">Action:</label>
+            <select id="modal-action">
+                <option value="show_icon">Show Icon</option>
+                <option value="play_sound">Play Sound</option>
+                <option value="trigger_alert">Trigger Alert</option>
+                <option value="custom">Custom Action</option>
+            </select>
+
+            <label for="modal-data">Data:</label>
+            <textarea id="modal-data">{}</textarea>
+
+            <div class="modal-buttons">
+                <button id="modal-submit" class="btn-save">✅ Save</button>
+                <button type="button" class="btn-cancel" onclick="closeModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Admin Panel -->
+    <div class="admin-container">
+
+        <!-- Left Column: Buttons & Overlay Controls -->
+        <div class="admin-column admin-left">
+            <h3>Trigger Overlay Effects</h3>
+            <button class="btn-toggle-form" onclick="openModal()">➕ Add Button</button>
+            <div id="button-container"
+                hx-get="/admin/buttons"
+                hx-trigger="load"
+                hx-target="#button-container"
+                hx-swap="outerHTML"
+                hx-on::afterSwap="rebindButtons()">
+            </div>
         </div>
 
-        <h3>Event Log</h3>
-        <div id="event-log" class="event-log" hx-get="/events/" hx-trigger="load, every 5s" hx-target="#event-log" hx-swap="innerHTML">
-            Loading events...
+        <!-- Middle Column: Live Chat -->
+        <div class="admin-column admin-middle">
+            <h3>Live Chat</h3>
+            <div id="chat-box" class="chat-box"
+                hx-get="/chat/"
+                hx-trigger="load"
+                hx-target="#chat-box"
+                hx-swap="innerHTML">
+            </div>
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <select id="sender-type">
+                    <option value="streamer" selected>Streamer</option>
+                    <option value="bot">Bot</option>
+                </select>
+                <input type="text" id="admin-chat-input" name="message" placeholder="Type a message..." required>
+                <button class="btn"
+                        hx-post="/send-chat/"
+                        hx-include="#admin-chat-input, #sender-type"
+                        hx-trigger="click, keyup[enter]">
+                    Send
+                </button>
+            </div>
         </div>
 
-        <h3>Trigger Overlay Effects</h3>
-        <button class="btn" hx-post="/trigger-overlay/" hx-vals='{"effect": "star_animation"}'>Trigger Star Animation</button>
-        <button class="btn" hx-post="/trigger-overlay/" hx-vals='{"effect": "sound_alert"}'>Play Sound Alert</button>
-        <div id="button-container"
-            hx-get="/admin/buttons"
-            hx-trigger="load"
-            hx-target="#button-container"
-            hx-swap="outerHTML">
+        <!-- Right Column: Events & Ad Break Timer -->
+        <div class="admin-column admin-right">
+            <h3>Ad Break</h3>
+            <div id="ad-countdown" class="ad-countdown" style="display: none;">Ad break incoming...</div>
+            <h3>Event Log</h3>
+            <div id="event-log" class="event-log"
+                hx-get="/events/"
+                hx-trigger="load, every 5s"
+                hx-target="#event-log"
+                hx-swap="innerHTML">
+            </div>
         </div>
 
-        <h3>Live Chat</h3>
-        <div id="chat-box" class="chat-box" hx-get="/chat/" hx-trigger="load" hx-target="#chat-box" hx-swap="innerHTML"></div>
+    </div>
 
-        <!-- Form to add buttons -->
-        <form hx-post="/admin/buttons/add/"
-            hx-target="#button-container"
-            hx-swap="outerHTML"
-            hx-headers='{"Content-Type": "application/json"}'
-            hx-ext="json-enc">
-            <input type="text" name="label" placeholder="Button Label" required>
-            <input type="text" name="action" placeholder="Action (e.g., show_icon)" required>
-            <button type="submit">Add Button</button>
-        </form>
-
-        <script type="module" src="/static/js/websocket_admin.js"></script>
-
+    <script type="module" src="/static/js/websocket_admin.js"></script>
+    <script src="/static/js/admin.js"></script>
 </body>
 </html>

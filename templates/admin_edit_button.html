@@ -1,0 +1,20 @@
+<form id="edit-button-form" onsubmit="submitEditButtonForm(event, {{ button.id }})">
+    <label for="label">Label:</label>
+    <input type="text" id="edit-label" name="label" value="{{ button.label }}" required>
+
+    <label for="action">Action:</label>
+    <select id="edit-action" name="action">
+        <option value="show_icon" {% if button.action == 'show_icon' %}selected{% endif %}>Show Icon</option>
+        <option value="play_sound" {% if button.action == 'play_sound' %}selected{% endif %}>Play Sound</option>
+        <option value="trigger_alert" {% if button.action == 'trigger_alert' %}selected{% endif %}>Trigger Alert</option>
+        <option value="custom" {% if button.action == 'custom' %}selected{% endif %}>Custom Action</option>
+    </select>
+
+    <label for="data">Data:</label>
+    <textarea id="edit-data" name="data">{{ button_data | safe }}</textarea>
+
+    <div class="modal-buttons">
+        <button type="submit" class="btn-save">✅ Save</button>
+        <button type="button" class="btn-cancel" onclick="closeModal()">❌ Cancel</button>
+    </div>
+</form>

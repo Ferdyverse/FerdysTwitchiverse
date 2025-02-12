@@ -1,9 +1,9 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi import Depends
 import datetime
-import requests
+import json
 
 DATABASE_URL = "sqlite:///./data.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -70,9 +70,19 @@ class ViewerStats(Base):
 
 class AdminButton(Base):
     __tablename__ = "admin_buttons"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    label = Column(String, nullable=False)  # Button text
-    action = Column(String, nullable=False)  # Associated action (e.g., "show_icon")
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    data = Column(Text, nullable=True)  # ✅ Store JSON as a TEXT field
+
+    def get_data(self):
+        """Return data as a dictionary."""
+        return json.loads(self.data) if self.data else {}
+
+    def set_data(self, data_dict):
+        """Store dictionary as a JSON string."""
+        self.data = json.dumps(data_dict)
 
 Base.metadata.create_all(bind=engine)
 
