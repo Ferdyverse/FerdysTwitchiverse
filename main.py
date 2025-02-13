@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Query, Form
+from fastapi import FastAPI, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -18,14 +18,15 @@ import logging
 from typing import Any, List
 import asyncio
 import os
-import requests
-import json
+import pytz
+import random
 
 # Own modules
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
 from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
 from modules.db_manager import init_db, get_data, get_planets, get_db, get_recent_chat_messages, get_recent_events, get_viewer_stats, save_event
+from modules.db_manager import ChatMessage, Viewer
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
 from modules import event_handlers
@@ -47,6 +48,12 @@ MODULE_COLORS = {
 
 # ✅ Reset color
 RESET_COLOR = "\033[0m"
+
+# Define the desired local timezone (Change if needed)
+LOCAL_TIMEZONE = pytz.timezone("Europe/Berlin")
+FALLBACK_COLORS = [
+    "#FF4500", "#32CD32", "#1E90FF", "#FFD700", "#FF69B4", "#8A2BE2", "#00CED1"
+]
 
 class ColorFormatter(logging.Formatter):
     """Custom formatter to apply colors based on module names only."""
@@ -93,7 +100,7 @@ event_queue = asyncio.Queue()
 
 # Global variable for the Twitch module
 twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
-twitch_chat = TwitchChatBot(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, config.TWITCH_CHANNEL, event_queue)
+twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, event_queue=event_queue, twitch_api=twitch_api)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -174,6 +181,8 @@ app = FastAPI(
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.state.twitch_api = twitch_api
 
 # Add the WebSocket route
 app.add_api_websocket_route("/ws", websocket_endpoint)
@@ -486,51 +495,6 @@ async def test_debug(payload: Any = Body(...)):
         logger.error(f"❌ Error in /debug: {e}")
         raise HTTPException(status_code=500, detail="Failed to send debug data")
 
-@app.get("/auth/{scope}")
-async def auth_callback(scope: str, request: Request, code: str = Query(None)):
-    """
-    Handles the OAuth callback from Twitch. Exchanges the authorization code for an access token.
-    Automatically starts the Twitch chat bot if authentication succeeds.
-    """
-    if not code:
-        return {"error": "Authorization failed. No code received."}
-
-    logger.info(f"✅ Received OAuth code: {code}")
-
-    payload = {
-        "client_id": config.TWITCH_CLIENT_ID,
-        "client_secret": config.TWITCH_CLIENT_SECRET,
-        "code": code,
-        "grant_type": "authorization_code",
-        "redirect_uri": f"http://localhost:8000/auth/{scope}",
-    }
-
-    response = requests.post(config.TWITCH_TOKEN_URL, data=payload)
-    token_data = response.json()
-
-    if "access_token" in token_data:
-        access_token = token_data["access_token"]
-        refresh_token = token_data["refresh_token"]
-        save_tokens(scope, access_token, refresh_token)
-
-        logger.info("✅ Authentication successful. Restarting Twitch...")
-
-        # Restart Twitch bot after successful authentication
-        if scope == "chat":
-            if twitch_chat.is_running:
-                await twitch_chat.stop()
-            asyncio.create_task(twitch_chat.start_chat())  # Restart bot with new tokens
-        elif scope == "api":
-            if twitch_api.is_running:
-                await twitch_api.stop()
-            asyncio.create_task(twitch_api.initialize())
-
-        return {"message": "Authentication successful! Twitch bot is restarting."}
-
-    else:
-        logger.error(f"❌ Failed to exchange OAuth code: {token_data}")
-        return {"error": "Failed to get access token", "details": token_data}
-
 @app.post("/trigger-overlay/")
 async def trigger_overlay(action: str, data: dict, db: Session = Depends(get_db)):
     """
@@ -549,33 +513,61 @@ async def trigger_overlay(action: str, data: dict, db: Session = Depends(get_db)
 
     return {"status": "success", "message": f"Overlay triggered: {action}"}
 
-@app.get("/chat/")
+
+@app.get("/chat", response_class=HTMLResponse)
 async def get_chat_messages(db: Session = Depends(get_db)):
     """
-    Retrieve the last 50 chat messages from the database.
+    Retrieve the last 50 chat messages from the database, formatted identically to WebSocket messages.
     """
-    messages = get_recent_chat_messages(db)
+    messages = db.query(
+        ChatMessage.id,
+        ChatMessage.message,
+        ChatMessage.timestamp,
+        Viewer.display_name.label("username"),
+        Viewer.profile_image_url.label("avatar"),
+        Viewer.color.label("user_color"),  # ✅ Fetch user color if available
+        Viewer.badges.label("badges"),  # ✅ Fetch badges
+        ChatMessage.viewer_id.label("twitch_id")
+    ).join(Viewer, ChatMessage.viewer_id == Viewer.twitch_id, isouter=True) \
+    .order_by(ChatMessage.timestamp.desc()) \
+    .limit(50).all()
 
     if not messages:
-        return "<p class='chat-placeholder'>No messages yet...</p>"
+        return "<p class='chat-placeholder text-gray-500 text-center'>No messages yet...</p>"
 
     chat_html = ""
 
-    for msg in reversed(messages):
-        username = msg.username  # Try to get from database first
+    for msg in reversed(messages):  # Reverse to show oldest messages first
+        username = msg.username or "Unknown"
+        avatar_url = msg.avatar or "/static/images/default_avatar.png"
+        user_color = msg.user_color or random.choice(FALLBACK_COLORS)  # ✅ Use stored color or fallback
 
-        if not username:
-            # ✅ Run user fetch in background to avoid blocking
-            user = await twitch_api.get_user_info(user_id=msg.viewer_id)
+        # ✅ Convert timestamp to local timezone
+        utc_time = msg.timestamp.replace(tzinfo=pytz.utc)  # Ensure UTC
+        local_time = utc_time.astimezone(LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
 
-            if user and isinstance(user, dict) and "display_name" in user:
-                username = user["display_name"]
-            elif isinstance(user, list) and user:
-                username = user[0]["display_name"]
-            else:
-                username = "Unknown"
+        # ✅ Handle badges (If available)
+        badge_html = ""
+        if msg.badges:
+            badge_list = msg.badges.split(",")  # Convert stored CSV to list
+            badge_html = "".join([f'<img src="{badge}" class="chat-badge" alt="badge">' for badge in badge_list])
 
-        chat_html += f"<div class='chat-message'><span class='chat-username'>{username}</span>: <span class='chat-text'>{msg.message}</span></div>"
+        # ✅ HTML structure (Matches WebSocket messages)
+        chat_html += f"""
+            <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
+                data-message-id="{msg.id}" data-user-id="{msg.twitch_id}">
+                <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
+                <div class="chat-content flex flex-col w-full">
+                    <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
+                        <div class="chat-username font-bold" style="color: {user_color};">{username}</div>
+                        <div class="chat-timestamp text-xs">{local_time}</div>
+                    </div>
+                    <div class="chat-text text-gray-300 break-words bg-gray-900 p-2 rounded-lg w-fit max-w-3xl">
+                        {msg.message}
+                    </div>
+                </div>
+            </div>
+        """
 
     return Response(chat_html, media_type="text/html")
 
@@ -637,7 +629,6 @@ async def send_chat_message(
 
     # Return an empty response (WebSocket will update the chat)
     return Response("", media_type="text/html")
-
 
 @app.get(
     "/",

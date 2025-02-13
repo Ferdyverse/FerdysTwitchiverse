@@ -52,6 +52,8 @@ class Viewer(Base):
     account_age = Column(String, nullable=False)
     follower_date = Column(DateTime)
     subscriber_date = Column(DateTime)
+    color = Column(String)
+    badges = Column(String)
 
     # Overall stats
     total_chat_messages = Column(Integer, default=0)
@@ -174,12 +176,12 @@ def clear_planets(db: Session):
 
 def save_viewer(twitch_id: int, login: str, display_name: str, account_type: str, broadcaster_type: str,
                 profile_image_url: str, account_age: str, follower_date: datetime.datetime,
-                subscriber_date: datetime.datetime, db: Session):
-    """Save or update viewer data."""
+                subscriber_date: datetime.datetime, color: str, badges: str, db: Session):
+    """Save or update viewer data with additional chat metadata (color & badges)."""
     viewer = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
 
     if viewer:
-        # Update only if new data is available
+        # Update existing viewer data only if new values are provided
         viewer.display_name = display_name or viewer.display_name
         viewer.account_type = account_type or viewer.account_type
         viewer.broadcaster_type = broadcaster_type or viewer.broadcaster_type
@@ -187,6 +189,8 @@ def save_viewer(twitch_id: int, login: str, display_name: str, account_type: str
         viewer.account_age = account_age or viewer.account_age
         viewer.follower_date = follower_date if follower_date else viewer.follower_date
         viewer.subscriber_date = subscriber_date if subscriber_date else viewer.subscriber_date
+        viewer.color = color or viewer.color  # ✅ Store user color
+        viewer.badges = badges or viewer.badges  # ✅ Store user badges (comma-separated string)
     else:
         # Insert new viewer data
         viewer = Viewer(
@@ -198,14 +202,15 @@ def save_viewer(twitch_id: int, login: str, display_name: str, account_type: str
             profile_image_url=profile_image_url,
             account_age=account_age,
             follower_date=follower_date,
-            subscriber_date=subscriber_date
+            subscriber_date=subscriber_date,
+            color=color,  # ✅ Store user color
+            badges=badges  # ✅ Store user badges
         )
         db.add(viewer)
 
     db.commit()
     db.refresh(viewer)
     return viewer
-
 
 def get_viewer_stats(twitch_id: int, db: Session):
     """Retrieve a specific viewer's data along with chat stats."""

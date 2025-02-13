@@ -3,11 +3,12 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from modules.db_manager import get_db, save_event, AdminButton
+from modules.db_manager import get_db, save_event, AdminButton, ChatMessage, save_viewer
 from modules.websocket_handler import broadcast_message
 from modules.schemas import AdminButtonCreate
 import logging
 import json
+import config
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
@@ -145,3 +146,68 @@ async def trigger_overlay(action: str, data: str = None, db: Session = Depends(g
     })
 
     return {"status": "success", "message": f"Overlay triggered: {action} with data: {data or 'None'}"}
+
+@router.post("/update-viewer/{user_id}")
+async def update_viewer(user_id: int, request: Request, db: Session = Depends(get_db)):
+    """Fetch latest user info and update the viewer database."""
+
+    twitch_api = request.app.state.twitch_api
+
+    try:
+        user_info = await twitch_api.get_user_info(user_id=user_id)
+
+        if not user_info:
+            raise HTTPException(status_code=404, detail="User not found in Twitch API")
+
+        # ✅ Update viewer in DB
+        save_viewer(
+            twitch_id=user_id,
+            login=user_info["login"],
+            display_name=user_info["display_name"],
+            account_type=user_info["type"],
+            broadcaster_type=user_info["broadcaster_type"],
+            profile_image_url=user_info["profile_image_url"],
+            account_age="",
+            follower_date=None,
+            subscriber_date=None,
+            color=user_info.get("color"),
+            badges=",".join(user_info.get("badges", [])),
+            db=db
+        )
+
+        # ✅ Broadcast update
+        await broadcast_message({"admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}})
+
+        return {"status": "success", "message": "Viewer information updated"}
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update viewer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update viewer: {str(e)}")
+
+@router.delete("/delete-message/{message_id}", response_class=HTMLResponse)
+async def delete_chat_message(message_id: int, request: Request, db: Session = Depends(get_db)):
+    """Delete a chat message from Twitch and the local database."""
+
+    twitch_api = request.app.state.twitch_api  # ✅ Access `twitch_api` from `app.state`
+
+    message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    user_id = message.viewer_id  # Get Twitch user ID
+
+    try:
+        # ✅ Delete the message from Twitch chat
+        await twitch_api.twitch.delete_chat_message(config.TWITCH_CHANNEL_ID, user_id, message_id)
+        logger.info(f"🗑️ Deleted message {message_id} from Twitch chat.")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to delete Twitch chat message: {str(e)}")
+
+    # ✅ Delete from local DB
+    db.delete(message)
+    db.commit()
+
+    # ✅ Refresh the chat UI
+    await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
+
+    return await get_chat_messages(db)

@@ -2,11 +2,12 @@ import logging
 import asyncio
 import time
 import datetime
-from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer
+from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
+from modules.twitch_api import TwitchAPI
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
 
@@ -19,13 +20,14 @@ scopes = [
 ]
 
 class TwitchChatBot:
-    def __init__(self, client_id: str, client_secret: str, twitch_channel: str, event_queue: asyncio.Queue):
+    def __init__(self, client_id: str, client_secret: str, twitch_channel: str, event_queue: asyncio.Queue, twitch_api: TwitchAPI):
         """Initialize Twitch Chat Bot."""
         self.client_id = client_id
         self.client_secret = client_secret
         self.twitch_channel = twitch_channel
         self.event_queue = event_queue
         self.recent_messages = []
+        self.twitch_api = twitch_api
         self.twitch = None
         self.chat = None
         self.token = None
@@ -107,7 +109,7 @@ class TwitchChatBot:
 
     async def on_message(self, event: EventData):
         """
-        Handle incoming chat messages from Twitch, store them in the database,
+        Handle incoming chat messages, store in the database,
         and send them to both the overlay and admin panel.
         """
         db = next(get_db())
@@ -115,60 +117,83 @@ class TwitchChatBot:
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
         message = event.text
         stream_id = "current_stream_id"  # Replace with actual stream tracking logic
-        if event.emotes:
-            emotes_used = len(event.emotes)  # Count used emotes
-        else:
-            emotes_used = 0
+        emotes_used = len(event.emotes) if event.emotes else 0
         is_reply = event.reply_parent_msg_id is not None  # Check if message is a reply
 
-        if event.first:
-            # Store viewer data
-            save_viewer(
-                twitch_id=twitch_id,
-                login=event.user.name,
-                display_name=username,
-                account_type=None,
-                broadcaster_type=None,
-                profile_image_url="",
-                account_age="",
-                follower_date=None,
-                subscriber_date=None,
-                db=db
-            )
+        # ✅ Check if user exists in DB first
+        existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
 
-        # Save chat message in the database
+        if not existing_user:
+            # User not found in DB → Fetch from Twitch API
+            user_info = await self.twitch_api.get_user_info(user_id=twitch_id)
+
+            if user_info:
+                save_viewer(
+                    twitch_id=twitch_id,
+                    login=user_info["login"],
+                    display_name=user_info["display_name"],
+                    account_type=user_info["type"],
+                    broadcaster_type=user_info["broadcaster_type"],
+                    profile_image_url=user_info["profile_image_url"],
+                    account_age="",
+                    follower_date=None,
+                    subscriber_date=None,
+                    color=user_info.get("color"),  # ✅ Store color
+                    badges=",".join(user_info.get("badges", [])),  # ✅ Store badges
+                    db=db
+                )
+                user_color = user_info.get("color")
+                user_badges = user_info.get("badges", [])
+                avatar_url = user_info["profile_image_url"]
+            else:
+                user_color = None
+                user_badges = []
+                avatar_url = "/static/images/default_avatar.png"
+        else:
+            # ✅ User is in DB, use stored data
+            user_color = existing_user.color
+            user_badges = existing_user.badges.split(",") if existing_user.badges else []
+            avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
+
+        # ✅ Save chat message in the database
         save_chat_message(twitch_id, message, db)
 
-        # Update viewer stats (both per stream and overall)
+        # ✅ Update viewer stats (both per stream and overall)
         update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply, db)
 
-        # Prepare message for overlay
+        # ✅ Prepare message for overlay
         message_id = f"{username}_{int(time.time())}"  # Unique ID
         chat_message = {
             "id": message_id,
             "user": username,
             "message": message,
-            "timestamp": int(time.time()) + 19  # Message disappears after 19s (15s visible + 4s fade-out)
+            "timestamp": int(time.time()) + 19,  # Message disappears after 19s
+            "color": user_color,  # ✅ Send stored color
+            "badges": user_badges,  # ✅ Send stored badges
+            "avatar": avatar_url  # ✅ Send avatar
         }
 
-        # Append message & remove oldest if more than 5 messages
+        # ✅ Append message & remove oldest if more than 5 messages
         self.recent_messages.append(chat_message)
         if len(self.recent_messages) > 5:
             self.recent_messages.pop(0)
 
-        # Send updated chat messages to overlay
+        # ✅ Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        # Also send chat update to admin panel (single latest message)
+        # ✅ Send chat update to admin panel (single latest message)
         admin_chat_message = {
             "admin_chat": {
                 "username": username,
-                "message": message
+                "message": message,
+                "avatar": avatar_url,
+                "badges": user_badges,
+                "Color": user_color
             }
         }
         await broadcast_message(admin_chat_message)
 
-        # Schedule message removal after 19s
+        # ✅ Schedule message removal after 19s
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
 
         db.close()

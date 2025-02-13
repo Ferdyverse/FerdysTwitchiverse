@@ -1,0 +1,13 @@
+/* Header */
+.admin-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+/* Increase logo size */
+.admin-header img {
+    height: 120px; /* Adjust logo size */
+    max-width: 100%;
+}

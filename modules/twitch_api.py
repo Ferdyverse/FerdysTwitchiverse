@@ -1,15 +1,15 @@
 import logging
 import config
 import datetime
+import aiohttp
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 
-from modules.db_manager import get_db, save_event, save_viewer
+from modules.db_manager import get_db, save_event, save_viewer, Viewer
 from sqlalchemy.orm import Session
-from fastapi import Depends
 
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
@@ -51,6 +51,7 @@ class TwitchAPI:
         self.client_secret = client_secret
         self.twitch = None
         self.auth = None
+        self.auth_headers = None
         self.token = None
         self.refresh_token = None
         self.is_running = False
@@ -66,6 +67,13 @@ class TwitchAPI:
                 logger.info("✅ Loaded stored tokens.")
 
             self.twitch = await Twitch(self.client_id, self.client_secret)
+
+            app_token = self.twitch.get_app_token()
+
+            self.auth_headers = {
+                "Authorization": f"Bearer {app_token}",
+                "Client-Id": self.client_id
+            }
 
             global scopes
 
@@ -340,7 +348,7 @@ class TwitchAPI:
             logger.error(f"❌ Error sending message as Streamer: {e}")
 
     async def get_user_info(self, username: str = None, user_id: str = None):
-        """Retrieve Twitch user info and store it in the database"""
+        """Retrieve Twitch user info, including color & badges, and store it in the database"""
 
         if not self.twitch:
             raise Exception("❌ Twitch API not initialized.")
@@ -362,6 +370,21 @@ class TwitchAPI:
 
                 db = next(get_db())
 
+                # Check if user is already in the database
+                existing_viewer = db.query(Viewer).filter(Viewer.twitch_id == int(user.id)).first()
+                user_color = existing_viewer.color if existing_viewer else None
+                user_badges = existing_viewer.badges.split(",") if existing_viewer and existing_viewer.badges else []
+
+                # Fetch color & badges only if missing
+                if not user_color or not user_badges:
+                    chat_data = await self.get_chat_metadata(user.id)
+
+                    logger.info(chat_data)
+
+                    if chat_data:
+                        user_color = chat_data.get("color", user_color)
+                        user_badges = chat_data.get("badges", user_badges)
+
                 # Save viewer data to database
                 save_viewer(
                     twitch_id=int(user.id),
@@ -373,12 +396,23 @@ class TwitchAPI:
                     account_age="",
                     follower_date=None,
                     subscriber_date=None,
+                    color=user_color,
+                    badges=",".join(user_badges) if user_badges else None,
                     db=db
                 )
 
                 db.close()
 
-                return user
+                return {
+                    "id": user.id,
+                    "login": user.login,
+                    "display_name": user.display_name,
+                    "type": user.type,
+                    "broadcaster_type": user.broadcaster_type,
+                    "profile_image_url": user.profile_image_url,
+                    "color": user_color,
+                    "badges": user_badges
+                }
 
             logger.warning(f"⚠️ No user found for {username or user_id}")
             return None
@@ -386,3 +420,47 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
             return None
+
+    async def get_chat_metadata(self, user_id: str):
+        """Retrieve Twitch user chat color and badges using the Helix API."""
+        try:
+            if not self.auth_headers:
+                logger.error("❌ get_chat_metadata() called without authentication!")
+                return {"color": None, "badges": []}
+
+            user_color = None
+            user_badges = []
+
+            async with aiohttp.ClientSession() as session:
+                # ✅ Fetch user chat color
+                async with session.get(
+                    f"https://api.twitch.tv/helix/chat/color?user_id={user_id}",
+                    headers=self.auth_headers
+                ) as response:
+                    if response.status == 200:
+                        color_data = await response.json()
+                        if color_data.get("data"):
+                            user_color = color_data["data"][0].get("color")
+                    else:
+                        logger.warning(f"⚠️ Failed to fetch user color: {await response.text()}")
+
+                # ✅ Fetch user chat badges
+                async with session.get(
+                    f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}&user_id={user_id}",
+                    headers=self.auth_headers
+                ) as response:
+                    if response.status == 200:
+                        badge_data = await response.json()
+                        if badge_data.get("data"):
+                            user_badges = [badge["image_url_1x"] for badge in badge_data["data"]]
+                    else:
+                        logger.warning(f"⚠️ Failed to fetch user badges: {await response.text()}")
+
+            return {
+                "color": user_color,
+                "badges": user_badges
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Error fetching chat metadata for {user_id}: {e}")
+            return {"color": None, "badges": []}

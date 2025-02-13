@@ -12,3 +12,4 @@ python-dotenv
 twitchAPI
 sqlalchemy
 python-multipart
+pytz
