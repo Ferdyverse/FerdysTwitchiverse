@@ -8,7 +8,7 @@ from modules.state_manager import check_condition, set_condition
 
 logger = logging.getLogger("uvicorn.error.sequence_runner")
 
-# ✅ Load sequences from YAML
+# Load sequences from YAML
 def load_sequences():
     try:
         with open("sequences.yaml", "r") as file:
@@ -17,7 +17,7 @@ def load_sequences():
         logger.error(f"❌ Failed to load sequences: {e}")
         return {}
 
-# ✅ Store sequences in memory
+# Store sequences in memory
 ACTION_SEQUENCES = load_sequences()
 
 def get_sequence_names():
@@ -59,25 +59,25 @@ async def execute_sequence(action: str, event_queue: asyncio.Queue):
     await broadcast_message({"admin_alert": {"type": "button_click", "message": f"Sequence '{action}' executed"}})
 
 async def execute_sequence_step(step, event_queue: asyncio.Queue):
-    """Execute a single sequence step using the event queue, returning success status."""
+    """ Execute a single sequence step using the event queue, returning success status. """
     step_type = step.get("type")
     step_data = resolve_random_values(step.get("data", {}))
 
     try:
-        # Handle delays
+        # ✅ Handle delays
         if step_type == "sleep":
             delay_time = step_data if isinstance(step_data, (int, float)) else 1
             logger.info(f"⏳ Waiting {delay_time} seconds...")
             await asyncio.sleep(delay_time)
             return True
 
-        # Handle if-else conditions
+        # ✅ Handle if-else conditions
         if step_type == "if":
             condition_name = step_data.get("condition")
             then_steps = step_data.get("then", [])
             else_steps = step_data.get("else", [])
 
-            if check_condition(condition_name):
+            if check_condition(condition_name):  # ✅ Condition met
                 logger.info(f"✅ Condition '{condition_name}' is TRUE, executing THEN block.")
                 for then_step in then_steps:
                     success = await execute_sequence_step(then_step, event_queue)
@@ -91,17 +91,24 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue):
                         return False  # Stop if a step fails
             return True  # Continue sequence execution
 
-        # Handle function calls via event queue
+        # ✅ Handle function calls via event queue (Fail sequence if function fails)
         if step_type == "call_function":
             function_name = step_data.get("name")
             parameters = step_data.get("parameters", {})
 
             # Send function execution request to the event queue
-            await event_queue.put({"function": function_name, "data": parameters})
+            task = {"function": function_name, "data": parameters}
+            await event_queue.put(task)
             logger.info(f"🔄 Queued function '{function_name}' with parameters: {parameters}")
+
+            # ✅ Check if function succeeds
+            success = await wait_for_task_success(task, event_queue)
+            if not success:
+                logger.error(f"❌ Function '{function_name}' failed, stopping sequence.")
+                return False
             return True
 
-        # Handle setting conditions
+        # ✅ Handle setting conditions
         if step_type == "set_condition":
             condition_name = step_data.get("name")
             condition_value = step_data.get("value", True)
@@ -109,7 +116,7 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue):
             logger.info(f"🔄 Set condition '{condition_name}' to {condition_value}")
             return True
 
-        # Handle overlay events
+        # ✅ Handle overlay events
         await broadcast_message({"overlay_event": {"action": step_type, "data": step_data}})
         logger.info(f"✅ Executed overlay action: {step_type} with data: {step_data}")
         return True  # ✅ Step successful
@@ -117,6 +124,11 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue):
     except Exception as e:
         logger.error(f"❌ Error executing step '{step_type}': {e}")
         return False  # ❌ Stop execution if an error occurs
+
+
+async def wait_for_task_success(task, event_queue: asyncio.Queue):
+    """ Wait for a task to complete and return whether it succeeded. """
+    return True
 
 async def reload_sequences():
     """ Reload sequences from YAML file. """

@@ -24,6 +24,22 @@ sequences:
     - type: show_icon
       data: "fa-star"
 
+  print_chatogram:
+    - type: call_function
+      data:
+        name: print_data
+        parameters:
+          print_elements:
+            - type: "headline_1"
+              text: "Chatogram"
+            - type: "image"
+              url: "https://example.com/avatar.png"
+            - type: "headline_2"
+              text: "Username"
+            - type: "message"
+              text: "This is a printed chat message!"
+          print_as_image: true
+
   hide_test:
     - type: if
       data:

@@ -21,6 +21,7 @@ import os
 import pytz
 import random
 import inspect
+from twitchAPI.type import CustomRewardRedemptionStatus
 
 # Own modules
 from modules.printer_manager import PrinterManager
@@ -103,7 +104,7 @@ firebot = FirebotAPI(config.FIREBOT_API_URL)
 event_queue = asyncio.Queue()
 
 # Global variable for the Twitch module
-twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
+twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, event_queue=event_queue)
 twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, event_queue=event_queue, twitch_api=twitch_api)
 
 templates = Jinja2Templates(directory="templates")
@@ -312,6 +313,8 @@ async def process_queue():
 
             user_data = await twitch_api.get_user_info(user_id=user_id)
 
+            logger.error(user_data)
+
             if command == "print":
                 message = task.get("message", "")
                 logger.info(f"🖨️ Printing requested by {user}: {message}")
@@ -319,7 +322,7 @@ async def process_queue():
                 print_request = PrintRequest(
                     print_elements=[
                         PrintElement(type="headline_1", text="Chatogram"),
-                        PrintElement(type="image", url=user_data.profile_image_url),
+                        PrintElement(type="image", url=user_data["profile_image_url"]),
                         PrintElement(type="headline_2", text=user),
                         PrintElement(type="message", text=message)
                     ],
@@ -329,8 +332,10 @@ async def process_queue():
                 try:
                     response = await print_data(print_request)  # Call print_data with our constructed request
                     logger.info(f"🖨️ Print status: {response}")
+                    await twitch_api.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, task["reward_id"], task["redeem_id"], CustomRewardRedemptionStatus.FULFILLED)
                 except Exception as e:
                     logger.error(f"❌ Error in printing from Twitch command: {e}")
+                    await twitch_api.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, task["reward_id"], task["redeem_id"], CustomRewardRedemptionStatus.CANCELED)
                 # await broadcast_message({"message": f"Printing triggered by {user}"})
 
         # Ensure data is correctly accessed as a dictionary
@@ -347,7 +352,7 @@ async def process_queue():
             else:
                 # real_user = firebot.get_username(user)
                 real_user = await twitch_api.get_user_info(user_id=user)
-                real_user = real_user.display_name
+                real_user = real_user["display_name"]
 
             logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
 
@@ -355,9 +360,14 @@ async def process_queue():
                 logger.debug("Broadcast star found")
                 await broadcast_message({ "hidden": { "action": "found", "user": real_user, "x": x, "y": y } })
                 # Reset hidden object
-                await firebot.run_effect_list("0977a5a0-e189-11ef-b16a-cbaddbeeb72a")
+                await remove_clickable_object(clicked_object)
                 # Message to chat
                 await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
+
+        if "create_redemtion" in task:
+            redemtion = task["create_redemtion"]
+
+            twitch_api.twitch.create_custom_reward(config.TWITCH_CHANNEL_ID, redemtion.get("title"), redemtion.get("cost"))
 
         event_queue.task_done()  # Mark task as complete
 
@@ -504,10 +514,7 @@ async def add_clickable_object(obj: ClickableObject):
 
     return {"status": "success", "message": f"Clickable object '{object_id}' added"}
 
-async def remove_clickable_object(object_id: str):
-    if object_id not in CLICKABLE_OBJECTS:
-        return {"status": "error", "message": f"Clickable object '{object_id}' not found"}
-
+async def remove_clickable_object(object_id):
     # Remove from CLICKABLE_OBJECTS dictionary
     removed_obj = CLICKABLE_OBJECTS.pop(object_id)
     update_clickable_objects(CLICKABLE_OBJECTS)

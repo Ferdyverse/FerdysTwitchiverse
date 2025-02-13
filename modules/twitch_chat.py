@@ -2,6 +2,7 @@ import logging
 import asyncio
 import time
 import datetime
+import html
 from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
@@ -115,7 +116,7 @@ class TwitchChatBot:
         db = next(get_db())
         username = event.user.display_name
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
-        message = event.text
+        message = html.escape(event.text)
         message_id = event.id
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0
@@ -140,8 +141,7 @@ class TwitchChatBot:
                     follower_date=None,
                     subscriber_date=None,
                     color=user_info.get("color"),
-                    badges=",".join(user_info.get("badges", [])),
-                    db=db
+                    badges=",".join(user_info.get("badges", []))
                 )
                 user_color = user_info.get("color")
                 user_badges = user_info.get("badges", [])
@@ -157,10 +157,10 @@ class TwitchChatBot:
             avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
 
         # Save chat message in the database
-        save_chat_message(twitch_id, message, message_id, stream_id, db)
+        save_chat_message(twitch_id, message, message_id, stream_id)
 
         # Update viewer stats (both per stream and overall)
-        update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply, db)
+        update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
 
         # Prepare message for overlay
         message_id = f"{username}_{int(time.time())}"  # Unique ID
@@ -189,7 +189,7 @@ class TwitchChatBot:
                 "message": message,
                 "avatar": avatar_url,
                 "badges": user_badges,
-                "Color": user_color
+                "color": user_color
             }
         }
         await broadcast_message(admin_chat_message)

@@ -2,6 +2,7 @@ import logging
 import config
 import datetime
 import aiohttp
+import asyncio
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
@@ -24,6 +25,7 @@ scopes = [
     AuthScope.CHANNEL_READ_ADS,
     AuthScope.CHANNEL_MANAGE_BROADCAST,
     AuthScope.CHANNEL_MODERATE,
+    AuthScope.CHANNEL_MANAGE_REDEMPTIONS,
     AuthScope.MODERATOR_READ_CHATTERS,
     AuthScope.MODERATOR_MANAGE_CHAT_MESSAGES,
     AuthScope.MODERATOR_READ_FOLLOWERS,
@@ -45,10 +47,11 @@ scopes = [
 ]
 
 class TwitchAPI:
-    def __init__(self, client_id, client_secret):
+    def __init__(self, client_id, client_secret, event_queue: asyncio.Queue):
         """Initialize the Twitch API client"""
         self.client_id = client_id
         self.client_secret = client_secret
+        self.event_queue = event_queue
         self.twitch = None
         self.auth = None
         self.auth_headers = None
@@ -159,67 +162,57 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error initializing EventSub WebSocket: {e}")
 
-    def save_event(self, event_type: str, username: str, message: str):
-        """Helper function to save an event in the database."""
-        db = next(get_db())
-        save_event(event_type, username, message, db)
-        db.close()
-
     async def handle_follow(self, data: dict):
         """Handle follow event, store user data, and save event."""
-        username = data["event"]["user_name"]
-        user_id = int(data["event"]["user_id"])  # Ensure ID is stored as an integer
+        username = data.event.user_name
+        user_id = int(data.event.user_id)  # Ensure ID is stored as an integer
 
         logger.info(f"📢 New follow: {username}")
-
-        db = next(get_db())
 
         # Store viewer data
         save_viewer(
             twitch_id=user_id,
-            login=data["event"]["user_login"],
+            login=data.event.user_login,
             display_name=username,
             account_type=None,
             broadcaster_type=None,
             profile_image_url="",
             account_age="",
             follower_date=datetime.datetime.utcnow(),
-            subscriber_date=None,
-            db=db
+            subscriber_date=None
         )
-        db.close()
 
         # Save event
-        self.save_event("follow", user_id, "")
+        save_event("follow", user_id, "")
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
 
     async def handle_subscribe(self, data: dict):
         """Handle subscription event, save it, and broadcast it"""
-        username = data["event"]["user_name"]
+        username = data.event.user_name
         logger.info(f"🎉 New subscription: {username}")
 
-        self.save_event("subscription", username, "")
+        save_event("subscription", username, "")
 
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
 
     async def handle_gift_sub(self, data: dict):
         """Handle gift subscription event, save it, and broadcast it"""
-        gifter = data["event"]["user_name"]
-        recipient_count = data["event"]["total"]
+        gifter = data.event.user_name
+        recipient_count = data.event.total
         logger.info(f"🎁 {gifter} gifted {recipient_count} subs!")
 
-        self.save_event("gift_sub", gifter, f"Gifted {recipient_count} subs")
+        save_event("gift_sub", gifter, f"Gifted {recipient_count} subs")
 
         await broadcast_message({"alert": {"type": "gift_sub", "user": gifter, "size": recipient_count}})
 
     async def handle_sub_message(self, data: dict):
         """Handle subscription messages (e.g., resubs with a custom message)."""
-        username = data["event"]["user_name"]
-        cumulative_months = data["event"]["cumulative_months"]
-        sub_tier = data["event"]["tier"]
-        message = data["event"]["message"]["text"] if data["event"]["message"] else ""
+        username = data.event.user_name
+        cumulative_months = data.event.cumulative_months
+        sub_tier = data.event.tier
+        message = data.event.message.text if data.event.message else ""
         user = await first(self.twitch.get_users())
         broadcaster_id = user.id
 
@@ -237,33 +230,58 @@ class TwitchAPI:
         })
 
         # Save subscription event in database
-        await self.save_event("subscription_message", int(data["event"]["user_id"]), f"{username} resubbed ({sub_tier}) for {cumulative_months} months. Message: {message}")
+        await save_event("subscription_message", int(data["event"]["user_id"]), f"{username} resubbed ({sub_tier}) for {cumulative_months} months. Message: {message}")
 
     async def handle_raid(self, data: dict):
         """Handle raid event, save it, and broadcast it"""
-        username = data["event"]["from_broadcaster_user_name"]
-        viewer_count = data["event"]["viewers"]
+        username = data.event.from_broadcaster_user_name
+        viewer_count = data.event.viewers
         logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
 
-        self.save_event("raid", username, f"Raid with {viewer_count} viewers")
+        save_event("raid", username, f"Raid with {viewer_count} viewers")
 
         await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
 
-    async def handle_channel_point_redeem(self, data: dict):
+    async def handle_channel_point_redeem(self, data):
         """Handle channel point redemptions, save them, and broadcast them"""
-        username = data["event"]["user_name"]
-        reward_title = data["event"]["reward"]["title"]
-        logger.info(f"🎟️ {username} redeemed {reward_title}")
 
-        self.save_event("channel_point_redeem", username, reward_title)
+        logger.info(f"🔄 Received Channel Point Redemption Event: {data}")
 
-        await broadcast_message({"alert": {"type": "redemption", "user": username, "message": reward_title}})
+        # Extract event attributes
+        username = data.event.user_name
+        user_id = data.event.user_id
+        reward_title = data.event.reward.title
+        user_input = data.event.user_input  # Might be empty if not required
+
+        logger.info(f"🎟️ {username} redeemed {reward_title} | Input: {user_input}")
+
+        # Save the event
+        save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
+
+        if reward_title == "Chatogram":
+            await self.event_queue.put({
+                "command": "print",
+                "user_id": user_id,
+                "user": username,
+                "message": user_input,
+                "redeem_id": data.event.id,
+                "reward_id": data.event.reward.id
+            })
+
+        # Broadcast message to overlay/admin panel
+        await broadcast_message({
+            "alert": {
+                "type": "redemption",
+                "user": username,
+                "message": f"{reward_title}: {user_input}"
+            }
+        })
 
     async def handle_cheer(self, data: dict):
         """Handle Twitch cheers (bit donations)."""
-        username = data["event"]["user_name"]
-        bits = data["event"]["bits"]
-        message = data["event"]["message"]
+        username = data.event.user_name
+        bits = data.event.bits
+        message = data.event.message
 
         logger.info(f"💎 {username} cheered {bits} bits! Message: {message}")
 
@@ -278,25 +296,25 @@ class TwitchAPI:
         })
 
         # Save the cheer event in the database
-        await self.save_event("cheer", int(data["event"]["user_id"]), f"{username} cheered {bits} bits. Message: {message}")
+        await save_event("cheer", int(data.event.user_id), f"{username} cheered {bits} bits. Message: {message}")
 
     async def handle_ban(self, data: dict):
         """Handle ban event"""
-        moderator = data["event"]["moderator_user_name"]
-        target = data["event"]["user_name"]
+        moderator = data.event.moderator_user_name
+        target = data.event.user_name
         logger.info(f"🚨 {moderator} banned {target}!")
 
-        self.save_event("ban", int(data["event"]["user_id"]), f"Banned by {moderator}")
+        save_event("ban", int(data.event.user_id), f"Banned by {moderator}")
         await broadcast_message({"alert": {"type": "ban", "moderator": moderator, "user": target}})
 
     async def handle_timeout(self, data: dict):
         """Handle timeout (temporary ban)"""
-        moderator = data["event"]["moderator_user_name"]
-        target = data["event"]["user_name"]
-        duration = data["event"]["duration"]
+        moderator = data.event.moderator_user_name
+        target = data.event.user_name
+        duration = data.event.duration
         logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
 
-        self.save_event("timeout", int(data["event"]["user_id"]), f"Timed out for {duration}s by {moderator}")
+        save_event("timeout", int(data["event"]["user_id"]), f"Timed out for {duration}s by {moderator}")
         await broadcast_message({"alert": {"type": "timeout", "moderator": moderator, "user": target, "duration": duration}})
 
     async def handle_mod_action(self, data: dict):
@@ -305,27 +323,27 @@ class TwitchAPI:
         action = data["event"]["action"]
         logger.info(f"🔧 {moderator} performed mod action: {action}")
 
-        self.save_event("mod_action", None, f"{moderator} performed: {action}")
+        save_event("mod_action", None, f"{moderator} performed: {action}")
         await broadcast_message({"alert": {"type": "mod_action", "moderator": moderator, "action": action}})
 
     async def handle_deleted_message(self, data: dict):
         """Handle deleted messages"""
-        target = data["event"]["user_name"]
+        target = data.event.user_name
         logger.info(f"🗑️ Message deleted from {target}")
 
-        self.save_event("message_deleted", int(data["event"]["user_id"]), f"Message deleted")
+        save_event("message_deleted", int(data.event.user_id), f"Message deleted")
         await broadcast_message({"alert": {"type": "message_deleted", "user": target}})
 
     async def handle_ad_break(self, data: dict):
         """Handle upcoming ad break notifications from Twitch and save as an event."""
-        ad_length = data["event"]["length_seconds"]  # Ad duration in seconds
-        next_ad_time = data["event"]["next_ad_at"]  # ISO timestamp for next ad
+        ad_length = data.event.length_seconds  # Ad duration in seconds
+        next_ad_time = data.event.next_ad_at  # ISO timestamp for next ad
         formatted_time = datetime.datetime.fromisoformat(next_ad_time).strftime("%H:%M:%S")
 
         logger.info(f"📢 Upcoming ad break! Duration: {ad_length}s | Next ad at: {formatted_time}")
 
         # Save ad break as an event in the database
-        self.save_event("ad_break", None, f"Ad break starts in {ad_length}s (Next at {formatted_time})")
+        save_event("ad_break", None, f"Ad break starts in {ad_length}s (Next at {formatted_time})")
 
         # Broadcast ad break event with countdown for admin panel
         await broadcast_message({
@@ -397,11 +415,8 @@ class TwitchAPI:
                     follower_date=None,
                     subscriber_date=None,
                     color=user_color,
-                    badges=",".join(user_badges) if user_badges else None,
-                    db=db
+                    badges=",".join(user_badges) if user_badges else None
                 )
-
-                db.close()
 
                 return {
                     "id": user.id,

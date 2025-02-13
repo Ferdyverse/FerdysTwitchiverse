@@ -13,3 +13,4 @@ twitchAPI
 sqlalchemy
 python-multipart
 pytz
+html
