@@ -29,3 +29,7 @@ TOKEN_FILE = "twitch_tokens.json"
 
 # FIREBOT
 FIREBOT_API_URL = "http://localhost:7472/api/v1"
+
+# Additional settings
+SEQUENCES_FILE = "sequences.yaml"
+STATE_FILE = "state.json"

@@ -342,7 +342,7 @@ class TwitchAPI:
         Sends a message to Twitch chat as the Streamer.
         """
         try:
-            await self.twitch.send_chat_message(self.broadcaster_id, message)
+            await self.twitch.send_chat_message(config.TWITCH_CHANNEL_ID, message)
             logger.info(f"✅ Streamer sent message: {message}")
         except Exception as e:
             logger.error(f"❌ Error sending message as Streamer: {e}")

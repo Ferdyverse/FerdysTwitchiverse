@@ -11,3 +11,74 @@
     height: 120px; /* Adjust logo size */
     max-width: 100%;
 }
+
+/* ============ SCROLLBAR STYLING ============ */
+
+/* General scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px; /* Slimmer scrollbar */
+    height: 8px; /* Horizontal scrollbars */
+}
+
+/* Scrollbar Track */
+::-webkit-scrollbar-track {
+    background: #2D2D3A; /* Dark background */
+    border-radius: 10px;
+}
+
+/* Scrollbar Thumb */
+::-webkit-scrollbar-thumb {
+    background: #6B7280; /* Gray thumb */
+    border-radius: 10px;
+    transition: background 0.3s ease-in-out;
+}
+
+/* Hover effect */
+::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF; /* Lighter on hover */
+}
+
+/* Firefox Custom Scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #6B7280 #2D2D3A;
+}
+
+/* Event Log Styling */
+.event-log-container {
+    height: 700px; /* Make it even bigger */
+    overflow-y: scroll; /* Enable scrolling but hide scrollbar */
+    padding-right: 5px; /* Prevent text from hitting the edge */
+}
+
+/* Hide scrollbar while keeping scrolling functionality */
+.event-log-container::-webkit-scrollbar {
+    display: none;
+}
+.event-log-container {
+    -ms-overflow-style: none;  /* Hide scrollbar for IE/Edge */
+    scrollbar-width: none;  /* Hide scrollbar for Firefox */
+}
+
+/* Individual event items */
+.event-item {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Text Styling */
+.event-item strong {
+    font-weight: bold;
+    color: #ffffff; /* White text for action */
+}
+.event-timestamp {
+    font-size: 0.85rem;
+    color: #aaaaaa; /* Subtle gray */
+}
+.event-details {
+    color: #dddddd;
+}
+.event-username {
+    color: #facc15; /* Yellow */
+    font-size: 0.85rem;
+}

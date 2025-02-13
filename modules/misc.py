@@ -2,6 +2,7 @@ import json
 import os
 import config
 import logging
+import yaml
 
 logger = logging.getLogger("uvicorn.error.misc")
 
@@ -41,3 +42,13 @@ def load_tokens(scope):
                 return None
     except FileNotFoundError:
         return None
+
+def load_sequences():
+    """Load action sequences from YAML file."""
+    if not os.path.exists(config.SEQUENCES_FILE):
+        return {}  # Return empty if no YAML file exists
+
+    with open(config.SEQUENCES_FILE, "r", encoding="utf-8") as file:
+        data = yaml.safe_load(file)
+
+    return data.get("sequences", {})

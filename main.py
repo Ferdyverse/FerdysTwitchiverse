@@ -20,12 +20,13 @@ import asyncio
 import os
 import pytz
 import random
+import inspect
 
 # Own modules
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
 from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
-from modules.db_manager import init_db, get_data, get_planets, get_db, get_recent_chat_messages, get_recent_events, get_viewer_stats, save_event
+from modules.db_manager import init_db, get_data, get_planets, get_db, get_recent_events, get_viewer_stats, save_event
 from modules.db_manager import ChatMessage, Viewer
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
@@ -33,7 +34,8 @@ from modules import event_handlers
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
 from modules.admin import router as admin_router
-from modules.misc import save_tokens
+from modules.misc import load_sequences
+from modules.sequence_runner import get_sequence_names, execute_sequence, reload_sequences, ACTION_SEQUENCES
 import config
 
 # ✅ ANSI escape codes for module-based colors
@@ -78,6 +80,8 @@ DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
 DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
 DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
 DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
+
+ACTION_SEQUENCES = load_sequences()
 
 # Configure the logger
 logger = logging.getLogger("uvicorn.error")
@@ -241,35 +245,75 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
     description="Retrieves the last follower and subscriber from the database.",
     response_description="Returns the last follower and subscriber."
 )
-async def get_overlay_data(db: Session = Depends(get_db)):
+async def get_overlay_data():
     """
     Endpoint to fetch the most recent follower and subscriber from the database.
     """
     return {
-        "last_follower": get_data("last_follower", db) or "None",
-        "last_subscriber": get_data("last_subscriber", db) or "None",
-        "goal_text": get_data("goal_text", db) or "None",
-        "goal_current": get_data("goal_current", db) or "None",
-        "goal_target": get_data("goal_target", db) or "None"
+        "last_follower": get_data("last_follower") or "None",
+        "last_subscriber": get_data("last_subscriber") or "None",
+        "goal_text": get_data("goal_text") or "None",
+        "goal_current": get_data("goal_current") or "None",
+        "goal_target": get_data("goal_target") or "None"
     }
 
 # Background task to process queue events
 async def process_queue():
     """ Continuously processes events from the queue """
     while True:
-        data = await event_queue.get()
+        task = await event_queue.get()
 
-        logger.info(f"📥 Processing event from queue: {data}")
+        logger.info(f"📥 Processing event from queue: {task}")
 
-        if "command" in data:
-            command = data["command"]
-            user = data["user"]
-            user_id = data["user_id"]
+        if "function" in task:
+            function_name = task["function"]
+            parameters = task.get("data", {})
+
+            if parameters == "None":
+                parameters = {}
+
+            if function_name in globals():
+                func = globals()[function_name]
+
+                if callable(func):
+                    try:
+                        # ✅ Detect function parameters dynamically
+                        sig = inspect.signature(func)
+                        param_types = [param.annotation for param in sig.parameters.values()]
+
+                        if param_types and param_types[0] not in [inspect.Parameter.empty, dict]:
+                            expected_type = param_types[0]  # Get expected type
+                            if isinstance(parameters, dict):
+                                parameters = expected_type(**parameters)  # Convert dict to Pydantic Model
+
+                        # ✅ Handle async & sync functions dynamically
+                        if inspect.iscoroutinefunction(func):  # Async function
+                            await func(parameters) if len(param_types) == 1 else await func(**parameters)
+                        else:  # Sync function
+                            func(parameters) if len(param_types) == 1 else func(**parameters)
+
+                        logger.info(f"✅ Executed function: {function_name} with parameters: {parameters}")
+                        save_event("function_call", None, f"Executed: {function_name} with params: {parameters}")
+
+                    except TypeError as e:
+                        logger.error(f"❌ Function execution failed: {e}")
+                        save_event("error", None, f"Failed function: {function_name}, Error: {e}")
+                else:
+                    logger.warning(f"⚠️ '{function_name}' is not callable!")
+                    save_event("error", None, f"Attempted call on non-callable: {function_name}")
+            else:
+                logger.warning(f"⚠️ Function '{function_name}' not found!")
+                save_event("error", None, f"Function not found: {function_name}")
+
+        if "command" in task:
+            command = task["command"]
+            user = task["user"]
+            user_id = task["user_id"]
 
             user_data = await twitch_api.get_user_info(user_id=user_id)
 
             if command == "print":
-                message = data.get("message", "")
+                message = task.get("message", "")
                 logger.info(f"🖨️ Printing requested by {user}: {message}")
 
                 print_request = PrintRequest(
@@ -290,8 +334,8 @@ async def process_queue():
                 # await broadcast_message({"message": f"Printing triggered by {user}"})
 
         # Ensure data is correctly accessed as a dictionary
-        if "heat_click" in data:
-            click_event = data["heat_click"]  # Extract nested dictionary
+        if "heat_click" in task:
+            click_event = task["heat_click"]  # Extract nested dictionary
 
             user = click_event.get("user_id")
             x = click_event.get("x")
@@ -313,8 +357,7 @@ async def process_queue():
                 # Reset hidden object
                 await firebot.run_effect_list("0977a5a0-e189-11ef-b16a-cbaddbeeb72a")
                 # Message to chat
-                args = {"args": { "star_user": real_user } }
-                await firebot.run_effect_list("3dc732a0-e19b-11ef-b16a-cbaddbeeb72a", args)
+                await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
 
         event_queue.task_done()  # Mark task as complete
 
@@ -452,6 +495,7 @@ async def add_clickable_object(obj: ClickableObject):
     object_id = obj.object_id
 
     if object_id in CLICKABLE_OBJECTS:
+        logger.error(f"Clickable object {object_id} already exists")
         return {"status": "error", "message": f"Clickable object {object_id} already exists"}
 
     # Ensure we store a dictionary, not a Pydantic model
@@ -496,23 +540,27 @@ async def test_debug(payload: Any = Body(...)):
         raise HTTPException(status_code=500, detail="Failed to send debug data")
 
 @app.post("/trigger-overlay/")
-async def trigger_overlay(action: str, data: dict, db: Session = Depends(get_db)):
-    """
-    Trigger an overlay event from the admin panel.
-    - `action`: The type of action (e.g., "show_icon", "play_animation").
-    - `data`: Any additional parameters for the action.
-    """
+async def trigger_overlay(request: Request):
+    body = await request.json()
+    action = body.get("action")
+    data = body.get("data", {})
+
     if not action:
         raise HTTPException(status_code=400, detail="Missing action type")
 
-    # Log the action in the database (optional)
-    save_event("admin_action", None, f"Triggered overlay: {action}", db)
-
-    # Broadcast event to the overlay WebSocket
-    await broadcast_message({"overlay_event": {"action": action, "data": data}})
+    if action in ACTION_SEQUENCES:
+        await execute_sequence(action, event_queue)  # Pass event_queue
+    else:
+        save_event("overlay_action", None, f"Direct overlay action: {action} with data: {data}")
+        await broadcast_message({"overlay_event": {"action": action, "data": data}})
 
     return {"status": "success", "message": f"Overlay triggered: {action}"}
 
+@app.post("/reload-sequences")
+async def reload_sequences_endpoint():
+    """Manually reload sequences from YAML file."""
+    await reload_sequences()
+    return {"status": "success", "message": "Sequences reloaded!"}
 
 @app.get("/chat", response_class=HTMLResponse)
 async def get_chat_messages(db: Session = Depends(get_db)):
@@ -525,8 +573,8 @@ async def get_chat_messages(db: Session = Depends(get_db)):
         ChatMessage.timestamp,
         Viewer.display_name.label("username"),
         Viewer.profile_image_url.label("avatar"),
-        Viewer.color.label("user_color"),  # ✅ Fetch user color if available
-        Viewer.badges.label("badges"),  # ✅ Fetch badges
+        Viewer.color.label("user_color"),
+        Viewer.badges.label("badges"),
         ChatMessage.viewer_id.label("twitch_id")
     ).join(Viewer, ChatMessage.viewer_id == Viewer.twitch_id, isouter=True) \
     .order_by(ChatMessage.timestamp.desc()) \
@@ -540,26 +588,26 @@ async def get_chat_messages(db: Session = Depends(get_db)):
     for msg in reversed(messages):  # Reverse to show oldest messages first
         username = msg.username or "Unknown"
         avatar_url = msg.avatar or "/static/images/default_avatar.png"
-        user_color = msg.user_color or random.choice(FALLBACK_COLORS)  # ✅ Use stored color or fallback
+        user_color = msg.user_color or random.choice(FALLBACK_COLORS)
 
-        # ✅ Convert timestamp to local timezone
+        # Convert timestamp to local timezone
         utc_time = msg.timestamp.replace(tzinfo=pytz.utc)  # Ensure UTC
         local_time = utc_time.astimezone(LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
 
-        # ✅ Handle badges (If available)
+        # Handle badges (If available)
         badge_html = ""
         if msg.badges:
             badge_list = msg.badges.split(",")  # Convert stored CSV to list
             badge_html = "".join([f'<img src="{badge}" class="chat-badge" alt="badge">' for badge in badge_list])
 
-        # ✅ HTML structure (Matches WebSocket messages)
+        # HTML structure (Matches WebSocket messages)
         chat_html += f"""
             <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
                 data-message-id="{msg.id}" data-user-id="{msg.twitch_id}">
                 <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
                 <div class="chat-content flex flex-col w-full">
                     <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
-                        <div class="chat-username font-bold" style="color: {user_color};">{username}</div>
+                        <div class="chat-username font-bold" style="color: {user_color};">{badge_html}{username}</div>
                         <div class="chat-timestamp text-xs">{local_time}</div>
                     </div>
                     <div class="chat-text text-gray-300 break-words bg-gray-900 p-2 rounded-lg w-fit max-w-3xl">
@@ -572,42 +620,63 @@ async def get_chat_messages(db: Session = Depends(get_db)):
     return Response(chat_html, media_type="text/html")
 
 @app.get("/events/", response_class=HTMLResponse)
-def get_events(db: Session = Depends(get_db)):
+def get_events():
     """
     Retrieve the last 50 stored events and return them as an HTML snippet.
     """
-    events = get_recent_events(db)
+    events = get_recent_events()
 
     if not events:
-        return "<p class='event-placeholder'>No events yet...</p>"
+        return "<p class='text-center text-gray-400'>No events yet...</p>"
 
-    event_html = "".join(
-        f"<div class='event-item'><strong>{event.event_type}</strong> - {event.username if event.username else 'Unknown'}: {event.message} <span class='event-timestamp'>{event.timestamp}</span></div>"
-        for event in reversed(events)
-    )
+    event_html = ""
 
-    return event_html
+    for event in reversed(events):
+        event_type = event.event_type.replace("_", " ").capitalize()
+        username = event.username if event.username else "Unknown"
+        timestamp = event.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Apply color-coded styles for different event types
+        if "admin_action" in event.event_type:
+            color_class = "border-blue-500 bg-blue-900/20"
+        elif "button_click" in event.event_type:
+            color_class = "border-yellow-500 bg-yellow-900/20"
+        elif "function_call" in event.event_type:
+            color_class = "border-green-500 bg-green-900/20"
+        elif "error" in event.event_type:
+            color_class = "border-red-500 bg-red-900/20"
+        else:
+            color_class = "border-gray-500 bg-gray-800"
+
+        # ✅ **EXACT format as you requested**
+        event_html += f"""
+            <div class="p-3 mb-2 rounded-md shadow-md border-l-4 {color_class}">
+                <!-- First Line: Action (Bold) -->
+                <div class="font-semibold text-white">{event_type}</div>
+
+                <!-- Second Line: Date (Small) -->
+                <div class="text-xs text-gray-400">{timestamp}</div>
+
+                <!-- Third Line: Details -->
+                <div class="mt-2 text-gray-300 text-sm">{event.message}</div>
+
+                <!-- Fourth Line: Username (Yellow, Small) -->
+                <div class="mt-1 text-xs text-yellow-400 font-semibold">{username}</div>
+            </div>
+        """
+
+    return HTMLResponse(content=event_html)
 
 @app.get("/viewers/{twitch_id}")
-async def get_viewer(twitch_id: int, db: Session = Depends(get_db)):
+async def get_viewer(twitch_id: int):
     """Fetch viewer data along with stats."""
-    viewer_data = get_viewer_stats(twitch_id, db)
+    viewer_data = get_viewer_stats(twitch_id)
 
     if not viewer_data:
         try:
             await twitch_api.get_user_info(user_id=twitch_id)
         except:
             raise HTTPException(status_code=404, detail="Viewer not found")
-
-    return viewer_data
-
-@app.get("/viewers/{twitch_id}/stats")
-def get_viewer_stats_endpoint(twitch_id: int, db: Session = Depends(get_db)):
-    """Fetch a viewer's stats including per-stream details."""
-    viewer_data = get_viewer_stats(twitch_id, db)
-
-    if not viewer_data:
-        raise HTTPException(status_code=404, detail="Viewer not found")
 
     return viewer_data
 
@@ -638,7 +707,8 @@ async def send_chat_message(
     response_class=HTMLResponse)
 async def homepage(request: Request):
     """Serve the API Overview Homepage."""
-    return templates.TemplateResponse("homepage.html", {"request": request})
+    sequence_names = get_sequence_names()
+    return templates.TemplateResponse("homepage.html", {"request": request, "sequence_names": sequence_names})
 
 if __name__ == "__main__":
     uvicorn.run(

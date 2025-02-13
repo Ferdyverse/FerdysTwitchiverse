@@ -116,11 +116,12 @@ class TwitchChatBot:
         username = event.user.display_name
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
         message = event.text
-        stream_id = "current_stream_id"  # Replace with actual stream tracking logic
+        message_id = event.id
+        stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0
         is_reply = event.reply_parent_msg_id is not None  # Check if message is a reply
 
-        # ✅ Check if user exists in DB first
+        # Check if user exists in DB first
         existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
 
         if not existing_user:
@@ -138,8 +139,8 @@ class TwitchChatBot:
                     account_age="",
                     follower_date=None,
                     subscriber_date=None,
-                    color=user_info.get("color"),  # ✅ Store color
-                    badges=",".join(user_info.get("badges", [])),  # ✅ Store badges
+                    color=user_info.get("color"),
+                    badges=",".join(user_info.get("badges", [])),
                     db=db
                 )
                 user_color = user_info.get("color")
@@ -150,38 +151,38 @@ class TwitchChatBot:
                 user_badges = []
                 avatar_url = "/static/images/default_avatar.png"
         else:
-            # ✅ User is in DB, use stored data
+            # User is in DB, use stored data
             user_color = existing_user.color
             user_badges = existing_user.badges.split(",") if existing_user.badges else []
             avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
 
-        # ✅ Save chat message in the database
-        save_chat_message(twitch_id, message, db)
+        # Save chat message in the database
+        save_chat_message(twitch_id, message, message_id, stream_id, db)
 
-        # ✅ Update viewer stats (both per stream and overall)
+        # Update viewer stats (both per stream and overall)
         update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply, db)
 
-        # ✅ Prepare message for overlay
+        # Prepare message for overlay
         message_id = f"{username}_{int(time.time())}"  # Unique ID
         chat_message = {
             "id": message_id,
             "user": username,
             "message": message,
             "timestamp": int(time.time()) + 19,  # Message disappears after 19s
-            "color": user_color,  # ✅ Send stored color
-            "badges": user_badges,  # ✅ Send stored badges
-            "avatar": avatar_url  # ✅ Send avatar
+            "color": user_color,
+            "badges": user_badges,
+            "avatar": avatar_url
         }
 
-        # ✅ Append message & remove oldest if more than 5 messages
+        # Append message & remove oldest if more than 5 messages
         self.recent_messages.append(chat_message)
         if len(self.recent_messages) > 5:
             self.recent_messages.pop(0)
 
-        # ✅ Send updated chat messages to overlay
+        # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        # ✅ Send chat update to admin panel (single latest message)
+        # Send chat update to admin panel (single latest message)
         admin_chat_message = {
             "admin_chat": {
                 "username": username,
@@ -193,7 +194,7 @@ class TwitchChatBot:
         }
         await broadcast_message(admin_chat_message)
 
-        # ✅ Schedule message removal after 19s
+        # Schedule message removal after 19s
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
 
         db.close()

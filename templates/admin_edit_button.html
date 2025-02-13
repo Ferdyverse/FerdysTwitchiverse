@@ -4,13 +4,14 @@
 
     <label for="action">Action:</label>
     <select id="edit-action" name="action">
-        <option value="show_icon" {% if button.action == 'show_icon' %}selected{% endif %}>Show Icon</option>
-        <option value="play_sound" {% if button.action == 'play_sound' %}selected{% endif %}>Play Sound</option>
-        <option value="trigger_alert" {% if button.action == 'trigger_alert' %}selected{% endif %}>Trigger Alert</option>
-        <option value="custom" {% if button.action == 'custom' %}selected{% endif %}>Custom Action</option>
+        {% for sequence in sequence_names %}
+            <option value="{{ sequence }}" {% if button and button.action == sequence %}selected{% endif %}>
+                {{ sequence }}
+            </option>
+        {% endfor %}
     </select>
 
-    <label for="data">Data:</label>
+    <label for="data">Data (Optional):</label>
     <textarea id="edit-data" name="data">{{ button_data | safe }}</textarea>
 
     <div class="modal-buttons">

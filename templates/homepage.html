@@ -17,6 +17,8 @@
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen p-5">
 
+    <div id="flash-message" class="hidden fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-md transition-opacity duration-500 opacity-0"></div>
+
     <!-- Header with Logo -->
     <div class="admin-header">
         <img src="/static/images/ferdyverse.svg" alt="Ferdyverse Logo">
@@ -82,8 +84,8 @@
                 Ad break incoming...
             </div>
 
-            <h3 class="text-lg font-bold mt-4">Event Log</h3>
-            <div id="event-log" class="overflow-y-auto bg-gray-700 p-3 rounded-lg h-48"
+            <h3 class="text-lg font-bold text-gray-200 mb-3">Event Log</h3>
+            <div id="event-log" class="event-log-container"
                 hx-get="/events/"
                 hx-trigger="load, every 5s"
                 hx-target="#event-log"
@@ -103,10 +105,12 @@
 
             <label for="modal-action" class="text-sm">Action:</label>
             <select id="modal-action" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
-                <option value="show_icon">Show Icon</option>
-                <option value="play_sound">Play Sound</option>
-                <option value="trigger_alert">Trigger Alert</option>
-                <option value="custom">Custom Action</option>
+                <option value="" selected >Select an action...</option>
+                {% for sequence in sequence_names %}
+                    <option value="{{ sequence }}" {% if button and button.action == sequence %}selected{% endif %}>
+                        {{ sequence }}
+                    </option>
+                {% endfor %}
             </select>
 
             <label for="modal-data" class="text-sm">Data:</label>

@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from modules.db_manager import get_db, save_event, AdminButton, ChatMessage, save_viewer
 from modules.websocket_handler import broadcast_message
-from modules.schemas import AdminButtonCreate
+from modules.sequence_runner import get_sequence_names
 import logging
 import json
 import config
@@ -73,9 +73,11 @@ def edit_admin_button(button_id: int, request: Request, db: Session = Depends(ge
     except json.JSONDecodeError:
         button_data = {}
 
+    sequence_names = get_sequence_names()
     return templates.TemplateResponse("admin_edit_button.html", {
         "request": request,
         "button": button,
+        "sequence_names": sequence_names,
         "button_data": json.dumps(button_data, indent=2)  # Pretty JSON
     })
 
@@ -113,6 +115,7 @@ async def update_admin_button(button_id: int, request: Request, db: Session = De
     db.refresh(button)
 
     return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": db.query(AdminButton).all()})
+
 @router.delete("/buttons/remove/{button_id}", response_class=HTMLResponse)
 async def remove_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
     """Remove a button and return updated list."""
@@ -129,24 +132,6 @@ async def remove_admin_button(button_id: int, request: Request, db: Session = De
     # Swap only the button list
     return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": buttons})
 
-
-@router.post("/trigger-overlay/")
-async def trigger_overlay(action: str, data: str = None, db: Session = Depends(get_db)):
-    """Trigger an overlay event from the admin panel."""
-    if not action:
-        raise HTTPException(status_code=400, detail="Missing action type")
-
-    save_event("admin_action", None, f"Triggered overlay: {action} ({data or 'No Data'})", db)
-
-    await broadcast_message({
-        "overlay_event": {
-            "action": action,
-            "data": data if data else None
-        }
-    })
-
-    return {"status": "success", "message": f"Overlay triggered: {action} with data: {data or 'None'}"}
-
 @router.post("/update-viewer/{user_id}")
 async def update_viewer(user_id: int, request: Request, db: Session = Depends(get_db)):
     """Fetch latest user info and update the viewer database."""
@@ -159,7 +144,7 @@ async def update_viewer(user_id: int, request: Request, db: Session = Depends(ge
         if not user_info:
             raise HTTPException(status_code=404, detail="User not found in Twitch API")
 
-        # ✅ Update viewer in DB
+        # Update viewer in DB
         save_viewer(
             twitch_id=user_id,
             login=user_info["login"],
@@ -175,7 +160,7 @@ async def update_viewer(user_id: int, request: Request, db: Session = Depends(ge
             db=db
         )
 
-        # ✅ Broadcast update
+        # Broadcast update
         await broadcast_message({"admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}})
 
         return {"status": "success", "message": "Viewer information updated"}
@@ -188,7 +173,7 @@ async def update_viewer(user_id: int, request: Request, db: Session = Depends(ge
 async def delete_chat_message(message_id: int, request: Request, db: Session = Depends(get_db)):
     """Delete a chat message from Twitch and the local database."""
 
-    twitch_api = request.app.state.twitch_api  # ✅ Access `twitch_api` from `app.state`
+    twitch_api = request.app.state.twitch_api  # Access `twitch_api` from `app.state`
 
     message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
     if not message:
@@ -197,17 +182,17 @@ async def delete_chat_message(message_id: int, request: Request, db: Session = D
     user_id = message.viewer_id  # Get Twitch user ID
 
     try:
-        # ✅ Delete the message from Twitch chat
+        # Delete the message from Twitch chat
         await twitch_api.twitch.delete_chat_message(config.TWITCH_CHANNEL_ID, user_id, message_id)
         logger.info(f"🗑️ Deleted message {message_id} from Twitch chat.")
     except Exception as e:
         logger.warning(f"⚠️ Failed to delete Twitch chat message: {str(e)}")
 
-    # ✅ Delete from local DB
+    # Delete from local DB
     db.delete(message)
     db.commit()
 
-    # ✅ Refresh the chat UI
+    # Refresh the chat UI
     await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
 
     return await get_chat_messages(db)

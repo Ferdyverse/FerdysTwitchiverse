@@ -1,0 +1,54 @@
+sequences:
+  reload_actions:
+    - type: call_function
+      data:
+        name: reload_sequences
+        parameters: None
+
+  hide_star:
+    - type: call_function
+      data:
+        name: add_clickable_object
+        parameters:
+          action: "add"
+          object_id: "hidden_star"
+          x: "{random(50, 500)}"
+          y: "{random(50, 500)}"
+          width: 10
+          height: 10
+          iconClass: "fa-poo"
+    - type: call_function
+      data:
+        name: twitch_chat.send_message
+        parameters: "!fart Ihhhh, das stinkt ja gewlatig..."
+    - type: show_icon
+      data: "fa-star"
+
+  hide_test:
+    - type: if
+      data:
+        condition: star_visible
+        then:
+          - type: hide_icon
+            data: "star"
+          - type: set_condition
+            data:
+              name: star_visible
+              value: false
+        else:
+          - type: send_chat_message
+            data: "The star is already hidden!"
+
+  action_z:
+    - type: hide_icon
+      data: "star"
+    - type: show_icon
+      data: "moon"
+    - type: send_chat_message
+      data: "The star has transformed into a moon! 🌙"
+    - type: sleep
+      data: 2  # ✅ Wait 2 seconds before next action
+    - type: call_function
+      data:
+        name: custom_python_function
+        parameters: "Custom parameter value"
