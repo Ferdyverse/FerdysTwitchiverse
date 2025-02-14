@@ -30,6 +30,7 @@ scopes = [
     AuthScope.MODERATOR_MANAGE_CHAT_MESSAGES,
     AuthScope.MODERATOR_READ_FOLLOWERS,
     AuthScope.MODERATOR_MANAGE_SHOUTOUTS,
+    AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS,
     AuthScope.MODERATION_READ,
     AuthScope.USER_READ_EMAIL,
     AuthScope.USER_READ_FOLLOWS,
@@ -44,6 +45,7 @@ scopes = [
     AuthScope.WHISPERS_EDIT,
     AuthScope.ANALYTICS_READ_EXTENSION,
     AuthScope.ANALYTICS_READ_GAMES,
+    AuthScope.USER_WRITE_CHAT
 ]
 
 class TwitchAPI:
@@ -360,7 +362,7 @@ class TwitchAPI:
         Sends a message to Twitch chat as the Streamer.
         """
         try:
-            await self.twitch.send_chat_message(config.TWITCH_CHANNEL_ID, message)
+            await self.twitch.send_chat_message(config.TWITCH_CHANNEL_ID, config.TWITCH_CHANNEL_ID, message)
             logger.info(f"✅ Streamer sent message: {message}")
         except Exception as e:
             logger.error(f"❌ Error sending message as Streamer: {e}")

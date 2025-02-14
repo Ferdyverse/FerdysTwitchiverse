@@ -17,7 +17,9 @@ logger = logging.getLogger("uvicorn.error.twitch_chat")
 scopes = [
     AuthScope.CHAT_READ,
     AuthScope.CHAT_EDIT,
+    AuthScope.USER_WRITE_CHAT,
     AuthScope.MODERATOR_READ_CHATTERS,
+    AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS
 ]
 
 class TwitchChatBot:
@@ -53,7 +55,18 @@ class TwitchChatBot:
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("bot", self.token, self.refresh_token)
 
-            await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+            try:
+                await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+            except:
+                logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
+                auth = UserAuthenticator(self.twitch, scopes)
+                self.token, self.refresh_token = await auth.authenticate()
+                save_tokens("bot", self.token, self.refresh_token)
+                try:
+                    await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+                except:
+                    return False
+
             logger.info("✅ Twitch authentication successful.")
             return True
 

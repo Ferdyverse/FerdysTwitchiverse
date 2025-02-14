@@ -17,8 +17,6 @@
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen p-5">
 
-    <div id="flash-message" class="hidden fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-md transition-opacity duration-500 opacity-0"></div>
-
     <!-- Header with Logo -->
     <div class="admin-header">
         <img src="/static/images/ferdyverse.svg" alt="Ferdyverse Logo">
@@ -31,7 +29,7 @@
         <div class="col-span-3 bg-gray-800 p-4 rounded-lg shadow-lg">
             <h3 class="text-lg font-bold mb-3">Overlay Effects</h3>
             <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded mb-3"
-                    onclick="openModal()">➕ Add Button</button>
+                    onclick="openGenericModal('button-modal')" >➕ Add Button</button>
 
             <!-- Button List -->
             <div id="button-container" class="space-y-2"
@@ -41,18 +39,41 @@
                 hx-swap="innerHTML">
                 <p class="text-gray-400">Loading buttons...</p>
             </div>
+
+            <!-- Section for managing Channel Point Rewards -->
+            <div class="mt-6">
+                <h2 class="text-lg font-bold mb-2">Channel Point Rewards</h2>
+
+                <!-- Button to open the modal -->
+                <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded mb-3" onclick="openGenericModal('reward-modal')">
+                    ➕ Create Reward
+                </button>
+            <button onclick="openGenericModal('rewards-modal')" class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 rounded shadow-md">
+                    🎁 Manage Rewards
+                </button>
+
+                <h2 class="text-lg font-bold mt-4 mb-2">Pending Redemptions</h2>
+                <div id="pending-rewards" class="overflow-y-auto bg-gray-800 p-4 rounded-lg h-96 w-full max-w-3xl mx-auto"
+                    hx-get="/admin/pending-rewards"
+                    hx-trigger="load, every 15s"
+                    hx-target="#pending-rewards"
+                    hx-swap="innerHTML">
+                </div>
+
+            </div>
         </div>
 
         <!-- Chat Section (Middle Column) -->
-        <div class="col-span-6 bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col">
+        <div class="col-span-6 bg-gray-800 p-4 rounded-lg flex flex-col">
             <h3 class="text-lg font-bold mb-2">Live Chat</h3>
 
-            <!-- HTMX loads initial chat history -->
-            <div id="chat-box" class="flex-grow overflow-y-auto bg-gray-700 p-3 rounded-lg h-96"
+            <!-- Increased Chat Box Height -->
+            <div id="chat-box" class="flex-grow overflow-y-auto bg-gray-700 p-3 rounded-lg h-[600px]"
                 hx-get="/chat"
                 hx-trigger="load"
                 hx-target="#chat-box"
-                hx-swap="innerHTML">
+                hx-swap="innerHTML"
+                onload="scrollChatToBottom()">
             </div>
 
             <!-- Chat Context Menu (Hidden by Default) -->
@@ -84,20 +105,30 @@
                 Ad break incoming...
             </div>
 
-            <h3 class="text-lg font-bold text-gray-200 mb-3">Event Log</h3>
-            <div id="event-log" class="event-log-container"
-                hx-get="/events/"
-                hx-trigger="load, every 5s"
-                hx-target="#event-log"
-                hx-swap="innerHTML">
+            <div class="col-span-3 bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-lg font-bold text-gray-200 mb-3">Event Log</h3>
+                <div id="event-log" class="event-log-container"
+                    hx-get="/admin/events/"
+                    hx-trigger="load, every 5s"
+                    hx-target="#event-log"
+                    hx-swap="innerHTML"
+                    onload="scrollEventsToBottom()">
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal (Used for Both Add & Edit) -->
+        <!-- Flash Message -->
+    <div id="flash-message" class="fixed inset-0 flex items-center justify-center hidden">
+        <div class="bg-gray-900 text-white text-lg px-6 py-4 rounded-lg shadow-lg opacity-100 transition-opacity duration-500">
+            <span id="flash-message-text"></span>
+        </div>
+    </div>
+
+    <!-- Button Modal (Add/Edit Buttons) -->
     <div id="button-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
-        <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-96">
-            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeModal()">✖</button>
+        <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-96 relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('button-modal')">✖</button>
             <h3 id="modal-title" class="text-lg font-bold mb-3">Add Button</h3>
 
             <label for="modal-label" class="text-sm">Label:</label>
@@ -105,7 +136,7 @@
 
             <label for="modal-action" class="text-sm">Action:</label>
             <select id="modal-action" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
-                <option value="" selected >Select an action...</option>
+                <option value="" selected>Select an action...</option>
                 {% for sequence in sequence_names %}
                     <option value="{{ sequence }}" {% if button and button.action == sequence %}selected{% endif %}>
                         {{ sequence }}
@@ -117,12 +148,63 @@
             <textarea id="modal-data" class="w-full bg-gray-700 text-white p-2 rounded mb-4 h-24">{}</textarea>
 
             <div class="flex space-x-2">
-                <button id="modal-submit" class="flex-1 bg-green-500 hover:bg-green-400 text-black px-4 py-2 rounded text-sm font-bold">✅ Save</button>
+                <button id="modal-submit" onclick="submitButtonForm()"
+                        class="flex-1 bg-green-500 hover:bg-green-400 text-black px-4 py-2 rounded text-sm font-bold">
+                    ✅ Save
+                </button>
                 <button type="button" class="flex-1 bg-red-500 hover:bg-red-400 text-white px-4 py-2 rounded text-sm font-bold"
-                        onclick="closeModal()">❌ Cancel</button>
+                        onclick="closeGenericModal('button-modal')">❌ Cancel</button>
             </div>
         </div>
     </div>
+
+    <!-- Rewards Management Modal -->
+    <div id="rewards-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-gray-900 p-6 rounded-lg shadow-lg max-w-4xl w-full relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('rewards-modal')">✖</button>
+            <h2 class="text-lg text-white font-semibold mb-3">Twitch Channel Point Rewards</h2>
+
+            <!-- Reward List -->
+            <div id="reward-list" class="space-y-2 overflow-y-auto max-h-96"
+                hx-get="/admin/rewards/"
+                hx-trigger="load, every 30s"
+                hx-target="#reward-list"
+                hx-swap="innerHTML">
+            </div>
+
+            <button onclick="closeGenericModal('rewards-modal')" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg w-full">Close</button>
+        </div>
+    </div>
+
+    <!-- Reward Creation Modal -->
+    <div id="reward-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-96 relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('reward-modal')">✖</button>
+            <h3 class="text-xl font-bold mb-3">Create New Reward</h3>
+
+            <label class="block text-gray-400 mb-1">Title</label>
+            <input id="reward-title" type="text" class="w-full p-2 rounded bg-gray-700 text-white mb-3">
+
+            <label class="block text-gray-400 mb-1">Cost</label>
+            <input id="reward-cost" type="number" class="w-full p-2 rounded bg-gray-700 text-white mb-3">
+
+            <label class="block text-gray-400 mb-1">Description</label>
+            <textarea id="reward-description" class="w-full p-2 rounded bg-gray-700 text-white mb-3" rows="2"></textarea>
+
+            <label class="block text-gray-400 mb-1 flex items-center">
+                <input id="reward-require-input" type="checkbox" class="mr-2">
+                Require User Input
+            </label>
+
+            <div class="flex justify-between mt-4">
+                <button class="bg-green-500 px-3 py-2 rounded text-white"
+                    onclick="createReward()">Create</button>
+                <button class="bg-gray-500 px-3 py-2 rounded text-white"
+                    onclick="closeGenericModal('reward-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
 
     <script type="module" src="/static/js/websocket_admin.js"></script>
     <script src="/static/js/admin.js"></script>

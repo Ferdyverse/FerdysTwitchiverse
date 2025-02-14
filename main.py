@@ -46,6 +46,7 @@ MODULE_COLORS = {
     "heat_api": "\033[93m",  # Yellow
     "firebot_api": "\033[92m",  # Green
     "printer_manager": "\033[96m",  # Cyan
+    "admin": "\033[90m", # Magenta
     "uvicorn.error": "\033[91m",  # Red (Uvicorn errors)
 }
 
@@ -69,7 +70,17 @@ class ColorFormatter(logging.Formatter):
 
         return f"{module_color}{log_message}{RESET_COLOR}"
 
-# ✅ Apply to all Uvicorn and custom loggers
+class SuppressLogFilter(logging.Filter):
+    def filter(self, record):
+        """Suppress logs for specific paths"""
+        ignored_paths = ["/admin/pending-rewards", "/admin/events/"]
+        return not any(path in record.getMessage() for path in ignored_paths)
+
+
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(SuppressLogFilter())
+
+# Apply to all Uvicorn and custom loggers
 formatter = ColorFormatter(
     "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     datefmt=config.APP_LOG_TIME_FORMAT)
@@ -273,37 +284,39 @@ async def process_queue():
             if parameters == "None":
                 parameters = {}
 
+            func = None
             if function_name in globals():
                 func = globals()[function_name]
-
-                if callable(func):
-                    try:
-                        # ✅ Detect function parameters dynamically
-                        sig = inspect.signature(func)
-                        param_types = [param.annotation for param in sig.parameters.values()]
-
-                        if param_types and param_types[0] not in [inspect.Parameter.empty, dict]:
-                            expected_type = param_types[0]  # Get expected type
-                            if isinstance(parameters, dict):
-                                parameters = expected_type(**parameters)  # Convert dict to Pydantic Model
-
-                        # ✅ Handle async & sync functions dynamically
-                        if inspect.iscoroutinefunction(func):  # Async function
-                            await func(parameters) if len(param_types) == 1 else await func(**parameters)
-                        else:  # Sync function
-                            func(parameters) if len(param_types) == 1 else func(**parameters)
-
-                        logger.info(f"✅ Executed function: {function_name} with parameters: {parameters}")
-                        save_event("function_call", None, f"Executed: {function_name} with params: {parameters}")
-
-                    except TypeError as e:
-                        logger.error(f"❌ Function execution failed: {e}")
-                        save_event("error", None, f"Failed function: {function_name}, Error: {e}")
-                else:
-                    logger.warning(f"⚠️ '{function_name}' is not callable!")
-                    save_event("error", None, f"Attempted call on non-callable: {function_name}")
             else:
-                logger.warning(f"⚠️ Function '{function_name}' not found!")
+                parts = function_name.split(".")
+                if len(parts) == 2:
+                    instance_name, method_name = parts
+                    if instance_name in globals():
+                        instance = globals()[instance_name]
+                        func = getattr(instance, method_name, None)
+
+            if callable(func):
+                try:
+                    sig = inspect.signature(func)
+                    param_types = [param.annotation for param in sig.parameters.values()]
+
+                    if param_types and param_types[0] not in [inspect.Parameter.empty, dict]:
+                        expected_type = param_types[0]
+                        if isinstance(parameters, dict):
+                            parameters = expected_type(**parameters)
+
+                    if inspect.iscoroutinefunction(func):  # Async function
+                        await func(parameters) if len(param_types) == 1 else await func(**parameters)
+                    else:  # Sync function
+                        func(parameters) if len(param_types) == 1 else func(**parameters)
+
+                    logger.info(f"✅ Executed function: {function_name} with parameters: {parameters}")
+
+                except TypeError as e:
+                    logger.error(f"❌ Function execution failed: {e}")
+                    save_event("error", None, f"Failed function: {function_name}, Error: {e}")
+            else:
+                logger.warning(f"⚠️ Function '{function_name}' not found or not callable!")
                 save_event("error", None, f"Function not found: {function_name}")
 
         if "command" in task:
@@ -360,7 +373,7 @@ async def process_queue():
                 logger.debug("Broadcast star found")
                 await broadcast_message({ "hidden": { "action": "found", "user": real_user, "x": x, "y": y } })
                 # Reset hidden object
-                await remove_clickable_object(clicked_object)
+                await execute_sequence("reset_star", event_queue)
                 # Message to chat
                 await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
 
@@ -626,54 +639,6 @@ async def get_chat_messages(db: Session = Depends(get_db)):
 
     return Response(chat_html, media_type="text/html")
 
-@app.get("/events/", response_class=HTMLResponse)
-def get_events():
-    """
-    Retrieve the last 50 stored events and return them as an HTML snippet.
-    """
-    events = get_recent_events()
-
-    if not events:
-        return "<p class='text-center text-gray-400'>No events yet...</p>"
-
-    event_html = ""
-
-    for event in reversed(events):
-        event_type = event.event_type.replace("_", " ").capitalize()
-        username = event.username if event.username else "Unknown"
-        timestamp = event.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-
-        # Apply color-coded styles for different event types
-        if "admin_action" in event.event_type:
-            color_class = "border-blue-500 bg-blue-900/20"
-        elif "button_click" in event.event_type:
-            color_class = "border-yellow-500 bg-yellow-900/20"
-        elif "function_call" in event.event_type:
-            color_class = "border-green-500 bg-green-900/20"
-        elif "error" in event.event_type:
-            color_class = "border-red-500 bg-red-900/20"
-        else:
-            color_class = "border-gray-500 bg-gray-800"
-
-        # ✅ **EXACT format as you requested**
-        event_html += f"""
-            <div class="p-3 mb-2 rounded-md shadow-md border-l-4 {color_class}">
-                <!-- First Line: Action (Bold) -->
-                <div class="font-semibold text-white">{event_type}</div>
-
-                <!-- Second Line: Date (Small) -->
-                <div class="text-xs text-gray-400">{timestamp}</div>
-
-                <!-- Third Line: Details -->
-                <div class="mt-2 text-gray-300 text-sm">{event.message}</div>
-
-                <!-- Fourth Line: Username (Yellow, Small) -->
-                <div class="mt-1 text-xs text-yellow-400 font-semibold">{username}</div>
-            </div>
-        """
-
-    return HTMLResponse(content=event_html)
-
 @app.get("/viewers/{twitch_id}")
 async def get_viewer(twitch_id: int):
     """Fetch viewer data along with stats."""
@@ -690,7 +655,7 @@ async def get_viewer(twitch_id: int):
 @app.post("/send-chat/")
 async def send_chat_message(
     message: str = Form(...),
-    sender: str = Form("streamer")  # Default to Bot
+    sender: str = Form("streamer")  # Default to Streamer
 ):
     """
     Send a chat message from the admin panel as either the Bot or the Streamer.
@@ -703,7 +668,6 @@ async def send_chat_message(
     elif sender == "streamer":
         await twitch_api.send_message_as_streamer(message)
 
-    # Return an empty response (WebSocket will update the chat)
     return Response("", media_type="text/html")
 
 @app.get(

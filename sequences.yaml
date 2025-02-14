@@ -8,21 +8,44 @@ sequences:
   hide_star:
     - type: call_function
       data:
-        name: add_clickable_object
+        name: "send_to_overlay"
         parameters:
-          action: "add"
-          object_id: "hidden_star"
-          x: "{random(50, 500)}"
-          y: "{random(50, 500)}"
-          width: 10
-          height: 10
-          iconClass: "fa-poo"
+          clickable:
+            action: "add"
+            object_id: "hidden_star"
+            x: "{random(20, 1900)}"
+            y: "{random(80, 1050)}"
+            width: 10
+            height: 10
+            iconClass: "fa-poo"
     - type: call_function
       data:
-        name: twitch_chat.send_message
-        parameters: "!fart Ihhhh, das stinkt ja gewlatig..."
+        name: "twitch_chat.send_message"
+        parameters: "!fart Ihhhh, das stinkt ja gewaltig..."
     - type: show_icon
-      data: "fa-star"
+      data:
+        name: "star"
+        action: "add"
+        icon: "fa-star"
+
+  reset_star:
+    - type: call_function
+      data:
+        name: "send_to_overlay"
+        parameters:
+          clickable:
+            action: "remove"
+            object_id: "hidden_star"
+            x: "{random(20, 1900)}"
+            y: "{random(80, 1050)}"
+            width: 10
+            height: 10
+            iconClass: "fa-poo"
+    - type: show_icon
+      data:
+        name: "star"
+        action: "remove"
+        icon: "fa-star"
 
   print_chatogram:
     - type: call_function

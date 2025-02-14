@@ -1,9 +1,11 @@
 <form id="edit-button-form" onsubmit="submitEditButtonForm(event, {{ button.id }})">
-    <label for="label">Label:</label>
-    <input type="text" id="edit-label" name="label" value="{{ button.label }}" required>
+    <label for="label" class="block text-sm font-medium text-gray-300 mb-1">Label:</label>
+    <input type="text" id="edit-label" name="label" value="{{ button.label }}" required
+        class="w-full p-2 rounded bg-gray-700 text-white mb-3 border border-gray-600">
 
-    <label for="action">Action:</label>
-    <select id="edit-action" name="action">
+    <label for="action" class="block text-sm font-medium text-gray-300 mb-1">Action:</label>
+    <select id="edit-action" name="action"
+        class="w-full p-2 rounded bg-gray-700 text-white mb-3 border border-gray-600">
         {% for sequence in sequence_names %}
             <option value="{{ sequence }}" {% if button and button.action == sequence %}selected{% endif %}>
                 {{ sequence }}
@@ -11,11 +13,13 @@
         {% endfor %}
     </select>
 
-    <label for="data">Data (Optional):</label>
-    <textarea id="edit-data" name="data">{{ button_data | safe }}</textarea>
+    <label for="data" class="block text-sm font-medium text-gray-300 mb-1">Data (Optional):</label>
+    <textarea id="edit-data" name="data"
+        class="w-full p-2 rounded bg-gray-700 text-white mb-3 border border-gray-600 h-24">{{ button_data | safe }}</textarea>
 
-    <div class="modal-buttons">
-        <button type="submit" class="btn-save">✅ Save</button>
-        <button type="button" class="btn-cancel" onclick="closeModal()">❌ Cancel</button>
+    <div class="flex justify-end space-x-2">
+        <button type="submit" class="bg-green-500 hover:bg-green-400 text-black px-4 py-2 rounded text-sm font-bold">✅ Save</button>
+        <button type="button" class="bg-red-500 hover:bg-red-400 text-white px-4 py-2 rounded text-sm font-bold"
+            onclick="closeGenericModal('button-modal')">❌ Cancel</button>
     </div>
 </form>
