@@ -88,6 +88,14 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
             .join("");
     }
 
+    let important = false;
+    if (message && message.trim().toLowerCase().includes("!ping")) {
+        important = true;
+    }
+
+    // Set background color based on importance
+    let chatColor = important ? "bg-red-400 text-black-600" : "bg-gray-900 text-gray-300";
+
     // Message HTML
     newMessage.innerHTML = `
         ${avatar}
@@ -98,7 +106,7 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
                 </div>
                 <div class="chat-timestamp text-xs">${localTime}</div>
             </div>
-            <div class="chat-text text-gray-300 break-words bg-gray-900 p-2 rounded-lg w-fit max-w-3xl">
+            <div class="chat-text ${chatColor} break-words p-2 rounded-lg w-fit max-w-3xl">
                 ${message}
             </div>
         </div>

@@ -3,11 +3,8 @@ import yaml
 import re
 import random
 import logging
-import json
 from modules.websocket_handler import broadcast_message
 from modules.state_manager import check_condition, set_condition
-from modules.event_handlers import handle_icon
-from modules.schemas import IconSchema
 
 logger = logging.getLogger("uvicorn.error.sequence_runner")
 
@@ -26,24 +23,7 @@ ACTION_SEQUENCES = load_sequences()
 def get_sequence_names():
     return list(ACTION_SEQUENCES.keys())
 
-def resolve_random_values(data):
-    """
-    Parses strings for `{random(min, max)}` and replaces with a random number.
-    """
-    if isinstance(data, dict):
-        return {key: resolve_random_values(value) for key, value in data.items()}
-    elif isinstance(data, list):
-        return [resolve_random_values(item) for item in data]
-    elif isinstance(data, str):
-        matches = re.findall(r"{random\((\d+),\s*(\d+)\)}", data)
-        for match in matches:
-            min_val, max_val = map(int, match)
-            random_value = random.randint(min_val, max_val)
-            data = data.replace(f"{{random({min_val}, {max_val})}}", str(random_value))
-        return data
-    return data
-
-async def execute_sequence(action: str, event_queue: asyncio.Queue):
+async def execute_sequence(action: str, event_queue: asyncio.Queue, context: dict):
     """Execute a predefined sequence of actions from YAML using the event queue."""
     if action not in ACTION_SEQUENCES:
         logger.warning(f"⚠️ Sequence '{action}' not found.")
@@ -52,7 +32,7 @@ async def execute_sequence(action: str, event_queue: asyncio.Queue):
     steps = ACTION_SEQUENCES[action]
 
     for step in steps:
-        success = await execute_sequence_step(step, event_queue)
+        success = await execute_sequence_step(step, event_queue, context)
 
         if not success:
             logger.error(f"❌ Sequence '{action}' stopped due to an error in step: {step}")
@@ -61,10 +41,11 @@ async def execute_sequence(action: str, event_queue: asyncio.Queue):
 
     await broadcast_message({"admin_alert": {"type": "button_click", "message": f"Sequence '{action}' executed"}})
 
-async def execute_sequence_step(step, event_queue: asyncio.Queue):
+async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict):
     """ Execute a single sequence step using the event queue, returning success status. """
     step_type = step.get("type")
     step_data = resolve_random_values(step.get("data", {}))
+    step_data = resolve_variables(step_data, context)
 
     try:
         # Handle delays
@@ -135,7 +116,6 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue):
         logger.error(f"❌ Error executing step '{step_type}': {e}")
         return False  # ❌ Stop execution if an error occurs
 
-
 async def wait_for_task_success(task, event_queue: asyncio.Queue):
     """ Wait for a task to complete and return whether it succeeded. """
     return True
@@ -145,3 +125,38 @@ async def reload_sequences():
     global ACTION_SEQUENCES
     ACTION_SEQUENCES = load_sequences()
     logger.info("🔄 Sequences reloaded successfully.")
+
+def resolve_random_values(data):
+    """
+    Parses strings for `{random(min, max)}` and replaces with a random number.
+    """
+    if isinstance(data, dict):
+        return {key: resolve_random_values(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [resolve_random_values(item) for item in data]
+    elif isinstance(data, str):
+        matches = re.findall(r"{random\((\d+),\s*(\d+)\)}", data)
+        for match in matches:
+            min_val, max_val = map(int, match)
+            random_value = random.randint(min_val, max_val)
+            data = data.replace(f"{{random({min_val}, {max_val})}}", str(random_value))
+        return data
+    return data
+
+def resolve_variables(data, context):
+    """ Recursively replace placeholders ($$variable) with actual values from the context dictionary. """
+    if isinstance(data, dict):
+        return {key: resolve_variables(value, context) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [resolve_variables(item, context) for item in data]
+    elif isinstance(data, str):
+        return replace_variables_in_string(data, context)
+    return data
+
+def replace_variables_in_string(text, context):
+    """ Replace all occurrences of $$variables in a string using the provided context. """
+    def replace_match(match):
+        variable_name = match.group(1)
+        return context.get(variable_name, match.group(0))  # Keep the original if not found
+
+    return re.sub(r"\$\$(\w+)", replace_match, text)

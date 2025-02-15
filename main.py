@@ -27,8 +27,8 @@ from twitchAPI.type import CustomRewardRedemptionStatus
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
 from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
-from modules.db_manager import init_db, get_data, get_planets, get_db, get_recent_events, get_viewer_stats, save_event
-from modules.db_manager import ChatMessage, Viewer
+from modules.db_manager import init_db, get_data, get_planets, get_db, get_viewer_stats, save_event
+from modules.db_manager import ChatMessage, Viewer, cleanup_old_data
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
 from modules.firebot_api import FirebotAPI
 from modules import event_handlers
@@ -37,6 +37,7 @@ from modules.twitch_chat import TwitchChatBot
 from modules.admin import router as admin_router
 from modules.misc import load_sequences
 from modules.sequence_runner import get_sequence_names, execute_sequence, reload_sequences, ACTION_SEQUENCES
+from modules.obs_api import OBSController
 import config
 
 # ✅ ANSI escape codes for module-based colors
@@ -92,6 +93,7 @@ DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
 DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
 DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
 DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
+DISABLE_OBS = os.getenv("DISABLE_OBS", "false").lower() == "true"
 
 ACTION_SEQUENCES = load_sequences()
 
@@ -118,6 +120,9 @@ event_queue = asyncio.Queue()
 twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, event_queue=event_queue)
 twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, event_queue=event_queue, twitch_api=twitch_api)
 
+# OBS
+obs = OBSController(host=config.OBS_WS_HOST, port=config.OBS_WS_PORT, password=config.OBS_WS_PASSWORD)
+
 templates = Jinja2Templates(directory="templates")
 
 # Keep track of connected clients
@@ -134,6 +139,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing modules")
     try:
         init_db()
+        cleanup_old_data()
         asyncio.create_task(process_queue())  # Run queue processor in background
 
         if not DISABLE_PRINTER:
@@ -166,6 +172,12 @@ async def lifespan(app: FastAPI):
                 logger.warning("No Twitch login found!")
             logger.info("🚫 Twitch API is disabled.")
 
+        if not DISABLE_OBS:
+            global obs
+            await obs.initialize()
+        else:
+            logger.info("🚫 OBS API is disabled.")
+
         yield
 
     except Exception as e:
@@ -184,6 +196,8 @@ async def lifespan(app: FastAPI):
             logger.info("🛑 Stopping Twitch ChatBot...")
             await twitch_chat.stop()
 
+        if not DISABLE_OBS:
+            await obs.disconnect()
 # App config
 app = FastAPI(
     title="Ferdy’s Twitchiverse",
@@ -261,6 +275,8 @@ async def get_overlay_data():
     """
     Endpoint to fetch the most recent follower and subscriber from the database.
     """
+    obs.set_source_visibility("Bildschirm", "_[CAM] DroidCam Pixel2", True)
+
     return {
         "last_follower": get_data("last_follower") or "None",
         "last_subscriber": get_data("last_subscriber") or "None",
@@ -326,8 +342,6 @@ async def process_queue():
 
             user_data = await twitch_api.get_user_info(user_id=user_id)
 
-            logger.error(user_data)
-
             if command == "print":
                 message = task.get("message", "")
                 logger.info(f"🖨️ Printing requested by {user}: {message}")
@@ -343,13 +357,19 @@ async def process_queue():
                 )
 
                 try:
+                    result = await obs.find_scene_item("Pixel 2")
+                    for item in result:
+                        await obs.set_source_visibility(item["scene"], item["id"], True)
                     response = await print_data(print_request)  # Call print_data with our constructed request
                     logger.info(f"🖨️ Print status: {response}")
                     await twitch_api.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, task["reward_id"], task["redeem_id"], CustomRewardRedemptionStatus.FULFILLED)
                 except Exception as e:
                     logger.error(f"❌ Error in printing from Twitch command: {e}")
                     await twitch_api.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, task["reward_id"], task["redeem_id"], CustomRewardRedemptionStatus.CANCELED)
-                # await broadcast_message({"message": f"Printing triggered by {user}"})
+                finally:
+                    await asyncio.sleep(2)
+                    for item in result:
+                        await obs.set_source_visibility(item["scene"], item["id"], False)
 
         # Ensure data is correctly accessed as a dictionary
         if "heat_click" in task:
@@ -401,6 +421,9 @@ async def print_data(request: PrintRequest):
             raise HTTPException(status_code=500, detail="Printer not available")
 
     try:
+        result = await obs.find_scene_item("Pixel 2")
+        for item in result:
+            await obs.set_source_visibility(item["scene"], item["id"], True)
         if request.print_as_image:
             # Print a image
             pimage = await printer_manager.create_image(elements=request.print_elements)
@@ -569,7 +592,7 @@ async def trigger_overlay(request: Request):
         raise HTTPException(status_code=400, detail="Missing action type")
 
     if action in ACTION_SEQUENCES:
-        await execute_sequence(action, event_queue)  # Pass event_queue
+        await execute_sequence(action, event_queue, data)  # Pass event_queue
     else:
         save_event("overlay_action", None, f"Direct overlay action: {action} with data: {data}")
         await broadcast_message({"overlay_event": {"action": action, "data": data}})
@@ -620,7 +643,12 @@ async def get_chat_messages(db: Session = Depends(get_db)):
             badge_list = msg.badges.split(",")  # Convert stored CSV to list
             badge_html = "".join([f'<img src="{badge}" class="chat-badge" alt="badge">' for badge in badge_list])
 
+        important = False
+        if msg.message and "!ping" in msg.message.strip().lower():
+            important = True
+
         # HTML structure (Matches WebSocket messages)
+        chat_color = "bg-red-400 text-black-600" if important else "bg-gray-900 text-gray-300"
         chat_html += f"""
             <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
                 data-message-id="{msg.id}" data-user-id="{msg.twitch_id}">
@@ -630,7 +658,7 @@ async def get_chat_messages(db: Session = Depends(get_db)):
                         <div class="chat-username font-bold" style="color: {user_color};">{badge_html}{username}</div>
                         <div class="chat-timestamp text-xs">{local_time}</div>
                     </div>
-                    <div class="chat-text text-gray-300 break-words bg-gray-900 p-2 rounded-lg w-fit max-w-3xl">
+                    <div class="chat-text break-words {chat_color} p-2 rounded-lg w-fit max-w-3xl">
                         {msg.message}
                     </div>
                 </div>

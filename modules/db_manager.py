@@ -374,3 +374,28 @@ def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_use
         logger.error(f"❌ Failed to update viewer stats: {e}")
     finally:
         db.close()
+
+
+def cleanup_old_data(days: int = 5):
+    """Delete chat messages and events older than the specified number of days."""
+    db = SessionLocal()
+    try:
+        # Calculate the date threshold
+        threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+
+        # Delete old chat messages
+        deleted_chats = db.query(ChatMessage).filter(ChatMessage.timestamp < threshold_date).delete()
+        logger.info(f"🗑️ Deleted {deleted_chats} old chat messages.")
+
+        # Delete old events
+        deleted_events = db.query(Event).filter(Event.timestamp < threshold_date).delete()
+        logger.info(f"🗑️ Deleted {deleted_events} old events.")
+
+        save_event("system_cleanup", None, f"Deleted {deleted_chats} chat messages and {deleted_events} events.")
+
+        db.commit()
+    except Exception as e:
+        logger.error(f"❌ Error during cleanup: {e}")
+        db.rollback()
+    finally:
+        db.close()

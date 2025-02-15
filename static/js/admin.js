@@ -255,7 +255,6 @@ async function deleteReward(rewardId) {
         if (response.ok) {
             showFlashMessage("✅ Reward deleted!", "success");
 
-            // ✅ Reload the reward list using HTMX
             htmx.ajax("GET", "/admin/rewards/", {
                 target: "#reward-list",
                 swap: "innerHTML",

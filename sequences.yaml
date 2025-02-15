@@ -56,11 +56,11 @@ sequences:
             - type: "headline_1"
               text: "Chatogram"
             - type: "image"
-              url: "https://example.com/avatar.png"
+              url: "$$useravatar"
             - type: "headline_2"
-              text: "Username"
+              text: "$$username"
             - type: "message"
-              text: "This is a printed chat message!"
+              text: "$$message"
           print_as_image: true
 
   hide_test:

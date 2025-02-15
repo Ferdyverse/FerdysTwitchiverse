@@ -13,4 +13,4 @@ twitchAPI
 sqlalchemy
 python-multipart
 pytz
-html
+obsws-python

@@ -10,6 +10,7 @@ from twitchAPI.type import CustomRewardRedemptionStatus
 import logging
 import json
 import config
+import html
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
@@ -240,15 +241,13 @@ async def get_pending_redemptions(twitch_api, rewards):
     try:
         redemptions = []
         for reward in rewards:
-            logger.info(f"Fetching pending redemptions for reward: {reward.title}")
-
             redemptions_generator = twitch_api.twitch.get_custom_reward_redemption(
                 broadcaster_id=config.TWITCH_CHANNEL_ID,
                 reward_id=reward.id,
                 status=CustomRewardRedemptionStatus.UNFULFILLED
             )
 
-            async for redemption in redemptions_generator:  # ✅ Iterate properly over the generator
+            async for redemption in redemptions_generator:
                 redemptions.append(redemption)
 
         return redemptions
@@ -315,7 +314,7 @@ async def get_pending_rewards(request: Request):
                 <div class='text-xs text-gray-400'>{redeemed_at}</div>
 
                 <!-- Third Line: User Input -->
-                <div class='mt-2 text-gray-300 text-sm'>{redemption.user_input}</div>
+                <div class='mt-2 text-gray-300 text-sm'>{html.escape(redemption.user_input)}</div>
 
                 <!-- Fourth Line: Username (Yellow, Small) -->
                 <div class='mt-1 text-xs text-yellow-400 font-semibold'>{redemption.user_name}</div>

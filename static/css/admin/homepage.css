@@ -82,3 +82,11 @@
     color: #facc15; /* Yellow */
     font-size: 0.85rem;
 }
+
+/* Ensure text wraps in event log and pending redemptions */
+.event-log-container,
+#pending-rewards {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
