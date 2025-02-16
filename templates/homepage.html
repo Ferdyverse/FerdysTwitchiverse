@@ -27,9 +27,22 @@
 
         <!-- Left Column (Buttons) -->
         <div class="col-span-3 bg-gray-800 p-4 rounded-lg shadow-lg">
+
+            <!-- Viewer Count Box -->
+            <div class="bg-gray-800 mb-3 rounded-lg flex items-center justify-between"
+                hx-get="/admin/viewer-count"
+                hx-trigger="load, every 10s"
+                hx-target="#viewer-count"
+                hx-swap="innerHTML">
+                <span class="text-lg font-bold text-white">👀 Viewers:</span>
+                <span id="viewer-count" class="text-xl font-semibold text-green-400">Loading...</span>
+            </div>
+
+            <div class="spacer"></div>
+
             <h3 class="text-lg font-bold mb-3">Overlay Effects</h3>
             <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded mb-3"
-                    onclick="openGenericModal('button-modal')" >➕ Add Button</button>
+                    onclick="openButtonModal(false)" >➕ Add Button</button>
 
             <!-- Button List -->
             <div id="button-container" class="space-y-2"
@@ -40,8 +53,10 @@
                 <p class="text-gray-400">Loading buttons...</p>
             </div>
 
+            <div class="spacer"></div>
+
             <!-- Section for managing Channel Point Rewards -->
-            <div class="mt-6">
+            <div>
                 <h2 class="text-lg font-bold mb-2">Channel Point Rewards</h2>
 
                 <!-- Button to open the modal -->
@@ -105,9 +120,11 @@
                 Ad break incoming...
             </div>
 
-            <div class="col-span-3 bg-gray-800 p-4 rounded-lg">
-                <h3 class="text-lg font-bold text-gray-200 mb-3">Event Log</h3>
-                <div id="event-log" class="event-log-container"
+            <div class="spacer"></div>
+
+            <div class="col-span-3 bg-gray-800 rounded-lg">
+                <h3 class="text-lg font-bold mb-3">Event Log</h3>
+                <div id="event-log" class="event-log-container p-4"
                     hx-get="/admin/events/"
                     hx-trigger="load, every 5s"
                     hx-target="#event-log"
@@ -119,8 +136,8 @@
     </div>
 
         <!-- Flash Message -->
-    <div id="flash-message" class="fixed inset-0 flex items-center justify-center hidden">
-        <div class="bg-gray-900 text-white text-lg px-6 py-4 rounded-lg shadow-lg opacity-100 transition-opacity duration-500">
+    <div id="flash-message" class="fixed top-5 left-1/2 transform -translate-x-1/2 hidden z-50">
+        <div class="bg-gray-900 text-white text-lg px-6 py-3 rounded-lg shadow-lg opacity-100 transition-opacity duration-500">
             <span id="flash-message-text"></span>
         </div>
     </div>

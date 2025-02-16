@@ -434,3 +434,24 @@ async def get_events():
         """
 
     return HTMLResponse(content=event_html)
+
+@router.get("/viewer-count", response_class=HTMLResponse)
+async def get_viewer_count(request: Request):
+    """Retrieve the current Twitch viewer count and return it as an HTML snippet."""
+    twitch_api = request.app.state.twitch_api  # Ensure Twitch API is initialized
+
+    if not twitch_api:
+        return "<span class='text-red-500'>N/A</span>"
+
+    try:
+        stream_info = await twitch_api.get_stream_info()
+
+        if not stream_info:
+            return "<p class='text-red-500 font-bold'>🔴 Offline</p>"
+
+        viewer_count = stream_info.viewer_count
+        return f"<p class='text-green-400 font-bold'>{viewer_count}</p>"
+
+    except Exception as e:
+        print(f"❌ Error fetching viewer count: {e}")
+        return "<span class='text-red-500'>N/A</span>"

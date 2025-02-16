@@ -1,47 +1,57 @@
 # Ferdy’s Twitchiverse
 
-**Ferdy’s Twitchiverse** is a FastAPI-based application that integrates Twitch interactions with your local network setup. It’s a Twitchy pocket universe that supports printing various types of data (headlines, messages, and images) on a thermal printer using the ESC/POS protocol and managing dynamic overlays.
+**Ferdy’s Twitchiverse** is a **FastAPI-based** application that bridges Twitch interactions with your local network setup. It’s a **Twitchy pocket universe** designed for **real-time engagement**, supporting **dynamic overlays, automated printing**, and **custom event handling** to enhance your stream.
 
 ---
 
-## Features
-
-- **Print Functionality**: Print headlines, messages, and images on a thermal printer.
-- **Dynamic Overlays**: Real-time updates to OBS overlays with alerts and custom messages.
-- **Dynamic Printer Management**: Automatically reconnects if the printer is offline.
-- **WebSocket Integration**: Enables live communication with the frontend.
-- **Swagger Documentation**: Explore and test API endpoints with built-in docs.
-- **Lightweight and Modular**: Clean architecture for easy maintenance and scalability.
+⚠️ **Work in Progress**
+This project is evolving rapidly, and due to the time I’m investing in development, the documentation might be out of date. I will update it once the core features are finalized.
 
 ---
 
-## Requirements
+## 🚀 Features
 
-- Python 3.8+
-- A compatible ESC/POS thermal printer
-- Libraries: `fastapi`, `uvicorn`, `escpos`, `PIL` (Pillow), `requests`
+- **🖨️ Print System** – Print headlines, messages, and images on a **thermal printer** (ESC/POS).
+- **🎬 Dynamic Overlays** – Modify OBS overlays **in real-time** with alerts, animations, and custom events.
+- **📡 WebSocket Integration** – Enables **live communication** between Twitch events and the frontend.
+- **🔧 Automated Printer Handling** – Automatically reconnects when the printer goes offline.
+- **📜 API Documentation** – Interactive API testing via **Swagger UI**.
+- **🛠️ Modular & Scalable** – Clean, structured codebase designed for **expandability**.
 
 ---
 
-## Installation
+## 📌 Requirements
 
-### 1. Clone the Repository
+- **Python** 3.8+
+- A **compatible ESC/POS thermal printer**
+- Installed libraries: `fastapi`, `uvicorn`, `escpos`, `PIL` (Pillow), `requests`
+- **System dependency:**
+  Install `libcups2-dev` (required for printer handling)
+  _Debian/Ubuntu:_
+  ```bash
+  sudo apt install libcups2-dev
+  ```
+
+---
+
+## 📥 Installation
+
+### 1️⃣ Clone the Repository
 ```bash
 git clone https://github.com/Ferdyverse/FerdysTwitchiverse.git
 cd FerdysTwitchiverse
 ```
 
-### 2. Install Dependencies
-Create a virtual environment and install the required libraries:
+### 2️⃣ Install Dependencies
+Set up a **virtual environment** and install required packages:
 ```bash
 python -m venv env
-source env/bin/activate  # On Windows: .\env\Scripts\activate
+source env/bin/activate  # Windows: .\env\Scripts\activate
 pip install -r requirements.txt
 ```
-**Note:** You need to install the following library on your system: `libcups2-dev`
 
-### 3. Configure the Application
-Set up the required configurations in a `config.py` file:
+### 3️⃣ Configure the Application
+Modify the `config.py` file with your settings:
 ```python
 # config.py
 APP_HOST = "0.0.0.0"
@@ -57,123 +67,74 @@ PRINTER_PROFILE = "default"
 
 ---
 
-## Running the Application
+## ▶ Running the Application
 
-### Development Mode (with Auto-Reload)
+### 🛠 Development Mode (Auto-Reload)
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Production Mode
+### 🚀 Production Mode
 ```bash
 python main.py
 ```
 
 ---
 
-## API Endpoints
+## 🔗 API Endpoints
 
-### `/print`
-**POST**: Print data on the thermal printer.
+Once the app is running, open your browser and visit:
 
-- **Request Body**:
-  ```json
-  {
-    "print_elements": [
-      { "type": "headline_1", "text": "Welcome to Ferdy’s Twitchiverse!" },
-      { "type": "message", "text": "This is a test message." },
-      { "type": "image", "url": "http://example.com/image.png" }
-    ]
-  }
-  ```
-
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "message": "Print done!"
-  }
-  ```
-
-### `/status`
-**GET**: Get the current status of the printer.
-
-- **Response**:
-  ```json
-  {
-    "status": "online",
-    "printer": {
-      "is_online": true,
-      "message": "Printer is operational"
-    }
-  }
-  ```
-
-### `/send-to-overlay`
-**POST**: Send data to the overlay via WebSocket.
-
-- **Request Body**:
-  ```json
-  {
-    "alert": {
-      "type": "subscriber",
-      "user": "FerdyverseFan"
-    }
-  }
-  ```
-
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "message": "Data piped to overlay"
-  }
-  ```
-
-### `/overlay-data`
-**GET**: Retrieve the last follower and subscriber from the database.
-
-- **Response**:
-  ```json
-  {
-    "last_follower": "FerdyFan123",
-    "last_subscriber": "StreamerPro"
-  }
-  ```
+📜 **Swagger Docs:**
+➡ **`http://localhost:8000/docs`** – Interactive API testing
+🛠 **Redoc Docs:**
+➡ **`http://localhost:8000/redoc`** – Alternative API reference
 
 ---
 
-## Directory Structure
+## 📂 Project Structure
 
 ```
 .
-├── main.py                     # Main entry point for the application
+├── main.py                     # Application entry point
 ├── modules/
-│   ├── printer_manager.py      # Handles printer operations
-│   ├── schemas.py              # Defines API request/response models
-│   ├── db_manager.py           # Database interactions for persistence
+│   ├── twitch_api.py           # Handles Twitch API interactions
+│   ├── printer_manager.py      # Manages thermal printer
+│   ├── obs_api.py              # OBS WebSocket integration
+│   ├── db_manager.py           # Database management
+│   ├── schemas.py              # API request/response models
 ├── templates/
-│   └── overlay.html            # HTML for the overlay
+│   └── overlay.html            # HTML for browser-based overlays
 ├── static/
 │   ├── css/                    # Stylesheets
 │   ├── js/                     # JavaScript files
-├── config.py                   # Configuration file
-├── README.md                   # Documentation
-└── requirements.txt            # Python dependencies
+├── config.py                   # Configuration settings
+├── README.md                   # Project documentation
+└── requirements.txt            # Required Python dependencies
 ```
 
 ---
 
-## Contributing
+## 🎭 Contributing
 
-Feel free to submit issues or pull requests if you’d like to improve or add new features. Contributions are welcome!
+Want to improve **Ferdy’s Twitchiverse**? Contributions are **highly welcome!**
+You can:
+✅ Report issues
+✅ Suggest new features
+✅ Submit pull requests
 
 ---
 
-## License
+## 📜 License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+**Ferdy’s Twitchiverse** is released under the **MIT License**. See the `LICENSE` file for details.
 
-### Third-Party Dependencies
+---
 
-The project uses third-party libraries, each governed by their respective licenses. Refer to the libraries' documentation for details.
+### 🏗️ Third-Party Dependencies
+
+This project uses several third-party libraries, each licensed under its respective terms. Refer to their documentation for additional licensing information.
+
+---
+
+🚀 **Enjoy creating your own Twitchiverse!**

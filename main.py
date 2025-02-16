@@ -3,10 +3,9 @@
 # FastAPI imports
 from fastapi import FastAPI, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse, HTMLResponse
 from fastapi import Body
 from fastapi import Depends
 from sqlalchemy.orm import Session

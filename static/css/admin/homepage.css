@@ -90,3 +90,12 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
+
+.spacer {
+    height: 16px;  /* Adjust height as needed */
+    width: 100%;
+    border-radius: 4px; /* Optional rounded edges */
+    margin: 20px 0; /* Add spacing above/below */
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.4);
+}

@@ -16,18 +16,19 @@ function showFlashMessage(message, type = "info") {
     const flashText = document.getElementById("flash-message-text");
 
     flashText.innerText = message;
-    flashMessage.classList.remove("hidden", "opacity-0");
-    flashMessage.classList.add("opacity-100");
+    flashMessage.classList.remove("hidden");
+    flashMessage.style.opacity = "1";
 
+    // Apply colors based on message type
     let colorClass = "bg-blue-600";
     if (type === "success") colorClass = "bg-green-600";
     if (type === "error") colorClass = "bg-red-600";
 
-    flashMessage.firstElementChild.className = `${colorClass} text-white text-xl px-6 py-4 rounded-lg shadow-lg`;
+    flashMessage.firstElementChild.className = `text-white text-lg px-6 py-3 rounded-lg shadow-lg ${colorClass}`;
 
+    // Hide after 3 seconds
     setTimeout(() => {
-        flashMessage.classList.remove("opacity-100");
-        flashMessage.classList.add("opacity-0");
+        flashMessage.style.opacity = "0";
         setTimeout(() => flashMessage.classList.add("hidden"), 500);
     }, 3000);
 }
@@ -38,9 +39,9 @@ function openButtonModal(isEdit = false, buttonId = null, label = "", action = "
     modal.classList.remove("hidden");
 
     document.getElementById("modal-title").innerText = isEdit ? "Edit Button" : "Add Button";
-    document.getElementById("modal-label").value = label;
-    document.getElementById("modal-action").value = action;
-    document.getElementById("modal-data").value = JSON.stringify(data, null, 2);
+    document.getElementById("modal-label").value = isEdit ? label : ""; // Clear for new button
+    document.getElementById("modal-action").value = isEdit ? action : ""; // Reset action
+    document.getElementById("modal-data").value = isEdit ? JSON.stringify(data, null, 2) : "{}"; // Reset data
 
     setTimeout(() => {
         const submitButton = document.getElementById("modal-submit");

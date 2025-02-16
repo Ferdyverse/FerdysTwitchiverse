@@ -481,3 +481,18 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching chat metadata for {user_id}: {e}")
             return {"color": None, "badges": []}
+
+    async def get_stream_info(self):
+        """Fetch current Twitch stream details (viewer count, title, etc.)."""
+        try:
+            user_id = config.TWITCH_CHANNEL_ID  # Use channel ID from config
+            stream_generator = self.twitch.get_streams(user_id=[user_id])  # This is an async generator
+
+            async for stream_data in stream_generator:  # Iterate over the async generator
+                if stream_data and stream_data["data"]:
+                    return stream_data["data"][0]  # First stream object
+
+            return None  # If no stream data is found
+        except Exception as e:
+            print(f"❌ Error fetching stream info: {e}")
+            return None
