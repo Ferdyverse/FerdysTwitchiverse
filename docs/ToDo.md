@@ -1,7 +1,7 @@
 # Open tasks
 
     - Docker Container
-    - Show viewer count in admin overlay
+    - Show viewer count in admin overlay -> done
     - Chat
         - Hide messages when count > n
     - Events

@@ -44,7 +44,7 @@ class HeatAPIClient:
                         data = json.loads(message)
 
                         # Log received data
-                        logger.info(f"🔥 Heat API Data: {data}")
+                        logger.debug(f"🔥 Heat API Data: {data}")
 
                         if data.get("type") == "system":
                             continue
@@ -56,11 +56,11 @@ class HeatAPIClient:
                             coord_x = int(float(data.get("x")) * 1920)
                             coord_y = int(float(data.get("y")) * 1080)
 
-                            logger.info(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
+                            logger.debug(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
 
                             if user_id.startswith("A") or user_id.startswith("U"):
                                 username = "Anonymous" if user_id.startswith("A") else "Unverified"
-                                logger.info(f"⚠️ Got click from {username}")
+                                logger.debug(f"⚠️ Got click from {username}")
 
                             # Detect what object was clicked
                             processed_click = process_click(data, coord_x, coord_y)
@@ -107,7 +107,7 @@ def process_click(data, x, y):
     """Detect if a user clicked on a dynamically registered object."""
     user_id = data.get("id")
 
-    logger.info(f"Searching for object at {x} : {y}")
+    logger.debug(f"Searching for object at {x} : {y}")
 
     clicked_object = None
     for obj_name, obj_data in CLICKABLE_OBJECTS.items():

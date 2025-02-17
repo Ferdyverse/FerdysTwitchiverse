@@ -9,7 +9,7 @@ from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 from modules.twitch_api import TwitchAPI
-from modules.misc import save_tokens, load_tokens
+from modules.misc import save_tokens, load_tokens, save_todo
 from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_chat")
@@ -87,7 +87,7 @@ class TwitchChatBot:
             self.chat.register_event(ChatEvent.READY, self.on_ready)
             self.chat.register_event(ChatEvent.MESSAGE, self.on_message)
             self.chat.register_event(ChatEvent.JOIN, self.user_join)
-            # self.chat.register_command("print", self.on_command_print)
+            #self.chat.register_command("todo", self.on_command_todo)
 
             logger.info("🚀 Starting Twitch chat bot...")
             self.chat.start()
@@ -120,6 +120,13 @@ class TwitchChatBot:
             "user": cmd.user.display_name,
             "message": cmd.parameter
         })
+
+    async def on_command_todo(self, cmd: ChatCommand):
+        """Handles the !print command."""
+        logger.info(f"CMD parameter: {cmd.parameter}")
+        logger.info(f"CMD text: {cmd.text}")
+
+        save_todo(cmd.parameter, cmd.user.display_name)
 
     async def on_message(self, event: EventData):
         """

@@ -3,6 +3,7 @@ import os
 import config
 import logging
 import yaml
+import datetime
 
 logger = logging.getLogger("uvicorn.error.misc")
 
@@ -52,3 +53,29 @@ def load_sequences():
         data = yaml.safe_load(file)
 
     return data.get("sequences", {})
+
+def save_todo(todo, user):
+    """Save or update Twitch tokens for a specific scope."""
+    todo_file = config.TODO_FILE
+
+    try:
+        if os.path.exists(todo_file):
+            try:
+                with open(todo_file, "r") as f:
+                    todos = json.load(f)
+            except json.JSONDecodeError:
+                todos = {}
+        else:
+            todos = {}
+
+        todos[todo] = {
+            "user": user,
+            "created": str(datetime.datetime.utcnow())
+        }
+
+        with open(todo_file, "w") as f:
+            json.dump(todos, f, indent=4)
+
+        return True
+    except:
+        return False

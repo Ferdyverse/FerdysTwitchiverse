@@ -23,7 +23,7 @@ ACTION_SEQUENCES = load_sequences()
 def get_sequence_names():
     return list(ACTION_SEQUENCES.keys())
 
-async def execute_sequence(action: str, event_queue: asyncio.Queue, context: dict):
+async def execute_sequence(action: str, event_queue: asyncio.Queue, context: dict = []):
     """Execute a predefined sequence of actions from YAML using the event queue."""
     if action not in ACTION_SEQUENCES:
         logger.warning(f"⚠️ Sequence '{action}' not found.")

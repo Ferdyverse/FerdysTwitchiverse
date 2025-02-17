@@ -8,12 +8,14 @@ from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
+from twitchAPI.type import CustomRewardRedemptionStatus
 
 from modules.db_manager import get_db, save_event, save_viewer, Viewer
 from sqlalchemy.orm import Session
 
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
+from modules.misc import save_todo
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
@@ -254,6 +256,8 @@ class TwitchAPI:
         user_id = data.event.user_id
         reward_title = data.event.reward.title
         user_input = data.event.user_input  # Might be empty if not required
+        redeem_id = data.event.id # ID of the single redeem
+        reward_id = data.event.reward.id # Custom reward ID
 
         logger.info(f"🎟️ {username} redeemed {reward_title} | Input: {user_input}")
 
@@ -266,9 +270,17 @@ class TwitchAPI:
                 "user_id": user_id,
                 "user": username,
                 "message": user_input,
-                "redeem_id": data.event.id,
+                "redeem_id": redeem_id,
                 "reward_id": data.event.reward.id
             })
+        elif reward_title == "ToDo":
+            if save_todo(user_input, username):
+                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+            else:
+                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+
+
+
 
         # Broadcast message to overlay/admin panel
         await broadcast_message({
@@ -338,14 +350,15 @@ class TwitchAPI:
 
     async def handle_ad_break(self, data: dict):
         """Handle upcoming ad break notifications from Twitch and save as an event."""
-        ad_length = data.event.length_seconds  # Ad duration in seconds
-        next_ad_time = data.event.next_ad_at  # ISO timestamp for next ad
-        formatted_time = datetime.datetime.fromisoformat(next_ad_time).strftime("%H:%M:%S")
+        logger.error(data.event)
+        logger.error(vars(data.event))
+        ad_length = data.event.duration_seconds  # Ad duration in seconds
+        ad_start_time = data.event.started_at  # ISO timestamp for next ad
 
-        logger.info(f"📢 Upcoming ad break! Duration: {ad_length}s | Next ad at: {formatted_time}")
+        logger.info(f"📢 Upcoming ad break! Duration: {ad_length}s | Next ad at: {ad_start_time}")
 
         # Save ad break as an event in the database
-        save_event("ad_break", None, f"Ad break starts in {ad_length}s (Next at {formatted_time})")
+        save_event("ad_break", None, f"Ad break starts in {ad_length}s (Next at {ad_start_time})")
 
         # Broadcast ad break event with countdown for admin panel
         await broadcast_message({
@@ -449,7 +462,7 @@ class TwitchAPI:
             user_badges = []
 
             async with aiohttp.ClientSession() as session:
-                # ✅ Fetch user chat color
+                # Fetch user chat color
                 async with session.get(
                     f"https://api.twitch.tv/helix/chat/color?user_id={user_id}",
                     headers=self.auth_headers
@@ -461,7 +474,7 @@ class TwitchAPI:
                     else:
                         logger.warning(f"⚠️ Failed to fetch user color: {await response.text()}")
 
-                # ✅ Fetch user chat badges
+                # Fetch user chat badges
                 async with session.get(
                     f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}&user_id={user_id}",
                     headers=self.auth_headers
@@ -489,10 +502,10 @@ class TwitchAPI:
             stream_generator = self.twitch.get_streams(user_id=[user_id])  # This is an async generator
 
             async for stream_data in stream_generator:  # Iterate over the async generator
-                if stream_data and stream_data["data"]:
-                    return stream_data["data"][0]  # First stream object
+                if stream_data:
+                    return stream_data  # First stream object
 
             return None  # If no stream data is found
         except Exception as e:
-            print(f"❌ Error fetching stream info: {e}")
+            logger.error(f"❌ Error fetching stream info: {e}")
             return None

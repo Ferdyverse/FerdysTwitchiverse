@@ -73,7 +73,7 @@ class ColorFormatter(logging.Formatter):
 class SuppressLogFilter(logging.Filter):
     def filter(self, record):
         """Suppress logs for specific paths"""
-        ignored_paths = ["/admin/pending-rewards", "/admin/events/"]
+        ignored_paths = ["/admin/pending-rewards", "/admin/events/", "/admin/viewer-count", "/admin/rewards"]
         return not any(path in record.getMessage() for path in ignored_paths)
 
 
@@ -395,6 +395,7 @@ async def process_queue():
                 await execute_sequence("reset_star", event_queue)
                 # Message to chat
                 await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
+                save_event("heat_click", user, "Hat aufgeräumt!")
 
         if "create_redemtion" in task:
             redemtion = task["create_redemtion"]
