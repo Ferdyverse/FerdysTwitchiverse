@@ -14,7 +14,8 @@ def create_todo(text: str, twitch_id: int):
 @router.get("/")
 def read_todos():
     """Retrieve all ToDos."""
-    return get_todos()
+    todos = get_todos()
+    return todos
 
 @router.put("/{todo_id}")
 def update_todo_status(todo_id: int):

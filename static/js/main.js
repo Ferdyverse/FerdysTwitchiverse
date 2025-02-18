@@ -45,8 +45,4 @@ async function fetchTodos() {
     createTodo(todo.id, todo.text, todo.username);
   });
 }
-
-document.addEventListener("click", () => {
-  fetchTodos();
-  createTodo("todo-1", "Baue eine tolle ToDo Animation!", "Ferdyverse");
-});
+fetchTodos();

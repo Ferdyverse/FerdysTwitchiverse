@@ -410,16 +410,30 @@ def cleanup_old_data(days: int = 5):
         db.close()
 
 def save_todo(text: str, twitch_id: int):
-    """Save a new ToDo in the database, linked to a viewer."""
+    """Save a new ToDo in the database, linked to a viewer, and return as JSON."""
     db = SessionLocal()
     try:
-        todo = Todo(text=text, twitch_id=twitch_id)
+        todo = Todo(text=text, twitch_id=twitch_id, status="pending", created_at=datetime.datetime.utcnow())
         db.add(todo)
         db.commit()
         db.refresh(todo)
-        return todo
+
+        # Retrieve username from Viewer table
+        viewer = db.query(Viewer.display_name).filter(Viewer.twitch_id == twitch_id).first()
+        username = viewer.display_name if viewer else "Unknown"
+
+        # Return JSON-serializable dictionary
+        return {
+            "id": todo.id,
+            "text": todo.text,
+            "created_at": todo.created_at.isoformat(),  # Convert datetime to string
+            "status": todo.status,
+            "twitch_id": todo.twitch_id,
+            "username": username
+        }
     except Exception as e:
         logger.error(f"❌ Failed to save ToDo: {e}")
+        return None
     finally:
         db.close()
 
@@ -427,11 +441,14 @@ def get_todos():
     """Retrieve all ToDos with viewer info."""
     db = SessionLocal()
     try:
-        return db.query(
+        todos = db.query(
             Todo.id, Todo.text, Todo.created_at, Todo.status,
             Viewer.display_name.label("username"),
             Todo.twitch_id
-        ).join(Viewer, Todo.twitch_id == Viewer.twitch_id).order_by(Todo.created_at.desc()).all()
+        ).join(Viewer, Todo.twitch_id == Viewer.twitch_id).order_by(Todo.created_at.asc()).all()
+
+        # Convert each row to a dictionary
+        return [dict(todo._mapping) for todo in todos]
     except Exception as e:
         logger.error(f"❌ Failed to retrieve ToDos: {e}")
         return []

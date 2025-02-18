@@ -10,12 +10,11 @@ from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.type import CustomRewardRedemptionStatus
 
-from modules.db_manager import get_db, save_event, save_viewer, Viewer
+from modules.db_manager import get_db, save_event, save_viewer, Viewer, save_todo
 from sqlalchemy.orm import Session
 
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
-from modules.misc import save_todo
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
@@ -264,6 +263,8 @@ class TwitchAPI:
         # Save the event
         save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
 
+        broadcast = True
+
         if reward_title == "Chatogram":
             await self.event_queue.put({
                 "command": "print",
@@ -273,21 +274,29 @@ class TwitchAPI:
                 "redeem_id": redeem_id,
                 "reward_id": data.event.reward.id
             })
+            broadcast = False
         elif reward_title == "ToDo":
-            if save_todo(user_input, username):
-                broadcast_message({ "todo": { "message": user_input, "username": username }})
-                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
-            else:
-                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
+            try:
+                todo = save_todo(user_input, user_id)
+                if todo:
+                    logger.info(todo)
+                    await broadcast_message({ "todo": { "action": "create", "id": todo.get("id"), "text": todo.get("text"), "username": todo.get("username") }})
+                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+                else:
+                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
+                broadcast = False
+            except:
+                logger.error("Todo Error")
 
         # Broadcast message to overlay/admin panel
-        await broadcast_message({
-            "alert": {
-                "type": "redemption",
-                "user": username,
-                "message": f"{reward_title}: {user_input}"
-            }
-        })
+        if broadcast:
+            await broadcast_message({
+                "alert": {
+                    "type": "redemption",
+                    "user": username,
+                    "message": f"{reward_title}: {user_input}"
+                }
+            })
 
     async def handle_cheer(self, data: dict):
         """Handle Twitch cheers (bit donations)."""

@@ -1,32 +1,36 @@
 {
     "show emotes in live chat": {
-        "user": "720Florian"
+        "user": "137040022"
     },
     "make todo for channel points": {
-        "user": "720Florian"
-    },
-    "make todo for channel points \udb40\udc00": {
-        "user": "720Florian",
-        "created": "2025-02-17 21:11:59.388472"
+        "user": "137040022"
     },
     "add command for dc": {
-        "user": "720Florian",
+        "user": "137040022",
         "created": "2025-02-17 21:12:52.489235"
     },
-    "Test": {
-        "user": "Ferdyverse",
-        "created": "2025-02-17 21:15:27.837733"
-    },
-    "Ich bin ein ToDo!": {
-        "user": "Ferdyverse",
-        "created": "2025-02-17 21:23:24.697672"
-    },
     "Add default chat color for chat user without a color": {
-        "user": "720Florian",
+        "user": "137040022",
         "created": "2025-02-17 21:23:46.514838"
     },
     "Migrate to MySQL db, to remove shit SQLite db and have more fun in live": {
-        "user": "720Florian",
+        "user": "137040022",
         "created": "2025-02-17 21:30:24.426983"
+    },
+    "Test": {
+        "user": "Ferdyverse",
+        "created": "2025-02-18 20:50:35.024444"
+    },
+    "safdsadasdasd": {
+        "user": "Ferdyverse",
+        "created": "2025-02-18 20:57:30.483547"
+    },
+    "bxtrdfbsd": {
+        "user": "Ferdyverse",
+        "created": "2025-02-18 20:59:55.660076"
+    },
+    "xcvxcvxcvxcvcvx": {
+        "user": "Ferdyverse",
+        "created": "2025-02-18 21:04:16.452495"
     }
 }

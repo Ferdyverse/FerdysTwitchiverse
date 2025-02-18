@@ -85,7 +85,7 @@ export function createTodo(id, text, user) {
   todo.id = id;
   todo.innerHTML = `<h1>Erledige mich!</h1><p>${text}</p><span class="todo-user">${user}</span><span class="todo-id">#${id}</span>`;
 
-  let screenWidth = 1080;
+  let screenWidth = (1920/2)+(350/2);
 
   const container = document.getElementById("todoContainer");
   container.appendChild(todo);
@@ -111,7 +111,7 @@ export function createTodo(id, text, user) {
     let currentX = gsap.getProperty(todo, "x"); // Get current position
     let randomOffsetY = Math.random() * 40; // More varied Y offset
     let randomRotation = Math.random() * 25; // More rotation for a natural look
-    let targetX = -screenWidth + Math.random() * 5; // Ensures ~20px stays visible
+    let targetX = -screenWidth; // Ensures ~20px stays visible
 
     gsap.to(todo, {
       x: targetX, // Moves to the left but leaves part visible

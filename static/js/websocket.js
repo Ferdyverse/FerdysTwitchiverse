@@ -6,7 +6,7 @@ import {
 } from "./modules/alerts.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
-import { showHTML } from "./modules/display.js";
+import { showHTML, createTodo } from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
 import { updateChat } from "./modules/chat.js";
 import {
@@ -53,7 +53,7 @@ function connectWebSocket() {
     } else if (data.overlay_event) {
       handleOverlayAction(data.overlay_event.action, data.overlay_event.data);
     } else if (data.todo) {
-      handleTodo(data.todo, data.action);
+      handleTodo(data.todo);
     } else {
       console.warn("Unknown data format received:", data);
     }
@@ -123,10 +123,10 @@ function connectWebSocket() {
   }
 
   // 📌 ToDo Handling
-  function handleTodo(todo, action) {
-    switch (action) {
+  function handleTodo(todo) {
+    switch (todo.action) {
       case "create":
-        createTodo(todo.id, todo.text, todo.user);
+        createTodo(todo.id, todo.text, todo.username);
         break;
       case "show":
         showTodo(todo.id);
