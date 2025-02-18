@@ -22,6 +22,10 @@ import random
 import inspect
 from twitchAPI.type import CustomRewardRedemptionStatus
 
+# Routes
+from routes.todo import router as todo_router
+from routes.admin import router as admin_router
+
 # Own modules
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
@@ -33,7 +37,6 @@ from modules.firebot_api import FirebotAPI
 from modules import event_handlers
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
-from modules.admin import router as admin_router
 from modules.misc import load_sequences
 from modules.sequence_runner import get_sequence_names, execute_sequence, reload_sequences, ACTION_SEQUENCES
 from modules.obs_api import OBSController
@@ -216,6 +219,7 @@ app.state.twitch_api = twitch_api
 # Add the WebSocket route
 app.add_api_websocket_route("/ws", websocket_endpoint)
 app.include_router(admin_router)
+app.include_router(todo_router)
 
 @app.get(
     "/overlay",
@@ -274,7 +278,6 @@ async def get_overlay_data():
     """
     Endpoint to fetch the most recent follower and subscriber from the database.
     """
-    obs.set_source_visibility("Bildschirm", "_[CAM] DroidCam Pixel2", True)
 
     return {
         "last_follower": get_data("last_follower") or "None",

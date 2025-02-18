@@ -14,7 +14,7 @@ import html
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
-logger = logging.getLogger("uvicorn.error.twitch")
+logger = logging.getLogger("uvicorn.error.admin")
 
 templates = Jinja2Templates(directory="templates")
 

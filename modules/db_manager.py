@@ -79,6 +79,15 @@ class AdminButton(Base):
     action = Column(String, nullable=False)
     data = Column(Text, nullable=True)
 
+class Todo(Base):
+    __tablename__ = "todos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    text = Column(String, nullable=False)
+    twitch_id = Column(Integer, ForeignKey("viewers.twitch_id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    status = Column(String, default="pending")  # "pending" or "completed"
+
 Base.metadata.create_all(bind=engine)
 
 def get_db():
@@ -397,5 +406,49 @@ def cleanup_old_data(days: int = 5):
     except Exception as e:
         logger.error(f"❌ Error during cleanup: {e}")
         db.rollback()
+    finally:
+        db.close()
+
+def save_todo(text: str, twitch_id: int):
+    """Save a new ToDo in the database, linked to a viewer."""
+    db = SessionLocal()
+    try:
+        todo = Todo(text=text, twitch_id=twitch_id)
+        db.add(todo)
+        db.commit()
+        db.refresh(todo)
+        return todo
+    except Exception as e:
+        logger.error(f"❌ Failed to save ToDo: {e}")
+    finally:
+        db.close()
+
+def get_todos():
+    """Retrieve all ToDos with viewer info."""
+    db = SessionLocal()
+    try:
+        return db.query(
+            Todo.id, Todo.text, Todo.created_at, Todo.status,
+            Viewer.display_name.label("username"),
+            Todo.twitch_id
+        ).join(Viewer, Todo.twitch_id == Viewer.twitch_id).order_by(Todo.created_at.desc()).all()
+    except Exception as e:
+        logger.error(f"❌ Failed to retrieve ToDos: {e}")
+        return []
+    finally:
+        db.close()
+
+def complete_todo(todo_id: int):
+    """Mark a ToDo as completed."""
+    db = SessionLocal()
+    try:
+        todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        if todo:
+            todo.status = "completed"
+            db.commit()
+            db.refresh(todo)
+            return todo
+    except Exception as e:
+        logger.error(f"❌ Failed to update ToDo: {e}")
     finally:
         db.close()

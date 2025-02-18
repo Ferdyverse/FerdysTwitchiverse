@@ -34,15 +34,19 @@ fetch("/overlay-data")
     updateTopBar("message", "Failed to fetch initial data");
   });
 
-document.addEventListener("click", () => {
-  createTodo("todo-1", "Baue eine tolle ToDo Animation!", "Ferdyverse");
-});
+async function fetchTodos() {
+  const response = await fetch("/todo/");
+  const todos = await response.json();
 
-document.addEventListener("keypress", () => {
-  setTimeout(() => {
-    showTodo("todo-1");
-    setTimeout(() => {
-      removeTodo("todo-1");
-    }, 5000);
-  }, 1000);
+  const todoContainer = document.getElementById("todoContainer");
+  todoContainer.innerHTML = "";
+
+  todos.forEach((todo) => {
+    createTodo(todo.id, todo.text, todo.username);
+  });
+}
+
+document.addEventListener("click", () => {
+  fetchTodos();
+  createTodo("todo-1", "Baue eine tolle ToDo Animation!", "Ferdyverse");
 });
