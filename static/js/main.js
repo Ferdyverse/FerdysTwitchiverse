@@ -3,7 +3,13 @@ import { updateTopBar } from "./modules/topbar.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
 import { showAlertWithGSAP, showSubBanner } from "./modules/alerts.js";
-import { showHTML, showURL } from "./modules/display.js";
+import {
+  showHTML,
+  showURL,
+  createTodo,
+  showTodo,
+  removeTodo,
+} from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
 import { updateChat } from "./modules/chat.js";
 import {
@@ -27,3 +33,16 @@ fetch("/overlay-data")
     console.error("Failed to fetch overlay data:", error);
     updateTopBar("message", "Failed to fetch initial data");
   });
+
+document.addEventListener("click", () => {
+  createTodo("todo-1", "Baue eine tolle ToDo Animation!", "Ferdyverse");
+});
+
+document.addEventListener("keypress", () => {
+  setTimeout(() => {
+    showTodo("todo-1");
+    setTimeout(() => {
+      removeTodo("todo-1");
+    }, 5000);
+  }, 1000);
+});

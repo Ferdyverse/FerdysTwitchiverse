@@ -25,7 +25,6 @@ def save_tokens(scope, access_token, refresh_token):
         "refresh_token": refresh_token
     }
 
-    # ✅ Save updated tokens back to file
     with open(token_file, "w") as f:
         json.dump(tokens, f, indent=4)
 

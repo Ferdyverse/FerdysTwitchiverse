@@ -275,12 +275,10 @@ class TwitchAPI:
             })
         elif reward_title == "ToDo":
             if save_todo(user_input, username):
+                broadcast_message({ "todo": { "message": user_input, "username": username }})
                 await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
             else:
-                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
-
-
-
+                await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
 
         # Broadcast message to overlay/admin panel
         await broadcast_message({

@@ -34,74 +34,110 @@ function connectWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.alert) {
-      const { type, user } = data.alert;
-
-      // Update top bar and show alert
-      if (type === "follower") {
-        updateTopBar("follower", user);
-        showAlertWithGSAP(type, user, data.alert.size);
-      } else if (type === "subscriber") {
-        updateTopBar("subscriber", user);
-        updateTopBar("message", "NEW SUBSCRIBER!");
-        showSubBanner(user);
-      } else if (type === "gift_sub") {
-        updateTopBar("message", `${user} hat ${data.alert.size} subs verschenkt!`);
-        showSubBanner(`${user} hat ${data.alert.size} subs verschenkt!`);
-      } else if (type === "raid") {
-        updateTopBar("message", "Something changed in the Ferdyverse!");
-        showURL(
-          "http://localhost:8000/raid",
-          { raider: user, viewers: data.alert.size },
-          27000
-        );
-      } else if (type === "redemption") {
-        updateTopBar("message", `${user} redeemed: ${data.alert.message}`);
-        showAlertWithGSAP(type, user, data.alert.size);
-      } else if (type === "subscription_message") {
-        updateTopBar("subscriber", user);
-        updateTopBar("message", data.alert.message);
-        showSubBanner(user);
-      } else if (type === "cheer") {
-        showCheerAnimation(data.alert.user, data.alert.bits, data.alert.message);
-      }
+      handleAlert(data.alert);
     } else if (data.message) {
-      // Update custom message
       updateTopBar("message", data.message);
     } else if (data.goal) {
       const { text, current, target } = data.goal;
       updateGoal(text, current, target);
     } else if (data.icon) {
-      const { id, action, name } = data.icon;
-      if (action === "add") {
-        addIcon(id, name);
-      } else {
-        removeIcon(id);
-      }
+      handleIcon(data.icon);
     } else if (data.html) {
-      const { content, lifetime = 0 } = data.html;
-      showHTML(content, lifetime);
+      showHTML(data.html.content, data.html.lifetime || 0);
     } else if (data.clickable) {
-      const { action, object_id } = data.clickable;
-      if (action === "add") {
-        createClickableElement(object_id, data.clickable);
-      } else if (action === "remove") {
-        removeClickableElement(object_id);
-      }
+      handleClickable(data.clickable);
     } else if (data.hidden) {
-      const { action, user, x, y } = data.hidden;
-      if (action === "found") {
-        triggerStarExplosion(x, y);
-        updateTopBar("message", `${user} hat etwas gefunden!`);
-      }
+      handleHiddenItem(data.hidden);
     } else if (data.chat) {
       updateChat(data.chat);
     } else if (data.overlay_event) {
-      const { action, data: payload } = data.overlay_event;
-      handleOverlayAction(action, payload);
+      handleOverlayAction(data.overlay_event.action, data.overlay_event.data);
+    } else if (data.todo) {
+      handleTodo(data.todo, data.action);
     } else {
       console.warn("Unknown data format received:", data);
     }
   };
+
+  // 📌 Alert Handling
+  function handleAlert(alert) {
+    const { type, user, size, message } = alert;
+
+    switch (type) {
+      case "follower":
+        updateTopBar("follower", user);
+        showAlertWithGSAP(type, user, size);
+        break;
+      case "subscriber":
+        updateTopBar("subscriber", user);
+        updateTopBar("message", "NEW SUBSCRIBER!");
+        showSubBanner(user);
+        break;
+      case "gift_sub":
+        updateTopBar("message", `${user} hat ${size} subs verschenkt!`);
+        showSubBanner(`${user} hat ${size} subs verschenkt!`);
+        break;
+      case "raid":
+        updateTopBar("message", "Something changed in the Ferdyverse!");
+        showURL(
+          "http://localhost:8000/raid",
+          { raider: user, viewers: size },
+          27000
+        );
+        break;
+      case "redemption":
+        updateTopBar("message", `${user} redeemed: ${message}`);
+        showAlertWithGSAP(type, user, size);
+        break;
+      case "subscription_message":
+        updateTopBar("subscriber", user);
+        updateTopBar("message", message);
+        showSubBanner(user);
+        break;
+      case "cheer":
+        showCheerAnimation(user, alert.bits, message);
+        break;
+      default:
+        console.warn("Unknown alert type:", type);
+    }
+  }
+
+  // 📌 Icon Handling
+  function handleIcon({ id, action, name }) {
+    action === "add" ? addIcon(id, name) : removeIcon(id);
+  }
+
+  // 📌 Clickable Handling
+  function handleClickable({ action, object_id, ...data }) {
+    action === "add"
+      ? createClickableElement(object_id, data)
+      : removeClickableElement(object_id);
+  }
+
+  // 📌 Hidden Item Handling
+  function handleHiddenItem({ action, user, x, y }) {
+    if (action === "found") {
+      triggerStarExplosion(x, y);
+      updateTopBar("message", `${user} hat etwas gefunden!`);
+    }
+  }
+
+  // 📌 ToDo Handling
+  function handleTodo(todo, action) {
+    switch (action) {
+      case "create":
+        createTodo(todo.id, todo.text, todo.user);
+        break;
+      case "show":
+        showTodo(todo.id);
+        break;
+      case "remove":
+        removeTodo(todo.id);
+        break;
+      default:
+        console.warn("Unknown ToDo action:", action);
+    }
+  }
 
   // WebSocket connection closed
   socket.onclose = (event) => {
