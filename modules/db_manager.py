@@ -271,9 +271,19 @@ def clear_planets():
     finally:
         db.close()
 
-def save_viewer(twitch_id: int, login: str, display_name: str, account_type: str, broadcaster_type: str,
-                profile_image_url: str, account_age: str, follower_date: datetime.datetime,
-                subscriber_date: datetime.datetime, color: str, badges: str):
+def save_viewer(
+    twitch_id: int,
+    login: str = "",
+    display_name: str = "",
+    account_type: str = "",
+    broadcaster_type: str = "",
+    profile_image_url: str = "",
+    account_age: str = "",
+    follower_date: datetime.datetime = None,
+    subscriber_date: datetime.datetime = None,
+    color: str = "",  # Default Twitch Purple
+    badges: str = ""
+):
     """Save or update viewer data without needing an explicit db session."""
     db = next(get_db())
 

@@ -99,6 +99,8 @@ DISABLE_OBS = os.getenv("DISABLE_OBS", "false").lower() == "true"
 
 ACTION_SEQUENCES = load_sequences()
 
+BADGES = {}  # Store badge data globally
+
 # Configure the logger
 logger = logging.getLogger("uvicorn.error")
 

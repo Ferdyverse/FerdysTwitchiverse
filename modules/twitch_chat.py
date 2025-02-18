@@ -3,13 +3,14 @@ import asyncio
 import time
 import datetime
 import html
+import json
 from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 from modules.twitch_api import TwitchAPI
-from modules.misc import save_tokens, load_tokens, save_todo
+from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_chat")
@@ -92,6 +93,9 @@ class TwitchChatBot:
             logger.info("🚀 Starting Twitch chat bot...")
             self.chat.start()
 
+            global BADGES
+            BADGES = await self.twitch_api.fetch_badge_data()
+
             self.is_running = True
         except Exception as e:
             logger.error(f"❌ Failed to initialize chat bot: {e}")
@@ -133,10 +137,12 @@ class TwitchChatBot:
         Handle incoming chat messages, store in the database,
         and send them to both the overlay and admin panel.
         """
+        logger.debug(f"DEBUG: Event Emotes: {json.dumps(event.emotes, indent=2)}")
+
         db = next(get_db())
         username = event.user.display_name
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
-        message = html.escape(event.text)
+        message = replace_emotes(html.escape(event.text), event.emotes)
         message_id = event.id
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0
@@ -144,6 +150,18 @@ class TwitchChatBot:
 
         # Check if user exists in DB first
         existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
+
+        global BADGES
+        user_badges = []
+        badge_data = event.user.badges or {}  # Ensure it's a dictionary
+        for badge_set, badge_version in badge_data.items():
+            badge_key = f"{badge_set}/{badge_version}"
+            if badge_key in BADGES["global"]:
+                user_badges.append(BADGES["global"][badge_key])
+            elif badge_key in BADGES["channel"]:
+                user_badges.append(BADGES["channel"][badge_key])
+            else:
+                logger.warning(f"⚠️ Unknown badge: {badge_key}")
 
         if not existing_user:
             # User not found in DB → Fetch from Twitch API
@@ -161,19 +179,20 @@ class TwitchChatBot:
                     follower_date=None,
                     subscriber_date=None,
                     color=user_info.get("color"),
-                    badges=",".join(user_info.get("badges", []))
+                    badges=",".join(user_badges)
                 )
                 user_color = user_info.get("color")
-                user_badges = user_info.get("badges", [])
                 avatar_url = user_info["profile_image_url"]
             else:
                 user_color = None
-                user_badges = []
                 avatar_url = "/static/images/default_avatar.png"
         else:
+            save_viewer(
+                twitch_id=twitch_id,
+                badges=",".join(user_badges)
+            )
             # User is in DB, use stored data
             user_color = existing_user.color
-            user_badges = existing_user.badges.split(",") if existing_user.badges else []
             avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
 
         # Save chat message in the database

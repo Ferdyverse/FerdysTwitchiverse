@@ -52,3 +52,9 @@
     border-radius: 50%;
     margin-right: 8px;
 }
+
+.twitch-emote {
+    height: 1.5em;  /* Adjust size to match text */
+    vertical-align: middle;  /* Align emotes properly */
+    display: inline-block;  /* Ensure emotes are inline */
+}

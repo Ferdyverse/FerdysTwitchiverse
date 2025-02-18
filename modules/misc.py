@@ -4,6 +4,8 @@ import config
 import logging
 import yaml
 import datetime
+import html
+import aiohttp
 
 logger = logging.getLogger("uvicorn.error.misc")
 
@@ -53,28 +55,29 @@ def load_sequences():
 
     return data.get("sequences", {})
 
-def save_todo(todo, user):
-    """Save or update Twitch tokens for a specific scope."""
-    todo_file = config.TODO_FILE
+def replace_emotes(message: str, emotes: dict) -> str:
+    """Replace emote text in a message with Twitch emote images inline."""
+    if not emotes:
+        return html.escape(message)  # Escape HTML to prevent XSS
 
-    try:
-        if os.path.exists(todo_file):
-            try:
-                with open(todo_file, "r") as f:
-                    todos = json.load(f)
-            except json.JSONDecodeError:
-                todos = {}
-        else:
-            todos = {}
+    emote_replacements = []
 
-        todos[todo] = {
-            "user": user,
-            "created": str(datetime.datetime.utcnow())
-        }
+    # Iterate over each emote ID and its positions
+    for emote_id, positions in emotes.items():
+        for pos in positions:
+            start = int(pos["start_position"])
+            end = int(pos["end_position"])
+            emote_img = f'<img src="https://static-cdn.jtvnw.net/emoticons/v2/{emote_id}/default/dark/2.0" class="twitch-emote">'
+            emote_replacements.append((start, end, emote_img))
 
-        with open(todo_file, "w") as f:
-            json.dump(todos, f, indent=4)
+    # Sort emote positions from last to first (to avoid index shift)
+    emote_replacements.sort(reverse=True, key=lambda x: x[0])
 
-        return True
-    except:
-        return False
+    # Escape message text first (so HTML tags in normal text are safe)
+    message = html.escape(message)
+
+    # Replace text with image HTML (from back to front)
+    for start, end, img in emote_replacements:
+        message = message[:start] + img + message[end + 1:]
+
+    return message

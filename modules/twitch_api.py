@@ -114,6 +114,8 @@ class TwitchAPI:
             logger.error("❌ Failed authentication, skipping Twitch API startup.")
             return
 
+        await self.initialize_badges()
+
         # Start WebSocket EventSub
         await self.start_eventsub()
 
@@ -416,14 +418,10 @@ class TwitchAPI:
                 user_badges = existing_viewer.badges.split(",") if existing_viewer and existing_viewer.badges else []
 
                 # Fetch color & badges only if missing
-                if not user_color or not user_badges:
+                if not user_color:
                     chat_data = await self.get_chat_metadata(user.id)
-
-                    logger.info(chat_data)
-
                     if chat_data:
                         user_color = chat_data.get("color", user_color)
-                        user_badges = chat_data.get("badges", user_badges)
 
                 # Save viewer data to database
                 save_viewer(
@@ -463,10 +461,9 @@ class TwitchAPI:
         try:
             if not self.auth_headers:
                 logger.error("❌ get_chat_metadata() called without authentication!")
-                return {"color": None, "badges": []}
+                return {"color": "#9147FF", "badges": []}  # Use default color if missing auth
 
             user_color = None
-            user_badges = []
 
             async with aiohttp.ClientSession() as session:
                 # Fetch user chat color
@@ -481,26 +478,16 @@ class TwitchAPI:
                     else:
                         logger.warning(f"⚠️ Failed to fetch user color: {await response.text()}")
 
-                # Fetch user chat badges
-                async with session.get(
-                    f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}&user_id={user_id}",
-                    headers=self.auth_headers
-                ) as response:
-                    if response.status == 200:
-                        badge_data = await response.json()
-                        if badge_data.get("data"):
-                            user_badges = [badge["image_url_1x"] for badge in badge_data["data"]]
-                    else:
-                        logger.warning(f"⚠️ Failed to fetch user badges: {await response.text()}")
+                # Set default color if empty
+                user_color = user_color or "#9147FF"  # Twitch default purple
 
             return {
-                "color": user_color,
-                "badges": user_badges
+                "color": user_color
             }
 
         except Exception as e:
-            logger.error(f"❌ Error fetching chat metadata for {user_id}: {e}")
-            return {"color": None, "badges": []}
+            logger.error(f"❌ Error fetching chat metadata: {e}")
+            return {"color": "#9147FF", "badges": []}  # Return safe defaults
 
     async def get_stream_info(self):
         """Fetch current Twitch stream details (viewer count, title, etc.)."""
@@ -516,3 +503,34 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching stream info: {e}")
             return None
+
+    async def fetch_badge_data(self):
+        """Retrieve Twitch Global & Channel Badges and store in a dictionary."""
+        badges = {"global": {}, "channel": {}}
+
+        async with aiohttp.ClientSession() as session:
+            headers = self.auth_headers  # Ensure your headers contain a valid token
+
+            # Fetch Global Badges
+            async with session.get("https://api.twitch.tv/helix/chat/badges/global", headers=headers) as response:
+                if response.status == 200:
+                    badge_data = await response.json()
+                    for badge in badge_data.get("data", []):
+                        for version in badge["versions"]:
+                            badges["global"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+
+            # Fetch Channel Badges
+            async with session.get(f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}", headers=headers) as response:
+                if response.status == 200:
+                    badge_data = await response.json()
+                    for badge in badge_data.get("data", []):
+                        for version in badge["versions"]:
+                            badges["channel"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+
+        logger.info(f"✅ Loaded {len(badges['global'])} global badges & {len(badges['channel'])} channel badges")
+        return badges
+
+    async def initialize_badges(self):
+        """Load badge data on startup."""
+        global BADGES
+        BADGES = await self.fetch_badge_data()
