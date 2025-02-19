@@ -78,6 +78,7 @@ class AdminButton(Base):
     label = Column(String, nullable=False)
     action = Column(String, nullable=False)
     data = Column(Text, nullable=True)
+    position = Column(Integer, nullable=False, default=0)
 
 class Todo(Base):
     __tablename__ = "todos"
@@ -477,5 +478,16 @@ def complete_todo(todo_id: int):
             return todo
     except Exception as e:
         logger.error(f"❌ Failed to update ToDo: {e}")
+    finally:
+        db.close()
+
+def get_admin_buttons():
+    """Retrieve all admin buttons ordered by position."""
+    db = SessionLocal()
+    try:
+        return db.query(AdminButton).order_by(AdminButton.position).all()
+    except Exception as e:
+        logger.error(f"❌ Failed to retrieve admin buttons: {e}")
+        return []
     finally:
         db.close()

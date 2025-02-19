@@ -2,28 +2,32 @@
 <div id="button-container">
 {% endif %}
 
-{% for button in buttons %}
-    <div class="flex items-center justify-between bg-gray-700 p-2 rounded-md shadow mb-2">
+    {% for button in buttons %}
+        <div class="draggable flex items-center justify-between bg-gray-700 p-2 rounded-md shadow mb-2"
+            data-id="{{ button.id }}">
 
-        <!-- ✅ Action Button (Triggers Overlay) -->
-        <button class="flex-grow bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded"
-            onclick="triggerButtonAction('{{ button.action }}', JSON.parse('{{ button.data }}'))">
-            {{ button.label }}
-        </button>
+            <!-- Drag Handle -->
+            <div class="drag-handle cursor-grab px-2 text-gray-300">☰</div>
 
-        <!-- ✏️ Edit Button -->
-        <button class="bg-yellow-500 hover:bg-yellow-400 text-black px-2 py-1 text-sm rounded ml-2"
-            onclick="openButtonModal(true, {{ button.id }}, '{{ button.label }}', '{{ button.action }}', JSON.stringify({{ button.data | safe }}))">
-            ✏️
-        </button>
+            <!-- Action Button -->
+            <button class="no-drag flex-grow bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded"
+                onclick="triggerButtonAction('{{ button.action }}', JSON.parse('{{ button.data }}'))">
+                {{ button.label }}
+            </button>
 
-        <!-- 🗑️ Delete Button -->
-        <button class="bg-red-500 hover:bg-red-400 text-white px-2 py-1 text-sm rounded ml-2"
-            onclick="confirmDelete({{ button.id }})">
-            🗑️
-        </button>
-    </div>
-{% endfor %}
+            <!-- Edit Button -->
+            <button class="no-drag bg-yellow-500 hover:bg-yellow-400 text-black px-2 py-1 text-sm rounded ml-2"
+                onclick="openButtonModal(true, {{ button.id }}, '{{ button.label }}', '{{ button.action }}', JSON.stringify({{ button.data | safe }}))">
+                ✏️
+            </button>
+
+            <!-- Delete Button -->
+            <button class="no-drag bg-red-500 hover:bg-red-400 text-white px-2 py-1 text-sm rounded ml-2"
+                onclick="confirmDelete({{ button.id }})">
+                🗑️
+            </button>
+        </div>
+    {% endfor %}
 
 {% if not initial_load %}
 </div>

@@ -3,7 +3,7 @@ from fastapi import Request, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from modules.db_manager import get_db, save_event, AdminButton, ChatMessage, save_viewer, get_recent_events
+from modules.db_manager import get_db, get_admin_buttons, AdminButton, ChatMessage, save_viewer, get_recent_events
 from modules.websocket_handler import broadcast_message
 from modules.sequence_runner import get_sequence_names
 from twitchAPI.type import CustomRewardRedemptionStatus
@@ -19,16 +19,15 @@ logger = logging.getLogger("uvicorn.error.admin")
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/buttons", response_class=HTMLResponse)
-async def get_admin_buttons(request: Request, db: Session = Depends(get_db)):
+async def get_buttons(request: Request):
     """Retrieve all admin panel buttons as an HTML template."""
-    buttons = db.query(AdminButton).all()
+    buttons = get_admin_buttons()
 
     # ✅ Ensure valid response even when no buttons exist
     return templates.TemplateResponse("admin_buttons.html", {
         "request": request,
         "buttons": buttons if buttons else []
     })
-
 
 @router.post("/buttons/add/", response_class=HTMLResponse)
 async def add_admin_button(request: Request, db: Session = Depends(get_db)):
@@ -60,8 +59,6 @@ async def add_admin_button(request: Request, db: Session = Depends(get_db)):
     # Swap only the button list
     return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": buttons})
 
-
-
 @router.get("/buttons/edit/{button_id}", response_class=HTMLResponse)
 def edit_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
     """Retrieve the edit form for a specific button."""
@@ -82,7 +79,6 @@ def edit_admin_button(button_id: int, request: Request, db: Session = Depends(ge
         "sequence_names": sequence_names,
         "button_data": json.dumps(button_data, indent=2)  # Pretty JSON
     })
-
 
 @router.put("/buttons/update/{button_id}")
 async def update_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
@@ -133,6 +129,19 @@ async def remove_admin_button(button_id: int, request: Request, db: Session = De
 
     # Swap only the button list
     return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": buttons})
+
+@router.put("/buttons/reorder")
+def reorder_buttons(updated_buttons: list[dict], db: Session = Depends(get_db)):
+    """Update the order of admin buttons."""
+    try:
+        for button_data in updated_buttons:
+            button = db.query(AdminButton).filter(AdminButton.id == button_data["id"]).first()
+            if button:
+                button.position = button_data["position"]
+        db.commit()
+        return {"message": "Button order updated"}
+    except Exception as e:
+        return {"error": f"Failed to update button order: {e}"}
 
 @router.post("/update-viewer/{user_id}")
 async def update_viewer(user_id: int, request: Request):

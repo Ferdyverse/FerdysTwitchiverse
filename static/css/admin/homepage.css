@@ -99,3 +99,22 @@
     height: 2px;
     background-color: rgba(255, 255, 255, 0.4);
 }
+
+
+.dragging {
+    opacity: 0.5;
+    transform: scale(1.05);
+}
+
+.chosen {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.drag {
+    opacity: 0.7;
+}
+
+.drag-handle {
+    cursor: grab;
+    padding-right: 10px;
+}
