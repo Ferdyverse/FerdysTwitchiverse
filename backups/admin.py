@@ -25,7 +25,7 @@ async def get_buttons(request: Request):
     buttons = get_admin_buttons()
 
     # ✅ Ensure valid response even when no buttons exist
-    return templates.TemplateResponse("admin_buttons.html", {
+    return templates.TemplateResponse("includes/admin_buttons.html", {
         "request": request,
         "buttons": buttons if buttons else []
     })
@@ -45,10 +45,13 @@ async def add_admin_button(request: Request, db: Session = Depends(get_db)):
 
     button_data = json.dumps(body["data"]) if isinstance(body["data"], dict) else "{}"
 
+    prompt = body.get("prompt", False)
+
     new_button = AdminButton(
         label=body["label"],
         action=body["action"],
-        data=button_data
+        data=button_data,
+        prompt=prompt
     )
 
     db.add(new_button)
@@ -58,7 +61,7 @@ async def add_admin_button(request: Request, db: Session = Depends(get_db)):
     buttons = db.query(AdminButton).all()
 
     # Swap only the button list
-    return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": buttons})
+    return templates.TemplateResponse("includes/admin_buttons.html", {"request": request, "buttons": buttons})
 
 @router.get("/buttons/edit/{button_id}", response_class=HTMLResponse)
 def edit_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
@@ -74,7 +77,7 @@ def edit_admin_button(button_id: int, request: Request, db: Session = Depends(ge
         button_data = {}
 
     sequence_names = get_sequence_names()
-    return templates.TemplateResponse("admin_edit_button.html", {
+    return templates.TemplateResponse("includes/admin_edit_button.html", {
         "request": request,
         "button": button,
         "sequence_names": sequence_names,
@@ -84,7 +87,6 @@ def edit_admin_button(button_id: int, request: Request, db: Session = Depends(ge
 @router.put("/buttons/update/{button_id}")
 async def update_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
     """Update an existing admin button."""
-
     try:
         body = await request.json()
     except Exception as e:
@@ -94,26 +96,26 @@ async def update_admin_button(button_id: int, request: Request, db: Session = De
     if "label" not in body or "action" not in body or "data" not in body:
         raise HTTPException(status_code=400, detail="Missing required fields (label, action, data)")
 
-    # Fetch the button from the DB
     button = db.query(AdminButton).filter(AdminButton.id == button_id).first()
     if not button:
         raise HTTPException(status_code=404, detail="Button not found")
 
-    # Ensure `data` is a valid JSON string
     try:
         button_data = json.dumps(body["data"]) if isinstance(body["data"], dict) else "{}"
     except json.JSONDecodeError:
         button_data = "{}"
 
-    # Update button fields
+    prompt = bool(body.get("prompt", False))  # ✅ Explizit in Boolean umwandeln
+
     button.label = body["label"]
     button.action = body["action"]
-    button.data = button_data  # Store as JSON string
+    button.data = button_data
+    button.prompt = prompt  # ✅ Prompt speichern
 
     db.commit()
     db.refresh(button)
 
-    return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": db.query(AdminButton).all()})
+    return templates.TemplateResponse("includes/admin_buttons.html", {"request": request, "buttons": db.query(AdminButton).all()})
 
 @router.delete("/buttons/remove/{button_id}", response_class=HTMLResponse)
 async def remove_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
@@ -129,7 +131,7 @@ async def remove_admin_button(button_id: int, request: Request, db: Session = De
     buttons = db.query(AdminButton).all()
 
     # Swap only the button list
-    return templates.TemplateResponse("admin_buttons.html", {"request": request, "buttons": buttons})
+    return templates.TemplateResponse("includes/admin_buttons.html", {"request": request, "buttons": buttons})
 
 @router.put("/buttons/reorder")
 def reorder_buttons(updated_buttons: list[dict], db: Session = Depends(get_db)):
@@ -470,7 +472,7 @@ async def get_viewer_count(request: Request):
 @router.get("/scheduled-messages", response_class=HTMLResponse)
 async def scheduled_messages(request: Request):
     messages = get_scheduled_messages()
-    return templates.TemplateResponse("admin_scheduled_messages.html", {
+    return templates.TemplateResponse("includes/admin_scheduled_messages.html", {
         "request": request,
         "messages": messages
     })
@@ -523,7 +525,7 @@ async def delete_scheduled_message(message_id: int):
 @router.get("/schedule-message-pool", response_class=HTMLResponse)
 async def scheduled_message_pool(request: Request):
     messages = get_scheduled_message_pool()
-    return templates.TemplateResponse("admin_message_pool.html", {
+    return templates.TemplateResponse("includes/admin_message_pool.html", {
         "request": request,
         "messages": messages
     })

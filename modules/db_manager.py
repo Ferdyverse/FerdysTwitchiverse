@@ -79,6 +79,7 @@ class AdminButton(Base):
     action = Column(String, nullable=False)
     data = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    promt = Column(Boolean, default=False)
 
 class Todo(Base):
     __tablename__ = "todos"

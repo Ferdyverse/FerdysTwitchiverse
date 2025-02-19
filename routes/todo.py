@@ -4,7 +4,7 @@ from modules.db_manager import save_todo, get_todos, complete_todo
 
 router = APIRouter(prefix="/todo", tags=["ToDos"])
 
-logger = logging.getLogger("uvicorn.error.twitch")
+logger = logging.getLogger("uvicorn.error.todo")
 
 @router.post("/")
 def create_todo(text: str, twitch_id: int):

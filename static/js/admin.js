@@ -71,55 +71,57 @@ function closeButtonModal() {
 async function submitButtonForm() {
   const submitButton = document.getElementById("modal-submit");
   if (!submitButton) {
-    console.error("❌ Error: 'modal-submit' button not found!");
-    showFlashMessage("❌ Error: Submit button missing!", "error");
-    return;
+      console.error("❌ Error: 'modal-submit' button not found!");
+      showFlashMessage("❌ Error: Submit button missing!", "error");
+      return;
   }
 
   const buttonId = submitButton.getAttribute("data-button-id");
-  const isEdit = buttonId && buttonId !== "null"; // ✅ Properly check if it's an edit action
+  const isEdit = buttonId && buttonId !== "null";
+  const promptChecked = document.getElementById("modal-prompt").checked; // ✅ Prompt-Checkbox auslesen
 
   const jsonData = {
-    label: document.getElementById("modal-label").value.trim(),
-    action: document.getElementById("modal-action").value.trim(),
-    data: JSON.parse(document.getElementById("modal-data").value || "{}"),
+      label: document.getElementById("modal-label").value.trim(),
+      action: document.getElementById("modal-action").value.trim(),
+      data: JSON.parse(document.getElementById("modal-data").value || "{}"),
+      prompt: promptChecked  // ✅ Prompt in JSON packen
   };
 
   if (!jsonData.label || !jsonData.action) {
-    showFlashMessage("⚠️ Label and Action are required!", "error");
-    return;
+      showFlashMessage("⚠️ Label and Action are required!", "error");
+      return;
   }
 
   const url = isEdit
-    ? `/admin/buttons/update/${buttonId}`
-    : "/admin/buttons/add/";
-  const method = isEdit ? "PUT" : "POST"; // ✅ Use POST when adding a button
+      ? `/admin/buttons/update/${buttonId}`
+      : "/admin/buttons/add/";
+  const method = isEdit ? "PUT" : "POST";
 
   try {
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(jsonData),
-    });
-
-    if (response.ok) {
-      showFlashMessage("✅ Button saved!", "success");
-      closeGenericModal("button-modal");
-
-      htmx.ajax("GET", "/admin/buttons", {
-        target: "#button-container",
-        swap: "innerHTML",
+      const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(jsonData),
       });
-    } else {
-      const errorData = await response.json();
-      showFlashMessage(
-        `❌ Error: ${errorData.detail || "Unknown error"}`,
-        "error"
-      );
-    }
+
+      if (response.ok) {
+          showFlashMessage("✅ Button saved!", "success");
+          closeGenericModal("button-modal");
+
+          htmx.ajax("GET", "/admin/buttons", {
+              target: "#button-container",
+              swap: "innerHTML",
+          });
+      } else {
+          const errorData = await response.json();
+          showFlashMessage(
+              `❌ Error: ${errorData.detail || "Unknown error"}`,
+              "error"
+          );
+      }
   } catch (error) {
-    console.error("❌ Error saving button:", error);
-    showFlashMessage("❌ Error saving button", "error");
+      console.error("❌ Error saving button:", error);
+      showFlashMessage("❌ Error saving button", "error");
   }
 }
 
@@ -298,6 +300,15 @@ async function triggerButtonAction(action, data) {
     showFlashMessage("❌ No action specified!", "error");
     return;
   }
+
+  if (data.prompt) {
+        const userInput = prompt("Enter the required input:");
+        if (userInput === null) {
+            console.log("❌ Action canceled.");
+            return;
+        }
+        data.userInput = userInput;  // Attach user input
+    }
 
   try {
     const response = await fetch("/trigger-overlay/", {

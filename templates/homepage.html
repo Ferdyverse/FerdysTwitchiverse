@@ -176,7 +176,12 @@
             </select>
 
             <label for="modal-data" class="text-sm">Data:</label>
-            <textarea id="modal-data" class="w-full bg-gray-700 text-white p-2 rounded mb-4 h-24">{}</textarea>
+            <textarea id="modal-data" class="w-full bg-gray-700 text-white p-2 rounded mb-2 h-24">{}</textarea>
+
+            <label for="modal-prompt" class="block text-sm font-medium text-gray-300 mb-4">
+            <input id="modal-prompt" type="checkbox" class="mr-2">
+                Require Text Input on Click
+            </label>
 
             <div class="flex space-x-2">
                 <button id="modal-submit" onclick="submitButtonForm()"

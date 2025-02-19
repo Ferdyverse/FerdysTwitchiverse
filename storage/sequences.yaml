@@ -63,6 +63,11 @@ sequences:
               text: "$$message"
           print_as_image: true
 
+  show_todo:
+    - type: todo
+      data:
+        action: "show"
+
   hide_test:
     - type: if
       data:

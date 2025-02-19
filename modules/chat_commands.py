@@ -28,36 +28,24 @@ def save_command_responses():
     with open(COMMAND_RESPONSES_FILE, "w", encoding="utf-8") as f:
         json.dump(COMMAND_RESPONSES, f, indent=4)
 
-def check_access_rights(event, required_role: str = "mod") -> bool:
-    """
-    Check if the user has the required access rights.
+def check_access_rights(event, level: str):
+    """Checks if the user has the required permissions based on their role (without using badges)."""
 
-    Parameters:
-        - event (EventData): The Twitch chat event.
-        - required_role (str): The minimum role required.
-            Possible values: "broadcaster", "mod", "vip".
+    user_id = int(event._parsed["tags"].get("user-id", 0))  # Get user ID
+    channel_id = int(config.TWITCH_CHANNEL_ID)  # Broadcaster's ID from config
 
-    Returns:
-        - True if the user meets or exceeds the required role.
-        - False otherwise.
-    """
-    user_name = event.user.name.lower()
-    channel_name = event.chat.channel_name.lower()
+    is_broadcaster = user_id == channel_id  # Compare user ID with broadcaster ID
+    is_mod = event._parsed["tags"].get("mod") == "1"  # Check if user is a mod
+    is_vip = event._parsed["tags"].get("vip") == "1"  # Check if user is a VIP (if available)
 
-    # Broadcaster has full access
-    if user_name == channel_name:
-        return True
-
-    # Moderator access (includes broadcaster)
-    if required_role == "mod":
-        return event.user.mod
-
-    # VIP access (includes mod & broadcaster)
-    if required_role == "vip":
-        return event.user.mod or event.user.vip
-
-    # Default: No access
-    return False
+    if level == "mod":
+        return is_broadcaster or is_mod
+    elif level == "vip":
+        return is_broadcaster or is_mod or is_vip
+    elif level == "broadcaster":
+        return is_broadcaster
+    else:
+        return False  # Default: No access
 
 
 async def handle_command(bot, command_name: str, params: str, event):
@@ -100,10 +88,10 @@ async def command_commands(bot, params: str, event):
     command_list = "\n".join([f"• {cmd}" for cmd in all_commands])
 
     # Prepare the message
-    message = f"📜 **Verfügbare Commands:**\n{command_list}"
+    message = f"📜 Verfügbare Commands:\n{command_list}"
 
     try:
-        await bot.send_whisper(event.user.name, message)
+        await bot.send_message(message)
         logger.info(f"📩 Sent formatted command list to {event.user.name}")
     except Exception as e:
         logger.error(f"❌ Failed to send whisper: {e}")
@@ -146,9 +134,11 @@ async def command_todo(bot, params: str, event):
         await bot.send_message(f"⛔ @{event.user.display_name}, benutze die Kanalpunkte um ToDos hinzuzufügen")
         logger.warning(f"⚠️ Unauthorized attempt: {event.user.display_name} tried to add a todo.")
         return
-
-    save_todo(params, event.user.display_name)
-    await bot.send_message(f"✅ TODO added: {params}")
+    if params != "":
+        save_todo(params, event.user.id)
+        await bot.send_message(f"✅ TODO added: {params}")
+    else:
+        await bot.send_message("Error: Got no argument to add as todo")
 COMMANDS["todo"] = command_todo
 
 async def command_todos(bot, params: str, event):
@@ -164,7 +154,7 @@ async def command_todos(bot, params: str, event):
     todo_list = [f"#{todo['id']}: {todo['text']} (by {todo['username']})" for todo in todos]
 
     # Send in chunks (Twitch chat limit: ~500 chars per message)
-    message = "📝 **Aktuelle ToDos:**\n" + "\n".join(todo_list)
+    message = "📝 **Aktuelle ToDos:**\n\n" + "\n\n".join(todo_list)
     if len(message) > 500:
         chunks = []
         current_chunk = "📝 **Aktuelle ToDos:**\n"
@@ -183,115 +173,3 @@ async def command_todos(bot, params: str, event):
     else:
         await bot.send_message(message)
 COMMANDS["todos"] = command_todos
-
-async def command_listschedules(bot, params: str, event):
-    """Zeigt alle geplanten Nachrichten an."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to manage schedules.")
-        return
-
-    messages = get_scheduled_messages()
-    if not messages:
-        await bot.send_message("✅ No scheduled messages found.")
-        return
-
-    schedule_list = [f"#{msg.id}: {msg.message} (every {msg.interval}s)" for msg in messages]
-    message = "📅 **Scheduled Messages:**\n" + "\n".join(schedule_list)
-
-    await bot.send_message(message)
-COMMANDS["listschedules"] = command_listschedules
-
-
-async def command_addschedule(bot, params: str, event):
-    """Ermöglicht Moderatoren und dem Broadcaster, geplante Nachrichten hinzuzufügen."""
-
-    if not check_access_rights(event, "mod"):  # Nur Mods & Broadcaster
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to manage schedules.")
-        return
-
-    try:
-        parts = params.split(" ", 1)
-        interval = int(parts[0])  # Erste Zahl als Intervall (in Sekunden)
-        message = parts[1]  # Rest als Nachricht
-
-        add_scheduled_message(message, interval)
-        await bot.send_message(f"✅ Scheduled message added! Will repeat every {interval} seconds.")
-
-    except (ValueError, IndexError):
-        await bot.send_message("❌ Usage: !addschedule <interval in seconds> <message>")
-COMMANDS["addschedule"] = command_addschedule
-
-async def command_removeschedule(bot, params: str, event):
-    """Löscht eine geplante Nachricht nach ID (nur Mods)."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to manage schedules.")
-        return
-
-    try:
-        message_id = int(params)
-        if remove_scheduled_message(message_id):
-            await bot.send_message(f"✅ Scheduled message #{message_id} removed.")
-        else:
-            await bot.send_message(f"❌ No scheduled message found with ID {message_id}.")
-    except ValueError:
-        await bot.send_message("❌ Usage: !removeschedule <message ID>")
-
-COMMANDS["removeschedule"] = command_removeschedule
-
-async def command_addschedulepool(bot, params: str, event):
-    """Fügt eine geplante Nachricht aus einer Kategorie hinzu (nur Mods)."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to manage schedules.")
-        return
-
-    try:
-        parts = params.split(" ", 1)
-        interval = int(parts[0])  # Erste Zahl als Intervall (in Sekunden)
-        category = parts[1]  # Name der Kategorie
-
-        add_scheduled_message(category, interval)
-        await bot.send_message(f"✅ Scheduled message from category '{category}' every {interval} seconds.")
-    except (ValueError, IndexError):
-        await bot.send_message("❌ Usage: !addschedulepool <interval in seconds> <category>")
-
-COMMANDS["addschedulepool"] = command_addschedulepool
-
-
-async def command_addtopool(bot, params: str, event):
-    """Fügt eine Nachricht zu einer bestehenden Kategorie hinzu (nur Mods)."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to modify message pools.")
-        return
-
-    try:
-        category, message = params.split(" ", 1)
-        add_message_to_pool(category, message)
-        await bot.send_message(f"✅ Added message to category '{category}'!")
-    except ValueError:
-        await bot.send_message("❌ Usage: !addtopool <category> <message>")
-
-COMMANDS["addtopool"] = command_addtopool
-
-async def command_listpool(bot, params: str, event):
-    """Listet alle Nachrichten in einer Kategorie auf (nur Mods)."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, you don't have permission to list message pools.")
-        return
-
-    messages = get_messages_from_pool(params)
-
-    if not messages:
-        await bot.send_message(f"✅ No messages found for category '{params}'.")
-        return
-
-    message_list = [f"#{msg.id}: {msg.message}" for msg in messages]
-
-    for i in range(0, len(message_list), 5):
-        await bot.send_message("\n".join(message_list[i:i + 5]))
-
-COMMANDS["listpool"] = command_listpool

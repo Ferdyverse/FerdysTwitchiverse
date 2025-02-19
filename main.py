@@ -24,7 +24,8 @@ from twitchAPI.type import CustomRewardRedemptionStatus
 
 # Routes
 from routes.todo import router as todo_router
-from routes.admin import router as admin_router
+from routes.admin import admin_router
+from routes.hub import router as hub_router
 
 # Own modules
 from modules.printer_manager import PrinterManager
@@ -222,6 +223,7 @@ app.state.twitch_api = twitch_api
 app.add_api_websocket_route("/ws", websocket_endpoint)
 app.include_router(admin_router)
 app.include_router(todo_router)
+app.include_router(hub_router)
 
 @app.get(
     "/overlay",

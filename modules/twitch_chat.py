@@ -240,19 +240,6 @@ class TwitchChatBot:
         except Exception as e:
             logger.error(f"❌ Failed to send chat message: {e}")
 
-    async def send_whisper(self, user: str, message: str):
-        """Send a private whisper message to a user."""
-        if not self.chat or not self.is_running:
-            logger.error("❌ ChatBot is not running, cannot send whisper.")
-            return
-
-        try:
-            await self.chat.send_whisper(user, message)
-            logger.info(f"📩 Whisper sent to {user}: {message}")
-
-        except Exception as e:
-            logger.error(f"❌ Failed to send whisper: {e}")
-
     async def remove_message_after_delay(self, message_id, delay):
         """Remove message from list after a delay."""
         await asyncio.sleep(delay)
