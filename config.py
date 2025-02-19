@@ -34,6 +34,6 @@ OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
 FIREBOT_API_URL = "http://localhost:7472/api/v1"
 
 # Additional settings
-SEQUENCES_FILE = "sequences.yaml"
-STATE_FILE = "state.json"
-TODO_FILE = "todo.json"
+SEQUENCES_FILE = "storage/sequences.yaml"
+STATE_FILE = "storage/state.json"
+COMMAND_RESPONSES_FILE = "storage/command_responses.json"

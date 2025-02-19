@@ -1,8 +1,8 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
-import json
+import random
 import logging
 
 DATABASE_URL = "sqlite:///./data.db"
@@ -88,6 +88,23 @@ class Todo(Base):
     twitch_id = Column(Integer, ForeignKey("viewers.twitch_id"), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="pending")  # "pending" or "completed"
+
+class ScheduledMessage(Base):
+    __tablename__ = "scheduled_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category = Column(String, nullable=True)  # Kategorie für zufällige Nachrichten (optional)
+    message = Column(String, nullable=True)  # Entweder direkte Nachricht oder Kategorie
+    interval = Column(Integer, nullable=False)  # Intervall in Sekunden
+    next_run = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    enabled = Column(Boolean, default=True)  # Falls deaktivierbar
+
+class ScheduledMessagePool(Base):
+    __tablename__ = "scheduled_message_pool"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category = Column(String, nullable=False, index=True)  # Kategorie, z. B. "Werbung"
+    message = Column(String, nullable=False)  # Der Nachrichtentext
 
 Base.metadata.create_all(bind=engine)
 
@@ -489,5 +506,92 @@ def get_admin_buttons():
     except Exception as e:
         logger.error(f"❌ Failed to retrieve admin buttons: {e}")
         return []
+    finally:
+        db.close()
+
+def get_scheduled_messages():
+    """Holt alle aktiven geplanten Nachrichten aus der DB."""
+    db = SessionLocal()
+    try:
+        now = datetime.datetime.utcnow()
+        messages = db.query(ScheduledMessage).filter(ScheduledMessage.enabled == True, ScheduledMessage.next_run <= now).all()
+        return messages
+    finally:
+        db.close()
+
+def remove_scheduled_message(message_id):
+    """Löscht eine geplante Nachricht nach ID."""
+    db = SessionLocal()
+    try:
+        deleted = db.query(ScheduledMessage).filter(ScheduledMessage.id == message_id).delete()
+        db.commit()
+        return deleted > 0
+    finally:
+        db.close()
+
+def add_scheduled_message(category, interval):
+    """Fügt eine geplante Nachricht aus einer Kategorie hinzu."""
+    db = SessionLocal()
+    try:
+        new_schedule = ScheduledMessage(category=category, interval=interval, next_run=datetime.datetime.utcnow())
+        db.add(new_schedule)
+        db.commit()
+    finally:
+        db.close()
+
+def update_next_run(message_id, interval):
+    """Aktualisiert das nächste Laufzeitdatum einer geplanten Nachricht."""
+    db = SessionLocal()
+    try:
+        next_run = datetime.datetime.utcnow() + datetime.timedelta(seconds=interval)
+        db.query(ScheduledMessage).filter(ScheduledMessage.id == message_id).update({"next_run": next_run})
+        db.commit()
+    finally:
+        db.close()
+
+def add_scheduled_message(message, interval):
+    """Fügt eine neue geplante Nachricht hinzu."""
+    db = SessionLocal()
+    try:
+        new_message = ScheduledMessage(message=message, interval=interval, next_run=datetime.datetime.utcnow())
+        db.add(new_message)
+        db.commit()
+    finally:
+        db.close()
+
+def get_random_message_from_category(category):
+    """Holt eine zufällige Nachricht aus einer Kategorie."""
+    db = SessionLocal()
+    try:
+        messages = db.query(ScheduledMessagePool.message).filter(ScheduledMessagePool.category == category).all()
+        return random.choice(messages)[0] if messages else None
+    finally:
+        db.close()
+
+def add_message_to_pool(category, message):
+    """Fügt eine Nachricht zu einer Kategorie hinzu."""
+    db = SessionLocal()
+    try:
+        new_message = ScheduledMessagePool(category=category, message=message)
+        db.add(new_message)
+        db.commit()
+    finally:
+        db.close()
+
+def delete_message_from_pool(message_id):
+    """Löscht eine Nachricht aus einer Kategorie nach ID."""
+    db = SessionLocal()
+    try:
+        deleted = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).delete()
+        db.commit()
+        return deleted > 0
+    finally:
+        db.close()
+
+def get_messages_from_pool(category):
+    """Holt alle Nachrichten aus einer bestimmten Kategorie."""
+    db = SessionLocal()
+    try:
+        return db.query(ScheduledMessagePool.id, ScheduledMessagePool.message).filter(ScheduledMessagePool.category == category).all()
     finally:
         db.close()

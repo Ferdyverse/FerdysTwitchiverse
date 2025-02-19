@@ -3,6 +3,7 @@ import yaml
 import re
 import random
 import logging
+import config
 from modules.websocket_handler import broadcast_message
 from modules.state_manager import check_condition, set_condition
 
@@ -11,7 +12,7 @@ logger = logging.getLogger("uvicorn.error.sequence_runner")
 # Load sequences from YAML
 def load_sequences():
     try:
-        with open("sequences.yaml", "r") as file:
+        with open(config.SEQUENCES_FILE, "r") as file:
             return yaml.safe_load(file).get("sequences", {})
     except Exception as e:
         logger.error(f"❌ Failed to load sequences: {e}")

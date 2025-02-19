@@ -6,12 +6,13 @@ import html
 import json
 from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
-from twitchAPI.chat import Chat, ChatEvent, ChatCommand, EventData
+from twitchAPI.chat import Chat, ChatEvent, EventData
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
 from modules.twitch_api import TwitchAPI
 from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
+from modules.chat_commands import handle_command
 
 logger = logging.getLogger("uvicorn.error.twitch_chat")
 
@@ -88,7 +89,6 @@ class TwitchChatBot:
             self.chat.register_event(ChatEvent.READY, self.on_ready)
             self.chat.register_event(ChatEvent.MESSAGE, self.on_message)
             self.chat.register_event(ChatEvent.JOIN, self.user_join)
-            #self.chat.register_command("todo", self.on_command_todo)
 
             logger.info("🚀 Starting Twitch chat bot...")
             self.chat.start()
@@ -112,25 +112,6 @@ class TwitchChatBot:
         logger.info("✅ Bot is ready, joining channel...")
         await event.chat.join_room(self.twitch_channel)
         logger.info(f"✅ Joined Twitch channel: {self.twitch_channel}")
-
-    async def on_command_print(self, cmd: ChatCommand):
-        """Handles the !print command."""
-        logger.info(f"CMD parameter: {cmd.parameter}")
-        logger.info(f"CMD text: {cmd.text}")
-
-        await self.event_queue.put({
-            "command": "print",
-            "user_id": cmd.user.id,
-            "user": cmd.user.display_name,
-            "message": cmd.parameter
-        })
-
-    async def on_command_todo(self, cmd: ChatCommand):
-        """Handles the !print command."""
-        logger.info(f"CMD parameter: {cmd.parameter}")
-        logger.info(f"CMD text: {cmd.text}")
-
-        save_todo(cmd.parameter, cmd.user.display_name)
 
     async def on_message(self, event: EventData):
         """
@@ -195,6 +176,14 @@ class TwitchChatBot:
             user_color = existing_user.color
             avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
 
+        # Detect and handle !commands
+        if message.startswith("!"):
+            command_parts = message[1:].split(" ", 1)
+            command_name = command_parts[0].lower()
+            command_params = command_parts[1] if len(command_parts) > 1 else ""
+
+            await handle_command(self, command_name, command_params, event)
+
         # Save chat message in the database
         save_chat_message(twitch_id, message, message_id, stream_id)
 
@@ -250,6 +239,19 @@ class TwitchChatBot:
 
         except Exception as e:
             logger.error(f"❌ Failed to send chat message: {e}")
+
+    async def send_whisper(self, user: str, message: str):
+        """Send a private whisper message to a user."""
+        if not self.chat or not self.is_running:
+            logger.error("❌ ChatBot is not running, cannot send whisper.")
+            return
+
+        try:
+            await self.chat.send_whisper(user, message)
+            logger.info(f"📩 Whisper sent to {user}: {message}")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to send whisper: {e}")
 
     async def remove_message_after_delay(self, message_id, delay):
         """Remove message from list after a delay."""

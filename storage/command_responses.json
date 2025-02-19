@@ -1,0 +1,14 @@
+{
+    "hello": {
+        "response": "👋 Hello there!",
+        "aliases": ["hi", "hey", "hallo"]
+    },
+    "discord": {
+        "response": "🔗 Join the Syntax Squad Discord-Server: https://discord.gg/73aNnSbZ2N",
+        "aliases": ["dc"]
+    },
+    "rules": {
+        "response": "📜 Please be respectful. No spamming, no hate speech.",
+        "aliases": ["regeln"]
+    }
+}
