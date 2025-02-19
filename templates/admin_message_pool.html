@@ -1,0 +1,20 @@
+<table class='w-full text-left border-collapse border border-gray-600'>
+    <tr class='bg-gray-700'>
+        <th class='border border-gray-600 px-4 py-2'>Category</th>
+        <th class='border border-gray-600 px-4 py-2'>Message</th>
+        <th class='border border-gray-600 px-4 py-2'>Actions</th>
+    </tr>
+
+    {% for msg in messages %}
+    <tr class='bg-gray-800'>
+        <td class='border border-gray-600 px-4 py-2'>{{ msg.category }}</td>
+        <td class='border border-gray-600 px-4 py-2'>{{ msg.message }}</td>
+        <td class='border border-gray-600 px-4 py-2'>
+            <button onclick="editPoolMessage({{ msg.id }}, '{{ msg.message }}', '{{ msg.category }}' )"
+                    class="text-yellow-400 hover:text-yellow-300">✏️</button>
+            <button onclick="removePoolMessage({{ msg.id }})"
+                    class="text-red-500 hover:text-red-400">🗑️</button>
+        </td>
+    </tr>
+    {% endfor %}
+</table>

@@ -459,9 +459,291 @@ function initSortable() {
   console.log("✅ Sortable initialized successfully!");
 }
 
-function applyVisualReordering(buttons) {
-  const btn_container = document.getElementById("button-container");
-  btn_container.innerHTML = ""; // Clear container
-  buttons.forEach((button) => btn_container.appendChild(button)); // Re-add buttons in new order
-  console.log("🔄 Applied visual reordering after first move!");
+// 📅 Submit Scheduled Message (Add or Edit)
+async function submitScheduledMessage(event) {
+  event.preventDefault();
+
+  const messageId = document.getElementById("scheduled-message-id").value;
+  const messageText = document.getElementById("scheduled-message-text").value;
+  const interval = document.getElementById("scheduled-message-interval").value;
+  const category = document.getElementById("scheduled-message-category").value; // ✅ Get category
+
+  const data = {
+    message: messageText,
+    interval: parseInt(interval, 10),
+    category: category || null, // ✅ Handle "No Category" case
+  };
+
+  const url = messageId
+    ? `/admin/scheduled-messages/edit/${messageId}`
+    : "/admin/scheduled-messages/add";
+  const method = messageId ? "POST" : "POST";
+
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      console.log("✅ Scheduled message updated!");
+      reloadScheduledMessages(); // ✅ Reload table after success
+      resetScheduledMessageForm(); // ✅ Reset form but KEEP modal open
+    } else {
+      console.error("❌ Failed to update scheduled message:", result.error);
+    }
+  } catch (error) {
+    console.error("❌ Error updating scheduled message:", error);
+  }
+}
+
+function resetScheduledMessageForm() {
+  document.getElementById("scheduled-message-id").value = "";
+  document.getElementById("scheduled-message-text").value = "";
+  document.getElementById("scheduled-message-interval").value = "";
+  document.getElementById("scheduled-message-category").value = ""; // ✅ Reset category
+}
+
+// 🗑️ Delete Scheduled Message
+async function removeScheduledMessage(messageId) {
+  try {
+    const response = await fetch(`/admin/scheduled-messages/${messageId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      console.log("✅ Scheduled message deleted!");
+      reloadScheduledMessages(); // ✅ Reload table
+    }
+  } catch (error) {
+    console.error("❌ Failed to delete scheduled message:", error);
+  }
+}
+
+function resetScheduledMessageForm() {
+  document.getElementById("scheduled-message-id").value = "";
+  document.getElementById("scheduled-message-text").value = "";
+  document.getElementById("scheduled-message-interval").value = "";
+  document.getElementById("scheduled-message-category").value = ""; // ✅ Reset category
+}
+
+// 🎲 Submit Message Pool Entry (Add or Edit)
+async function submitScheduledMessage(event) {
+  event.preventDefault();
+
+  const messageId =
+    document.getElementById("scheduled-message-id").value || null; // ✅ Include ID
+  const messageText = document
+    .getElementById("scheduled-message-text")
+    .value.trim();
+  const interval = document.getElementById("scheduled-message-interval").value;
+  const category =
+    document.getElementById("scheduled-message-category").value || null;
+
+  if ((!messageText && !category) || !interval) {
+    console.error("❌ Either a message or a category must be provided.");
+    return;
+  }
+
+  const data = {
+    id: messageId, // ✅ Send the ID for edit mode
+    message: messageText || null,
+    interval: parseInt(interval, 10),
+    category: category,
+  };
+
+  console.log("🚀 Sending Scheduled Message:", data);
+
+  try {
+    const response = await fetch(`/admin/scheduled-messages/add`, {
+      // ✅ Always use /add
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      console.log("✅ Scheduled message updated/added!");
+      reloadScheduledMessages(); // ✅ Reload the table
+      resetScheduledMessageForm(); // ✅ Reset form but KEEP modal open
+    } else {
+      console.error("❌ Failed to update/add scheduled message:", result.error);
+    }
+  } catch (error) {
+    console.error("❌ Error updating/adding scheduled message:", error);
+  }
+}
+
+async function submitMessagePool(event) {
+  event.preventDefault();
+
+  const messageId = document.getElementById("message-pool-id").value;
+  const category = document.getElementById("message-pool-category").value;
+  const message = document.getElementById("message-pool-message").value;
+
+  const data = {
+    category: category || null, // ✅ Allow empty category
+    message: message,
+  };
+
+  const url = messageId
+    ? `/admin/schedule-pool/edit/${messageId}`
+    : "/admin/schedule-pool/add";
+  const method = messageId ? "POST" : "POST";
+
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      console.log("✅ Message pool updated!");
+      reloadMessagePool(); // ✅ Reload table after success
+      resetMessagePoolForm(); // ✅ Reset form but KEEP modal open
+    } else {
+      console.error("❌ Failed to update message pool:", result.error);
+    }
+  } catch (error) {
+    console.error("❌ Error updating message pool:", error);
+  }
+}
+
+function resetMessagePoolForm() {
+  document.getElementById("message-pool-id").value = "";
+  document.getElementById("message-pool-category").value = "";
+  document.getElementById("message-pool-message").value = "";
+}
+
+// 🗑️ Delete Message from Pool
+async function removePoolMessage(messageId) {
+  try {
+    const response = await fetch(`/admin/schedule-pool/${messageId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      console.log("✅ Pool message deleted!");
+      reloadMessagePool(); // ✅ Reload table
+    }
+  } catch (error) {
+    console.error("❌ Failed to delete message from pool:", error);
+  }
+}
+
+// ✏️ Edit Scheduled Message (Fills the form for editing)
+function editScheduledMessage(id, message, interval) {
+  document.getElementById("scheduled-message-id").value = id;
+  document.getElementById("scheduled-message-text").value = message;
+  document.getElementById("scheduled-message-interval").value = interval;
+
+  openGenericModal("scheduled-messages-modal"); // Show modal
+}
+
+// ✏️ Edit Pool Message (Fills the form for editing)
+function editPoolMessage(id, message, category = "") {
+  document.getElementById("message-pool-id").value = id;
+  document.getElementById("message-pool-message").value = message;
+  document.getElementById("message-pool-category").value = category; // May be empty
+
+  openGenericModal("message-pool-modal"); // Show modal
+}
+
+// Reset Scheduled Message Form when opening for adding a new entry
+function addScheduledMessage() {
+  document.getElementById("scheduled-message-id").value = "";
+  document.getElementById("scheduled-message-text").value = "";
+  document.getElementById("scheduled-message-interval").value = "";
+
+  openGenericModal("scheduled-messages-modal");
+}
+
+// Reset Pool Message Form when opening for adding a new entry
+function addMessageToPool() {
+  document.getElementById("message-pool-id").value = "";
+  document.getElementById("message-pool-message").value = "";
+  document.getElementById("message-pool-category").value = "";
+
+  openGenericModal("message-pool-modal");
+}
+
+// ✏️ Edit Scheduled Message (Fills the form for editing)
+function editScheduledMessage(id, message, interval, category = "") {
+  resetScheduledMessageForm();
+  document.getElementById("scheduled-message-id").value = id;
+  document.getElementById("scheduled-message-text").value = message;
+  document.getElementById("scheduled-message-interval").value = interval;
+  document.getElementById("scheduled-message-category").value = category; // Default to "" if empty
+  openGenericModal("scheduled-messages-modal");
+}
+function editPoolMessage(id, message, category) {
+  resetMessagePoolForm();
+
+  document.getElementById("message-pool-id").value = id;
+  document.getElementById("message-pool-message").value = message;
+
+  if (category !== undefined && category !== "undefined") {
+    document.getElementById("message-pool-category").value = category;
+  } else {
+    document.getElementById("message-pool-category").value = ""; // Default empty
+  }
+
+  console.log("Editing Pool Message:", { id, message, category }); // Debugging
+
+  openGenericModal("message-pool-modal");
+}
+
+// Open Modals and Reset Forms
+function openScheduledMessagesModal() {
+  resetScheduledMessagesForm();
+  openGenericModal("scheduled-messages-modal");
+}
+
+function openMessagePoolModal() {
+  resetMessagePoolForm();
+  openGenericModal("message-pool-modal");
+}
+
+// ❌ Close Modals and Reset Forms
+function closeScheduledMessagesModal() {
+  resetScheduledMessagesForm();
+  closeGenericModal("scheduled-messages-modal");
+}
+
+function closeMessagePoolModal() {
+  resetMessagePoolForm();
+  closeGenericModal("message-pool-modal");
+}
+
+// ➕ Add Scheduled Message
+function addScheduledMessage() {
+  openScheduledMessagesModal();
+}
+
+// ➕ Add Message to Pool
+function addMessageToPool() {
+  openMessagePoolModal();
+}
+
+async function reloadScheduledMessages() {
+  try {
+    const response = await fetch("/admin/scheduled-messages");
+    const html = await response.text();
+    document.getElementById("scheduled-messages").innerHTML = html;
+  } catch (error) {
+    console.error("❌ Failed to reload scheduled messages:", error);
+  }
+}
+
+async function reloadMessagePool() {
+  try {
+    const response = await fetch("/admin/schedule-message-pool");
+    const html = await response.text();
+    document.getElementById("message-pool").innerHTML = html;
+  } catch (error) {
+    console.error("❌ Failed to reload message pool:", error);
+  }
 }

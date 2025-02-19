@@ -1,0 +1,22 @@
+<table class='w-full text-left border-collapse border border-gray-600'>
+    <tr class='bg-gray-700'>
+        <th class='border border-gray-600 px-4 py-2'>Category</th> <!-- ✅ New Column -->
+        <th class='border border-gray-600 px-4 py-2'>Message</th>
+        <th class='border border-gray-600 px-4 py-2'>Interval</th>
+        <th class='border border-gray-600 px-4 py-2'>Actions</th>
+    </tr>
+
+    {% for msg in messages %}
+    <tr class='bg-gray-800'>
+        <td class='border border-gray-600 px-4 py-2'>{{ msg.category if msg.category else '📌 None' }}</td> <!-- ✅ Show Category -->
+        <td class='border border-gray-600 px-4 py-2'>{{ msg.message }}</td>
+        <td class='border border-gray-600 px-4 py-2'>{{ msg.interval }} sec</td>
+        <td class='border border-gray-600 px-4 py-2'>
+            <button onclick="editScheduledMessage({{ msg.id }}, '{{ msg.message }}', {{ msg.interval }}, '{{ msg.category if msg.category else '' }}')"
+                    class="text-yellow-400 hover:text-yellow-300">✏️</button>
+            <button onclick="removeScheduledMessage({{ msg.id }})"
+                    class="text-red-500 hover:text-red-400">🗑️</button>
+        </td>
+    </tr>
+    {% endfor %}
+</table>

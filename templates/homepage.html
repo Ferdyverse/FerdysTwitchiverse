@@ -122,6 +122,20 @@
 
             <div class="spacer"></div>
 
+            <!-- Manage Scheduled Messages Button -->
+            <button onclick="openGenericModal('scheduled-messages-modal')"
+                    class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded mb-3">
+                📅 Manage Scheduled Messages
+            </button>
+
+            <!-- Manage Message Pool Button -->
+            <button onclick="openGenericModal('message-pool-modal')"
+                    class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
+                🎲 Manage Message Pool
+            </button>
+
+            <div class="spacer"></div>
+
             <div class="col-span-3 bg-gray-800 rounded-lg">
                 <h3 class="text-lg font-bold mb-3">Event Log</h3>
                 <div id="event-log" class="event-log-container p-4"
@@ -221,6 +235,73 @@
             </div>
         </div>
     </div>
+
+    <!-- 📅 Scheduled Messages Modal -->
+    <div id="scheduled-messages-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-full max-w-3xl relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('scheduled-messages-modal')">✖</button>
+            <h3 class="text-lg font-bold mb-3">📅 Manage Scheduled Messages</h3>
+
+            <!-- Add/Edit Form -->
+            <form id="scheduled-message-form" class="mb-4" onsubmit="submitScheduledMessage(event)">
+                <input type="hidden" id="scheduled-message-id">
+
+                <label class="text-sm">Category:</label>
+                <input type="text" id="scheduled-message-category" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+
+                <label class="text-sm">Message:</label>
+                <input type="text" id="scheduled-message-text" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+
+                <label class="text-sm">Interval (seconds):</label>
+                <input type="number" id="scheduled-message-interval" class="w-full bg-gray-700 text-white p-2 rounded mb-2" required>
+
+                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded">
+                    ✅ Save Message
+                </button>
+            </form>
+
+            <!-- ✅ Scheduled Message List (HTMX Reload) -->
+            <div id="scheduled-messages"
+                hx-get="/admin/scheduled-messages"
+                hx-trigger="load, event:messageUpdated"
+                hx-target="#scheduled-messages"
+                hx-swap="innerHTML">
+                <p class="text-gray-400">Loading scheduled messages...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🎲 Message Pool Modal -->
+    <div id="message-pool-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-full max-w-3xl relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('message-pool-modal')">✖</button>
+            <h3 class="text-lg font-bold mb-3">🎲 Manage Message Pool</h3>
+
+            <!-- Add/Edit Form -->
+            <form id="message-pool-form" class="mb-4" onsubmit="submitMessagePool(event)">
+                <input type="hidden" id="message-pool-id">
+                <label class="text-sm">Category:</label>
+                <input type="text" id="message-pool-category" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+
+                <label class="text-sm">Message:</label>
+                <textarea id="message-pool-message" class="w-full bg-gray-700 text-white p-2 rounded mb-2" required></textarea>
+
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
+                    ✅ Save Message
+                </button>
+            </form>
+
+            <!-- Message Pool List (HTMX Reload) -->
+            <div id="message-pool"
+                hx-get="/admin/schedule-message-pool"
+                hx-trigger="load, event:messageUpdated"
+                hx-target="#message-pool"
+                hx-swap="innerHTML">
+                <p class="text-gray-400">Loading message pool...</p>
+            </div>
+        </div>
+    </div>
+
 </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>

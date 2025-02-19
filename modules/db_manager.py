@@ -549,15 +549,25 @@ def update_next_run(message_id, interval):
     finally:
         db.close()
 
-def add_scheduled_message(message, interval):
-    """Fügt eine neue geplante Nachricht hinzu."""
+def add_scheduled_message(message=None, category=None, interval=60):
+    """Fügt eine geplante Nachricht hinzu. Entweder `message` oder `category` wird genutzt."""
+
+    if not message and not category:
+        raise ValueError("Either `message` or `category` must be provided.")
+
     db = SessionLocal()
     try:
-        new_message = ScheduledMessage(message=message, interval=interval, next_run=datetime.datetime.utcnow())
-        db.add(new_message)
+        new_schedule = ScheduledMessage(
+            message=message,
+            category=category,
+            interval=interval,
+            next_run=datetime.datetime.utcnow()
+        )
+        db.add(new_schedule)
         db.commit()
     finally:
         db.close()
+
 
 def get_random_message_from_category(category):
     """Holt eine zufällige Nachricht aus einer Kategorie."""
@@ -593,5 +603,110 @@ def get_messages_from_pool(category):
     db = SessionLocal()
     try:
         return db.query(ScheduledMessagePool.id, ScheduledMessagePool.message).filter(ScheduledMessagePool.category == category).all()
+    finally:
+        db.close()
+
+def get_categories():
+    """Retrieve a list of all unique categories from ScheduledMessagePool."""
+    db = SessionLocal()
+    try:
+        categories = db.query(ScheduledMessagePool.category).distinct().all()
+        return [category[0] for category in categories]  # Convert tuples to a list of strings
+    finally:
+        db.close()
+
+def update_pool_message(message_id: int, new_category: str, new_message: str):
+    """Update an existing message in the message pool, including category."""
+    db = SessionLocal()
+    try:
+        pool_message = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).first()
+        if not pool_message:
+            return False
+
+        if new_category is not None:  # Ensure category is updated if provided
+            pool_message.category = new_category
+        pool_message.message = new_message
+
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to update pool message: {e}")
+        return False
+    finally:
+        db.close()
+
+def get_scheduled_message_pool():
+    """Retrieve all messages from the scheduled message pool."""
+    db = SessionLocal()
+    try:
+        messages = db.query(ScheduledMessagePool.id, ScheduledMessagePool.category, ScheduledMessagePool.message).all()
+        return [dict(msg._mapping) for msg in messages]
+    except Exception as e:
+        logger.error(f"❌ Failed to retrieve message pool: {e}")
+        return []
+    finally:
+        db.close()
+
+def add_message_to_pool(category: str, message: str):
+    """Add a new message to a specific pool category."""
+    db = SessionLocal()
+    try:
+        new_message = ScheduledMessagePool(category=category, message=message)
+        db.add(new_message)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"❌ Failed to add message to pool: {e}")
+        return {"error": "Database error"}
+    finally:
+        db.close()
+
+
+def delete_message_from_pool(message_id: int):
+    """Remove a message from the pool by ID."""
+    db = SessionLocal()
+    try:
+        deleted = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).delete()
+        db.commit()
+        return {"success": deleted > 0}
+    except Exception as e:
+        logger.error(f"❌ Failed to delete message from pool: {e}")
+        return {"error": "Database error"}
+    finally:
+        db.close()
+
+
+def update_scheduled_message(message_id, new_message, new_interval, new_category):
+    """Update a scheduled message in the database."""
+    db = SessionLocal()
+    try:
+        message = db.query(ScheduledMessage).filter(ScheduledMessage.id == message_id).first()
+        if not message:
+            return False
+
+        if new_message:
+            message.message = new_message
+        if new_category:
+            message.category = new_category
+
+        message.interval = new_interval
+
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+
+
+def delete_message_from_pool(message_id: int):
+    """Remove a message from the pool by ID."""
+    db = SessionLocal()
+    try:
+        deleted = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).delete()
+        db.commit()
+        return {"success": deleted > 0}
+    except Exception as e:
+        logger.error(f"❌ Failed to delete message from pool: {e}")
+        return {"error": "Database error"}
     finally:
         db.close()
