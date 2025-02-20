@@ -16,7 +16,6 @@ from modules.queue_processor import process_queue
 logger = logging.getLogger("uvicorn.error.lifespan")
 
 # Global Modules
-event_queue = asyncio.Queue()
 printer_manager = PrinterManager()
 twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, event_queue=event_queue)
 twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, event_queue=event_queue, twitch_api=twitch_api)
