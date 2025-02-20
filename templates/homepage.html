@@ -30,7 +30,7 @@
 
             <!-- Viewer Count Box -->
             <div class="bg-gray-800 mb-3 rounded-lg flex items-center justify-between"
-                hx-get="/admin/viewer-count"
+                hx-get="/admin/viewers/count"
                 hx-trigger="load, every 10s"
                 hx-target="#viewer-count"
                 hx-swap="innerHTML">
@@ -46,7 +46,7 @@
 
             <!-- Button List -->
             <div id="button-container" class="space-y-2"
-                hx-get="/admin/buttons"
+                hx-get="/admin/buttons/"
                 hx-trigger="load"
                 hx-target="#button-container"
                 hx-swap="innerHTML">
@@ -69,7 +69,7 @@
 
                 <h2 class="text-lg font-bold mt-4 mb-2">Pending Redemptions</h2>
                 <div id="pending-rewards" class="overflow-y-auto bg-gray-800 p-4 rounded-lg h-96 w-full max-w-3xl mx-auto"
-                    hx-get="/admin/pending-rewards"
+                    hx-get="/admin/twitch/pending-rewards"
                     hx-trigger="load, every 15s"
                     hx-target="#pending-rewards"
                     hx-swap="innerHTML">
@@ -132,6 +132,13 @@
             <button onclick="openGenericModal('message-pool-modal')"
                     class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
                 🎲 Manage Message Pool
+            </button>
+
+            <div class="spacer"></div>
+
+            <button onclick="openGenericModal('todo-modal')"
+                    class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
+                📋 Manage ToDos
             </button>
 
             <div class="spacer"></div>
@@ -202,7 +209,7 @@
 
             <!-- Reward List -->
             <div id="reward-list" class="space-y-2 overflow-y-auto max-h-96"
-                hx-get="/admin/rewards/"
+                hx-get="/admin/twitch/rewards/"
                 hx-trigger="load, every 30s"
                 hx-target="#reward-list"
                 hx-swap="innerHTML">
@@ -267,7 +274,7 @@
 
             <!-- ✅ Scheduled Message List (HTMX Reload) -->
             <div id="scheduled-messages"
-                hx-get="/admin/scheduled-messages"
+                hx-get="/admin/scheduled/messages"
                 hx-trigger="load, event:messageUpdated"
                 hx-target="#scheduled-messages"
                 hx-swap="innerHTML">
@@ -298,7 +305,7 @@
 
             <!-- Message Pool List (HTMX Reload) -->
             <div id="message-pool"
-                hx-get="/admin/schedule-message-pool"
+                hx-get="/admin/scheduled/messages/pool"
                 hx-trigger="load, event:messageUpdated"
                 hx-target="#message-pool"
                 hx-swap="innerHTML">
@@ -307,11 +314,58 @@
         </div>
     </div>
 
+    <!-- 📋 ToDo Management Modal -->
+    <div id="todo-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-4xl h-[600px] flex flex-col relative">
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('todo-modal')">✖</button>
+            <h2 class="text-lg text-white font-semibold mb-3">📋 Manage ToDos</h2>
+
+            <!-- Filter Buttons -->
+            <div class="flex space-x-3 mb-3">
+                <button class="bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 rounded shadow-md"
+                    onclick="loadTodos()">🔄 Show All</button>
+                <button class="bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-1 rounded shadow-md"
+                    onclick="loadTodos('pending')">🕒 Pending</button>
+                <button class="bg-green-500 hover:bg-green-400 text-black px-3 py-1 rounded shadow-md"
+                    onclick="loadTodos('completed')">✅ Completed</button>
+            </div>
+
+            <!-- ToDo Table Container (Scrollable) -->
+            <div class="overflow-y-auto flex-grow bg-gray-800 p-3 rounded-lg">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-700 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-4 py-2">ID</th>
+                            <th class="px-4 py-2">ToDo</th>
+                            <th class="px-4 py-2">Status</th>
+                            <th class="px-4 py-2">User</th>
+                            <th class="px-4 py-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="todo-list"
+                        hx-get="/todo/todos"
+                        hx-trigger="load, event:todosUpdated"
+                        hx-target="#todo-list"
+                        hx-swap="innerHTML">
+                        <tr><td colspan="5" class="text-center text-gray-400">Loading todos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Close Button -->
+            <button onclick="closeGenericModal('todo-modal')" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg w-full">
+                Close
+            </button>
+        </div>
+    </div>
+
+
 </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
-    <script type="module" src="/static/js/websocket_admin.js"></script>
-    <script src="/static/js/admin.js"></script>
+    <script type="module" src="/static/js/admin/websocket.js"></script>
+    <!-- <script type="module" src="/static/js/admin/main.js"></script> -->
+    <script src="/static/js/admin/admin.js"></script>
 
 
 </body>

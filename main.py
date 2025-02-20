@@ -27,14 +27,18 @@ from routes.todo import router as todo_router
 from routes.admin import admin_router
 from routes.hub import router as hub_router
 
+# Database stuff
+from database.session import init_db
+from database.crud.overlay import get_overlay_data
+from database.crud.events import save_event
+from database.crud.planets import get_planets
+from database.crud.chat import get_recent_chat_messages
+
 # Own modules
 from modules.printer_manager import PrinterManager
 from modules.websocket_handler import websocket_endpoint, broadcast_message
 from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
-from modules.db_manager import init_db, get_data, get_planets, get_db, get_viewer_stats, save_event
-from modules.db_manager import ChatMessage, Viewer, cleanup_old_data
 from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
-from modules.firebot_api import FirebotAPI
 from modules import event_handlers
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
@@ -93,7 +97,6 @@ for handler in logging.getLogger("uvicorn").handlers:
     handler.setFormatter(formatter)
 
 DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
-DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
 DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
 DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
 DISABLE_OBS = os.getenv("DISABLE_OBS", "false").lower() == "true"
@@ -114,9 +117,6 @@ printer_manager = PrinterManager()
 
 # Heat API
 heat_api_client: HeatAPIClient = None
-
-# Initialize Firebot API Client
-firebot = FirebotAPI(config.FIREBOT_API_URL)
 
 # Create an async queue for event sharing
 event_queue = asyncio.Queue()
@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing modules")
     try:
         init_db()
-        cleanup_old_data()
+        # cleanup_old_data()
         asyncio.create_task(process_queue())  # Run queue processor in background
 
         if not DISABLE_PRINTER:
@@ -159,13 +159,6 @@ async def lifespan(app: FastAPI):
             logger.info("🔥 Heat API started successfully")
         else:
             logger.info("🚫 Heat API is disabled.")
-
-        if not DISABLE_FIREBOT:
-            global firebot
-            firebot = FirebotAPI(config.FIREBOT_API_URL)
-            logger.info("🔥 Firebot API started successfully")
-        else:
-            logger.info("🚫 Firebot API is disabled.")
 
         if (not DISABLE_TWITCH) and (config.TWITCH_CLIENT_ID is not None):
             global twitch_api
@@ -284,11 +277,11 @@ async def get_overlay_data():
     """
 
     return {
-        "last_follower": get_data("last_follower") or "None",
-        "last_subscriber": get_data("last_subscriber") or "None",
-        "goal_text": get_data("goal_text") or "None",
-        "goal_current": get_data("goal_current") or "None",
-        "goal_target": get_data("goal_target") or "None"
+        "last_follower": get_overlay_data("last_follower") or "None",
+        "last_subscriber": get_overlay_data("last_subscriber") or "None",
+        "goal_text": get_overlay_data("goal_text") or "None",
+        "goal_current": get_overlay_data("goal_current") or "None",
+        "goal_target": get_overlay_data("goal_target") or "None"
     }
 
 # Background task to process queue events
@@ -467,12 +460,6 @@ async def status():
         "message": "Printer is operational" if printer_manager.is_online() else "Printer is offline",
     }
 
-    # Check Firebot status
-    firebot_status = {
-        "is_connected": firebot is not None,
-        "message": "Firebot API connected" if firebot else "Firebot API offline",
-    }
-
     # Check heat api status
     heat_api_status = {
         "is_connected": heat_api_client.is_connected,
@@ -494,7 +481,6 @@ async def status():
         "status": "online",
         "printer": printer_status,
         "heat_api": heat_api_status,
-        "firebot": firebot_status,
         "twitch_api": twitch_api_status,
         "twitch_chat": twitch_chat_status,
     }
@@ -598,6 +584,8 @@ async def trigger_overlay(request: Request):
     if not action:
         raise HTTPException(status_code=400, detail="Missing action type")
 
+    ACTION_SEQUENCES = load_sequences()
+
     if action in ACTION_SEQUENCES:
         await execute_sequence(action, event_queue, data)  # Pass event_queue
     else:
@@ -613,22 +601,11 @@ async def reload_sequences_endpoint():
     return {"status": "success", "message": "Sequences reloaded!"}
 
 @app.get("/chat", response_class=HTMLResponse)
-async def get_chat_messages(db: Session = Depends(get_db)):
+async def get_chat_messages():
     """
     Retrieve the last 50 chat messages from the database, formatted identically to WebSocket messages.
     """
-    messages = db.query(
-        ChatMessage.id,
-        ChatMessage.message,
-        ChatMessage.timestamp,
-        Viewer.display_name.label("username"),
-        Viewer.profile_image_url.label("avatar"),
-        Viewer.color.label("user_color"),
-        Viewer.badges.label("badges"),
-        ChatMessage.viewer_id.label("twitch_id")
-    ).join(Viewer, ChatMessage.viewer_id == Viewer.twitch_id, isouter=True) \
-    .order_by(ChatMessage.timestamp.desc()) \
-    .limit(50).all()
+    messages = get_recent_chat_messages()
 
     if not messages:
         return "<p class='chat-placeholder text-gray-500 text-center'>No messages yet...</p>"
@@ -673,19 +650,6 @@ async def get_chat_messages(db: Session = Depends(get_db)):
         """
 
     return Response(chat_html, media_type="text/html")
-
-@app.get("/viewers/{twitch_id}")
-async def get_viewer(twitch_id: int):
-    """Fetch viewer data along with stats."""
-    viewer_data = get_viewer_stats(twitch_id)
-
-    if not viewer_data:
-        try:
-            await twitch_api.get_user_info(user_id=twitch_id)
-        except:
-            raise HTTPException(status_code=404, detail="Viewer not found")
-
-    return viewer_data
 
 @app.post("/send-chat/")
 async def send_chat_message(

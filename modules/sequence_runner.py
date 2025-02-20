@@ -6,6 +6,7 @@ import logging
 import config
 from modules.websocket_handler import broadcast_message
 from modules.state_manager import check_condition, set_condition
+from modules.db_manager import complete_todo
 
 logger = logging.getLogger("uvicorn.error.sequence_runner")
 
@@ -106,6 +107,19 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict)
             logger.error(icon)
             await broadcast_message(icon)
             logger.info(f"Show icon: {icon}")
+            return True
+
+        if step_type == "todo":
+            action = step_data.get("action")
+            todo_id = step_data.get("todo_id")
+
+            todo = {"todo": {"action": action, "id": todo_id}}
+
+            if action == "remove":
+                complete_todo(int(todo_id))
+
+            await broadcast_message(todo)
+            logger.info(f"Trigger ToDo: {todo}")
             return True
 
         # Handle overlay events

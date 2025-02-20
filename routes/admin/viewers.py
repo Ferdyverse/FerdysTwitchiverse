@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from modules.db_manager import get_db, ChatMessage
+from modules.db_manager import save_viewer
+from modules.websocket_handler import broadcast_message
 import config
 import logging
 
@@ -8,20 +10,62 @@ logger = logging.getLogger("uvicorn.error.viewers")
 
 router = APIRouter(prefix="/viewers", tags=["Viewers"])
 
-@router.delete("/delete-message/{message_id}")
-async def delete_chat_message(message_id: int, request: Request, db: Session = Depends(get_db)):
-    """Delete a chat message from Twitch and the database."""
-    twitch_api = request.app.state.twitch_api
-    message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+@router.post("/update/{user_id}")
+async def update_viewer(user_id: int, request: Request):
+    """Fetch latest user info and update the viewer database."""
 
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
+    twitch_api = request.app.state.twitch_api
+
+    if not twitch_api.is_running:
+        return "<span class='text-red-500'>N/A</span>"
 
     try:
-        await twitch_api.twitch.delete_chat_message(config.TWITCH_CHANNEL_ID, message.viewer_id, message_id)
-        db.delete(message)
-        db.commit()
-        return {"success": True}
+        user_info = await twitch_api.get_user_info(user_id=user_id)
+
+        if not user_info:
+            raise HTTPException(status_code=404, detail="User not found in Twitch API")
+
+        # Update viewer in DB
+        save_viewer(
+            twitch_id=user_id,
+            login=user_info["login"],
+            display_name=user_info["display_name"],
+            account_type=user_info["type"],
+            broadcaster_type=user_info["broadcaster_type"],
+            profile_image_url=user_info["profile_image_url"],
+            account_age="",
+            follower_date=None,
+            subscriber_date=None,
+            color=user_info.get("color"),
+            badges=",".join(user_info.get("badges", []))
+        )
+
+        # Broadcast update
+        await broadcast_message({"admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}})
+
+        return {"status": "success", "message": "Viewer information updated"}
+
     except Exception as e:
-        logger.warning(f"⚠️ Failed to delete Twitch chat message: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to delete message.")
+        logger.error(f"❌ Failed to update viewer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update viewer: {str(e)}")
+
+@router.get("/count", response_class=HTMLResponse)
+async def get_viewer_count(request: Request):
+    """Retrieve the current Twitch viewer count and return it as an HTML snippet."""
+    twitch_api = request.app.state.twitch_api  # Ensure Twitch API is initialized
+
+    if not twitch_api.is_running:
+        return "<span class='text-red-500'>N/A</span>"
+
+    try:
+        stream_info = await twitch_api.get_stream_info()
+
+        if not stream_info:
+            return "<p class='text-red-500 font-bold'>🔴 Offline</p>"
+
+        viewer_count = stream_info.viewer_count
+        return f"<p class='text-green-400 font-bold'>{viewer_count}</p>"
+
+    except Exception as e:
+        print(f"❌ Error fetching viewer count: {e}")
+        return "<span class='text-red-500'>N/A</span>"

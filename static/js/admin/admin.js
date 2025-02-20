@@ -39,7 +39,8 @@ function openButtonModal(
   buttonId = null,
   label = "",
   action = "show_icon",
-  data = "{}"
+  data = "{}",
+  prompt = false
 ) {
   const modal = document.getElementById("button-modal");
   modal.classList.remove("hidden");
@@ -52,6 +53,7 @@ function openButtonModal(
   document.getElementById("modal-data").value = isEdit
     ? JSON.stringify(data, null, 2)
     : "{}"; // Reset data
+  document.getElementById("modal-prompt").checked = isEdit ? prompt : false;
 
   setTimeout(() => {
     const submitButton = document.getElementById("modal-submit");
@@ -71,9 +73,9 @@ function closeButtonModal() {
 async function submitButtonForm() {
   const submitButton = document.getElementById("modal-submit");
   if (!submitButton) {
-      console.error("❌ Error: 'modal-submit' button not found!");
-      showFlashMessage("❌ Error: Submit button missing!", "error");
-      return;
+    console.error("❌ Error: 'modal-submit' button not found!");
+    showFlashMessage("❌ Error: Submit button missing!", "error");
+    return;
   }
 
   const buttonId = submitButton.getAttribute("data-button-id");
@@ -81,47 +83,47 @@ async function submitButtonForm() {
   const promptChecked = document.getElementById("modal-prompt").checked; // ✅ Prompt-Checkbox auslesen
 
   const jsonData = {
-      label: document.getElementById("modal-label").value.trim(),
-      action: document.getElementById("modal-action").value.trim(),
-      data: JSON.parse(document.getElementById("modal-data").value || "{}"),
-      prompt: promptChecked  // ✅ Prompt in JSON packen
+    label: document.getElementById("modal-label").value.trim(),
+    action: document.getElementById("modal-action").value.trim(),
+    data: JSON.parse(document.getElementById("modal-data").value || "{}"),
+    prompt: promptChecked, // ✅ Prompt in JSON packen
   };
 
   if (!jsonData.label || !jsonData.action) {
-      showFlashMessage("⚠️ Label and Action are required!", "error");
-      return;
+    showFlashMessage("⚠️ Label and Action are required!", "error");
+    return;
   }
 
   const url = isEdit
-      ? `/admin/buttons/update/${buttonId}`
-      : "/admin/buttons/add/";
+    ? `/admin/buttons/update/${buttonId}`
+    : "/admin/buttons/add/";
   const method = isEdit ? "PUT" : "POST";
 
   try {
-      const response = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(jsonData),
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(jsonData),
+    });
+
+    if (response.ok) {
+      showFlashMessage("✅ Button saved!", "success");
+      closeGenericModal("button-modal");
+
+      htmx.ajax("GET", "/admin/buttons", {
+        target: "#button-container",
+        swap: "innerHTML",
       });
-
-      if (response.ok) {
-          showFlashMessage("✅ Button saved!", "success");
-          closeGenericModal("button-modal");
-
-          htmx.ajax("GET", "/admin/buttons", {
-              target: "#button-container",
-              swap: "innerHTML",
-          });
-      } else {
-          const errorData = await response.json();
-          showFlashMessage(
-              `❌ Error: ${errorData.detail || "Unknown error"}`,
-              "error"
-          );
-      }
+    } else {
+      const errorData = await response.json();
+      showFlashMessage(
+        `❌ Error: ${errorData.detail || "Unknown error"}`,
+        "error"
+      );
+    }
   } catch (error) {
-      console.error("❌ Error saving button:", error);
-      showFlashMessage("❌ Error saving button", "error");
+    console.error("❌ Error saving button:", error);
+    showFlashMessage("❌ Error saving button", "error");
   }
 }
 
@@ -165,7 +167,7 @@ async function createReward() {
     return;
   }
 
-  const response = await fetch("/admin/create-reward/", {
+  const response = await fetch("/admin/twitch/create-reward/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -190,7 +192,7 @@ async function createReward() {
 
 // === Channel Point Redemptions ===
 async function fulfillRedemption(rewardId, redeemId) {
-  const response = await fetch("/admin/fulfill-redemption", {
+  const response = await fetch("/admin/twitch/fulfill-redemption", {
     method: "POST",
     body: JSON.stringify({ reward_id: rewardId, redeem_id: redeemId }),
     headers: { "Content-Type": "application/json" },
@@ -199,14 +201,14 @@ async function fulfillRedemption(rewardId, redeemId) {
   const result = await response.json();
   showFlashMessage(result.message, result.status);
 
-  htmx.ajax("GET", "/admin/pending-rewards", {
+  htmx.ajax("GET", "/admin/twitch/pending-rewards", {
     target: "#pending-rewards",
     swap: "innerHTML",
   });
 }
 
 async function cancelRedemption(rewardId, redeemId) {
-  const response = await fetch("/admin/cancel-redemption", {
+  const response = await fetch("/admin/twitch/cancel-redemption", {
     method: "POST",
     body: JSON.stringify({ reward_id: rewardId, redeem_id: redeemId }),
     headers: { "Content-Type": "application/json" },
@@ -215,7 +217,7 @@ async function cancelRedemption(rewardId, redeemId) {
   const result = await response.json();
   showFlashMessage(result.message, result.status);
 
-  htmx.ajax("GET", "/admin/pending-rewards", {
+  htmx.ajax("GET", "/admin/twitch/pending-rewards", {
     target: "#pending-rewards",
     swap: "innerHTML",
   });
@@ -270,7 +272,7 @@ async function deleteReward(rewardId) {
   if (!confirmDelete) return;
 
   try {
-    const response = await fetch(`/admin/delete-reward/${rewardId}`, {
+    const response = await fetch(`/admin/twitch/delete-reward/${rewardId}`, {
       method: "DELETE",
     });
 
@@ -278,7 +280,7 @@ async function deleteReward(rewardId) {
     if (response.ok) {
       showFlashMessage("✅ Reward deleted!", "success");
 
-      htmx.ajax("GET", "/admin/rewards/", {
+      htmx.ajax("GET", "/admin/twitch/rewards/", {
         target: "#reward-list",
         swap: "innerHTML",
       });
@@ -294,21 +296,23 @@ async function deleteReward(rewardId) {
   }
 }
 
-async function triggerButtonAction(action, data) {
+async function triggerButtonAction(action, data, ask = false) {
   if (!action) {
     console.error("❌ No action specified.");
     showFlashMessage("❌ No action specified!", "error");
     return;
   }
 
-  if (data.prompt) {
-        const userInput = prompt("Enter the required input:");
-        if (userInput === null) {
-            console.log("❌ Action canceled.");
-            return;
-        }
-        data.userInput = userInput;  // Attach user input
+  if (ask == Boolean(true)) {
+    const userInput = prompt("Enter the required input:");
+    if (userInput === null) {
+      console.log("❌ Action canceled.");
+      return;
     }
+    data.userInput = userInput; // Attach user input
+  } else {
+    data.userInput = String(ask);
+  }
 
   try {
     const response = await fetch("/trigger-overlay/", {
@@ -365,11 +369,21 @@ document.addEventListener("DOMContentLoaded", function () {
   initSortable();
 });
 
+function applyVisualReordering(buttons) {
+  const btn_container = document.getElementById("button-container");
+  btn_container.innerHTML = ""; // Clear container
+  buttons.forEach((button) => btn_container.appendChild(button)); // Re-add buttons in new order
+  console.log("🔄 Applied visual reordering after first move!");
+}
+
 async function deleteMessage() {
   if (!selectedMessage) return;
-  const response = await fetch(`/admin/delete-message/${selectedMessage}`, {
-    method: "DELETE",
-  });
+  const response = await fetch(
+    `/admin/twitch/delete-message/${selectedMessage}`,
+    {
+      method: "DELETE",
+    }
+  );
 
   const result = await response.json();
   showFlashMessage(
@@ -386,7 +400,7 @@ async function deleteMessage() {
 
 async function banUser() {
   if (!selectedUser) return;
-  const response = await fetch(`/admin/ban-user/${selectedUser}`, {
+  const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
     method: "POST",
   });
 
@@ -401,7 +415,7 @@ async function banUser() {
 
 async function timeoutUser() {
   if (!selectedUser) return;
-  const response = await fetch(`/admin/timeout-user/${selectedUser}`, {
+  const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
     method: "POST",
   });
 
@@ -416,7 +430,7 @@ async function timeoutUser() {
 
 async function updateViewer() {
   if (!selectedUser) return;
-  const response = await fetch(`/admin/update-viewer/${selectedUser}`, {
+  const response = await fetch(`/admin/twitch/update-viewer/${selectedUser}`, {
     method: "POST",
   });
 
@@ -477,7 +491,7 @@ async function submitScheduledMessage(event) {
   const messageId = document.getElementById("scheduled-message-id").value;
   const messageText = document.getElementById("scheduled-message-text").value;
   const interval = document.getElementById("scheduled-message-interval").value;
-  const category = document.getElementById("scheduled-message-category").value; // ✅ Get category
+  const category = document.getElementById("scheduled-message-category").value;
 
   const data = {
     message: messageText,
@@ -486,8 +500,8 @@ async function submitScheduledMessage(event) {
   };
 
   const url = messageId
-    ? `/admin/scheduled-messages/edit/${messageId}`
-    : "/admin/scheduled-messages/add";
+    ? `/admin/scheduled/messages/edit/${messageId}`
+    : "/admin/scheduled/messages/add";
   const method = messageId ? "POST" : "POST";
 
   try {
@@ -520,7 +534,7 @@ function resetScheduledMessageForm() {
 // 🗑️ Delete Scheduled Message
 async function removeScheduledMessage(messageId) {
   try {
-    const response = await fetch(`/admin/scheduled-messages/${messageId}`, {
+    const response = await fetch(`/admin/scheduled/messages/${messageId}`, {
       method: "DELETE",
     });
     if (response.ok) {
@@ -532,19 +546,12 @@ async function removeScheduledMessage(messageId) {
   }
 }
 
-function resetScheduledMessageForm() {
-  document.getElementById("scheduled-message-id").value = "";
-  document.getElementById("scheduled-message-text").value = "";
-  document.getElementById("scheduled-message-interval").value = "";
-  document.getElementById("scheduled-message-category").value = ""; // ✅ Reset category
-}
-
 // 🎲 Submit Message Pool Entry (Add or Edit)
 async function submitScheduledMessage(event) {
   event.preventDefault();
 
   const messageId =
-    document.getElementById("scheduled-message-id").value || null; // ✅ Include ID
+    document.getElementById("scheduled-message-id").value || null;
   const messageText = document
     .getElementById("scheduled-message-text")
     .value.trim();
@@ -567,7 +574,7 @@ async function submitScheduledMessage(event) {
   console.log("🚀 Sending Scheduled Message:", data);
 
   try {
-    const response = await fetch(`/admin/scheduled-messages/add`, {
+    const response = await fetch(`/admin/scheduled/messages/add`, {
       // ✅ Always use /add
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -577,8 +584,8 @@ async function submitScheduledMessage(event) {
     const result = await response.json();
     if (result.success) {
       console.log("✅ Scheduled message updated/added!");
-      reloadScheduledMessages(); // ✅ Reload the table
-      resetScheduledMessageForm(); // ✅ Reset form but KEEP modal open
+      reloadScheduledMessages();
+      resetScheduledMessageForm();
     } else {
       console.error("❌ Failed to update/add scheduled message:", result.error);
     }
@@ -595,13 +602,13 @@ async function submitMessagePool(event) {
   const message = document.getElementById("message-pool-message").value;
 
   const data = {
-    category: category || null, // ✅ Allow empty category
+    category: category || null,
     message: message,
   };
 
   const url = messageId
-    ? `/admin/schedule-pool/edit/${messageId}`
-    : "/admin/schedule-pool/add";
+    ? `/admin/scheduled/pool/edit/${messageId}`
+    : "/admin/scheduled/pool/add";
   const method = messageId ? "POST" : "POST";
 
   try {
@@ -614,8 +621,8 @@ async function submitMessagePool(event) {
     const result = await response.json();
     if (result.success) {
       console.log("✅ Message pool updated!");
-      reloadMessagePool(); // ✅ Reload table after success
-      resetMessagePoolForm(); // ✅ Reset form but KEEP modal open
+      reloadMessagePool();
+      resetMessagePoolForm();
     } else {
       console.error("❌ Failed to update message pool:", result.error);
     }
@@ -633,7 +640,7 @@ function resetMessagePoolForm() {
 // 🗑️ Delete Message from Pool
 async function removePoolMessage(messageId) {
   try {
-    const response = await fetch(`/admin/schedule-pool/${messageId}`, {
+    const response = await fetch(`/admin/scheduled/pool/${messageId}`, {
       method: "DELETE",
     });
     if (response.ok) {
@@ -741,7 +748,7 @@ function addMessageToPool() {
 
 async function reloadScheduledMessages() {
   try {
-    const response = await fetch("/admin/scheduled-messages");
+    const response = await fetch("/admin/scheduled/messages");
     const html = await response.text();
     document.getElementById("scheduled-messages").innerHTML = html;
   } catch (error) {
@@ -751,10 +758,20 @@ async function reloadScheduledMessages() {
 
 async function reloadMessagePool() {
   try {
-    const response = await fetch("/admin/schedule-message-pool");
+    const response = await fetch("/admin/scheduled/messages/pool");
     const html = await response.text();
     document.getElementById("message-pool").innerHTML = html;
   } catch (error) {
     console.error("❌ Failed to reload message pool:", error);
   }
+}
+
+// 📋 Load ToDos with status filter
+function loadTodos(status = null) {
+  const url = status ? `/todo/todos?status=${status}` : "/todo/todos";
+
+  htmx.ajax("GET", url, {
+    target: "#todo-list",
+    swap: "innerHTML",
+  });
 }

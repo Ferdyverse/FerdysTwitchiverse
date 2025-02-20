@@ -85,7 +85,7 @@ export function createTodo(id, text, user) {
   todo.id = id;
   todo.innerHTML = `<h1>Erledige mich!</h1><p>${text}</p><span class="todo-user">${user}</span><span class="todo-id">#${id}</span>`;
 
-  let screenWidth = (1920/2)+(350/2);
+  let screenWidth = 1920 / 2 + 350 / 2;
 
   const container = document.getElementById("todoContainer");
   container.appendChild(todo);
@@ -123,7 +123,28 @@ export function createTodo(id, text, user) {
   });
 }
 
+export function hideTodo(id) {
+  console.log(id);
+  const todo = document.getElementById(id);
+  if (!todo) return; // If the ID is not found, do nothing
+
+  let screenWidth = 1920 / 2 + 350 / 2;
+
+  let randomOffsetY = Math.random() * 40; // More varied Y offset
+  let randomRotation = Math.random() * 25; // More rotation for a natural look
+  let targetX = -screenWidth;
+
+  gsap.to(todo, {
+    x: targetX, // Moves to the left but leaves part visible
+    y: randomOffsetY, // Stacks dynamically
+    rotate: randomRotation,
+    duration: 1.5,
+    ease: "power3.out",
+  });
+}
+
 export function showTodo(id) {
+  console.log(id);
   const todo = document.getElementById(id);
   if (!todo) return; // If the ID is not found, do nothing
 

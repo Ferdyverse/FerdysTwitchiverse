@@ -35,7 +35,7 @@ fetch("/overlay-data")
   });
 
 async function fetchTodos() {
-  const response = await fetch("/todo/");
+  const response = await fetch("/todo/status/pending");
   const todos = await response.json();
 
   const todoContainer = document.getElementById("todoContainer");

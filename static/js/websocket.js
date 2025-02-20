@@ -6,7 +6,13 @@ import {
 } from "./modules/alerts.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
-import { showHTML, createTodo } from "./modules/display.js";
+import {
+  showHTML,
+  createTodo,
+  hideTodo,
+  showTodo,
+  removeTodo,
+} from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
 import { updateChat } from "./modules/chat.js";
 import {
@@ -127,6 +133,9 @@ function connectWebSocket() {
     switch (todo.action) {
       case "create":
         createTodo(todo.id, todo.text, todo.username);
+        break;
+      case "hide":
+        hideTodo(todo.id);
         break;
       case "show":
         showTodo(todo.id);

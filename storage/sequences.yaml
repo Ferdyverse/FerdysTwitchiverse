@@ -67,6 +67,17 @@ sequences:
     - type: todo
       data:
         action: "show"
+        todo_id: "$$userInput"
+  hide_todo:
+    - type: todo
+      data:
+        action: "hide"
+        todo_id: "$$userInput"
+  remove_todo:
+    - type: todo
+      data:
+        action: "remove"
+        todo_id: "$$userInput"
 
   hide_test:
     - type: if

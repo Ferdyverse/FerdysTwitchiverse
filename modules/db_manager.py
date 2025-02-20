@@ -79,7 +79,7 @@ class AdminButton(Base):
     action = Column(String, nullable=False)
     data = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
-    promt = Column(Boolean, default=False)
+    prompt = Column(Boolean, default=False)
 
 class Todo(Base):
     __tablename__ = "todos"
@@ -466,23 +466,29 @@ def save_todo(text: str, twitch_id: int):
     finally:
         db.close()
 
-def get_todos():
-    """Retrieve all ToDos with viewer info."""
+def get_todos(status=None):
+    """Retrieve all ToDos or filter by 'pending'/'completed', including viewer info."""
     db = SessionLocal()
     try:
-        todos = db.query(
+        query = db.query(
             Todo.id, Todo.text, Todo.created_at, Todo.status,
             Viewer.display_name.label("username"),
             Todo.twitch_id
-        ).join(Viewer, Todo.twitch_id == Viewer.twitch_id).order_by(Todo.created_at.asc()).all()
+        ).join(Viewer, Todo.twitch_id == Viewer.twitch_id)
 
-        # Convert each row to a dictionary
+        if status in ["pending", "completed"]:
+            query = query.filter(Todo.status == status)
+
+        todos = query.order_by(Todo.id.asc()).all()
+
         return [dict(todo._mapping) for todo in todos]
     except Exception as e:
         logger.error(f"❌ Failed to retrieve ToDos: {e}")
         return []
     finally:
         db.close()
+
+
 
 def complete_todo(todo_id: int):
     """Mark a ToDo as completed."""
