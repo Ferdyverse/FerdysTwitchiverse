@@ -86,7 +86,7 @@ function connectWebSocket() {
       case "raid":
         updateTopBar("message", "Something changed in the Ferdyverse!");
         showURL(
-          "http://localhost:8000/raid",
+          "http://localhost:8000/overlay/raid",
           { raider: user, viewers: size },
           27000
         );

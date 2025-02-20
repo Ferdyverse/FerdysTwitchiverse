@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import websockets
+from modules.schemas import ClickableObject
 
 logger = logging.getLogger("uvicorn.error.heat")
 
@@ -127,8 +128,39 @@ def process_click(data, x, y):
         }
     }
 
-def update_clickable_objects(new_objects):
-    """Update the dictionary of clickable objects dynamically."""
+async def add_clickable_object(obj: ClickableObject):
+    """Add a new clickable object to the overlay."""
+    object_id = obj.object_id
+
+    if object_id in CLICKABLE_OBJECTS:
+        logger.error(f"Clickable object {object_id} already exists")
+        return {"status": "error", "message": f"Clickable object {object_id} already exists"}
+
+    # Store the object as a dictionary instead of a Pydantic model
+    CLICKABLE_OBJECTS[object_id] = obj.model_dump()
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    logger.info(f"✅ Clickable object '{object_id}' added")
+    return {"status": "success", "message": f"Clickable object '{object_id}' added"}
+
+async def remove_clickable_object(object_id: str):
+    """Remove a clickable object from the overlay."""
+    if object_id not in CLICKABLE_OBJECTS:
+        logger.warning(f"⚠️ Clickable object {object_id} not found")
+        return {"status": "error", "message": f"Clickable object {object_id} not found"}
+
+    removed_obj = CLICKABLE_OBJECTS.pop(object_id)
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    logger.info(f"🗑️ Clickable object '{object_id}' removed: {removed_obj}")
+    return {"status": "success", "message": f"Clickable object '{object_id}' removed"}
+
+def update_clickable_objects(new_objects: dict):
+    """Update the currently active clickable objects."""
     global CLICKABLE_OBJECTS
     CLICKABLE_OBJECTS = new_objects
-    logger.info(f"✅ Updated clickable objects: {CLICKABLE_OBJECTS}")
+    logger.info(f"🔄 Clickable objects updated: {CLICKABLE_OBJECTS}")
+
+def get_clickable_objects():
+    """Retrieve all currently defined clickable objects."""
+    return CLICKABLE_OBJECTS

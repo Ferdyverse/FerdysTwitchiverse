@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from modules.db_manager import save_viewer
+from database.session import get_db
+from database.crud.viewers import save_viewer
 from modules.websocket_handler import broadcast_message
-import config
 import logging
 
 logger = logging.getLogger("uvicorn.error.viewers")
@@ -11,13 +11,13 @@ logger = logging.getLogger("uvicorn.error.viewers")
 router = APIRouter(prefix="/viewers", tags=["Viewers"])
 
 @router.post("/update/{user_id}")
-async def update_viewer(user_id: int, request: Request):
+async def update_viewer(user_id: int, request: Request, db: Session = Depends(get_db)):
     """Fetch latest user info and update the viewer database."""
 
     twitch_api = request.app.state.twitch_api
 
-    if not twitch_api.is_running:
-        return "<span class='text-red-500'>N/A</span>"
+    if not twitch_api or not twitch_api.is_running:
+        return {"status": "error", "message": "Twitch API not initialized"}
 
     try:
         user_info = await twitch_api.get_user_info(user_id=user_id)
@@ -27,6 +27,7 @@ async def update_viewer(user_id: int, request: Request):
 
         # Update viewer in DB
         save_viewer(
+            db=db,
             twitch_id=user_id,
             login=user_info["login"],
             display_name=user_info["display_name"],
@@ -54,7 +55,7 @@ async def get_viewer_count(request: Request):
     """Retrieve the current Twitch viewer count and return it as an HTML snippet."""
     twitch_api = request.app.state.twitch_api  # Ensure Twitch API is initialized
 
-    if not twitch_api.is_running:
+    if not twitch_api or not twitch_api.is_running:
         return "<span class='text-red-500'>N/A</span>"
 
     try:
@@ -67,5 +68,5 @@ async def get_viewer_count(request: Request):
         return f"<p class='text-green-400 font-bold'>{viewer_count}</p>"
 
     except Exception as e:
-        print(f"❌ Error fetching viewer count: {e}")
+        logger.error(f"❌ Error fetching viewer count: {e}")
         return "<span class='text-red-500'>N/A</span>"

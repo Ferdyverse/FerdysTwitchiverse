@@ -4,6 +4,12 @@ import os
 
 load_dotenv()
 
+DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
+DISABLE_FIREBOT = os.getenv("DISABLE_FIREBOT", "false").lower() == "true"
+DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
+DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
+DISABLE_OBS = os.getenv("DISABLE_OBS", "false").lower() == "true"
+
 # App configuration
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000

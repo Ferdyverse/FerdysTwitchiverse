@@ -1,10 +1,11 @@
-from database.session import SessionLocal
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from database.session import get_db
 from database.base import Event
 import datetime
 
-def save_event(event_type: str, viewer_id: int = None, message: str = ""):
+def save_event(event_type: str, viewer_id: int = None, message: str = "", db: Session = Depends(get_db)):
     """Save an event."""
-    db = SessionLocal()
     try:
         event = Event(event_type=event_type, viewer_id=viewer_id, message=message, timestamp=datetime.datetime.utcnow())
         db.add(event)
@@ -13,17 +14,9 @@ def save_event(event_type: str, viewer_id: int = None, message: str = ""):
         return event
     except Exception as e:
         print(f"❌ Error saving event: {e}")
+        db.rollback()
         return None
-    finally:
-        db.close()
 
-def get_recent_events(limit: int = 50):
+def get_recent_events(limit: int = 50, db: Session = Depends(get_db)):
     """Retrieve the last `limit` events."""
-    db = SessionLocal()
-    try:
-        return db.query(Event).order_by(Event.timestamp.desc()).limit(limit).all()
-    except Exception as e:
-        print(f"❌ Failed to retrieve recent events: {e}")
-        return []
-    finally:
-        db.close()
+    return db.query(Event).order_by(Event.timestamp.desc()).limit(limit).all()

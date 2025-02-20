@@ -186,7 +186,10 @@ async function createReward() {
 
   if (result.status === "success") {
     closeGenericModal("reward-modal");
-    htmx.trigger("#reward-list", "load");
+    htmx.ajax("GET", "/admin/twitch/rewards/", {
+        target: "#reward-list",
+        swap: "innerHTML",
+      });
   }
 }
 
@@ -244,7 +247,7 @@ async function sendChatMessage() {
   }
 
   try {
-    const response = await fetch("/send-chat/", {
+    const response = await fetch("/chat/send/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ message, sender: senderType }),
@@ -315,7 +318,7 @@ async function triggerButtonAction(action, data, ask = false) {
   }
 
   try {
-    const response = await fetch("/trigger-overlay/", {
+    const response = await fetch("/overlay/trigger/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, data }),

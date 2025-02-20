@@ -5,7 +5,7 @@ import uvicorn
 import os
 import config
 
-def main():
+def startup():
     parser = argparse.ArgumentParser(description="Start the Ferdyverse API with optional modules disabled.")
     parser.add_argument("--disable-heat-api", action="store_true", help="Disable the Heat API module")
     parser.add_argument("--disable-firebot", action="store_true", help="Disable the Firebot module")
@@ -14,7 +14,6 @@ def main():
     parser.add_argument("--disable-obs", action="store_true", help="Disable the OBS module")
     args = parser.parse_args()
 
-    # Pass arguments to the main application via environment variables
     os.environ["DISABLE_HEAT_API"] = "true" if args.disable_heat_api else "false"
     os.environ["DISABLE_FIREBOT"] = "true" if args.disable_firebot else "false"
     os.environ["DISABLE_PRINTER"] = "true" if args.disable_printer else "false"
@@ -29,8 +28,24 @@ def main():
     print(f"   - OBS Module: {'DISABLED' if args.disable_obs else 'ENABLED'}")
     print("===============================================")
 
-    # Start Uvicorn programmatically
-    uvicorn.run("main:app", host=config.APP_HOST, port=config.APP_PORT, reload=True, log_level=config.APP_LOG_LEVEL)
+    # Debugging: Check if main.py is found
+    if not os.path.exists("main.py"):
+        print("❌ ERROR: main.py not found!")
+        exit(1)
+
+    # Debugging: Try to import main.py
+    try:
+        import main
+    except Exception as e:
+        print(f"❌ ERROR importing main.py: {e}")
+        exit(1)
+
+    # Debugging: Try running Uvicorn
+    try:
+        uvicorn.run("main:app", host=config.APP_HOST, port=config.APP_PORT, reload=True, log_level=config.APP_LOG_LEVEL)
+    except Exception as e:
+        print(f"❌ ERROR starting Uvicorn: {e}")
+        exit(1)
 
 if __name__ == "__main__":
-    main()
+    startup()

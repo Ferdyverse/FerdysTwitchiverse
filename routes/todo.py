@@ -1,6 +1,8 @@
 import logging
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
+from database.session import get_db
 from database.crud.todos import save_todo, get_todos, complete_todo
 
 router = APIRouter(prefix="/todo", tags=["ToDos"])
@@ -8,43 +10,36 @@ router = APIRouter(prefix="/todo", tags=["ToDos"])
 logger = logging.getLogger("uvicorn.error.todo")
 
 @router.post("/")
-def create_todo(text: str, twitch_id: int):
+def create_todo(text: str, twitch_id: int, db: Session = Depends(get_db)):
     """Create a new ToDo linked to a Twitch user."""
-    return save_todo(text, twitch_id)
+    return save_todo(db=db, text=text, twitch_id=twitch_id)
 
 @router.get("/")
-def read_todos():
+def read_todos(db: Session = Depends(get_db)):
     """Retrieve all ToDos."""
-    todos = get_todos()
-    return todos
+    return get_todos(db=db)
 
-# ToDos as json objects
 @router.get("/status/{filter}")
-def read_todos_filtered(filter: str):
-    """Retrieve all ToDos."""
-    if filter != "":
-        todos = get_todos(filter)
-    else:
-        todos = todos = get_todos()
-    return todos
+def read_todos_filtered(filter: str, db: Session = Depends(get_db)):
+    """Retrieve ToDos based on status (pending/completed)."""
+    return get_todos(db=db, status=filter) if filter else get_todos(db=db)
 
 @router.put("/{todo_id}")
-def update_todo_status(todo_id: int):
+def update_todo_status(todo_id: int, db: Session = Depends(get_db)):
     """Mark a ToDo as completed."""
-    return complete_todo(todo_id)
+    return complete_todo(db=db, todo_id=todo_id)
 
 @router.delete("/{todo_id}")
-def delete_todo(todo_id: int):
+def delete_todo(todo_id: int, db: Session = Depends(get_db)):
     """Delete a ToDo by ID."""
-    #remove_todo(todo_id)
-    #return {"message": "ToDo deleted"}
-    return False
+    # Implement the remove function in CRUD
+    return {"error": "Function not implemented"}
 
 @router.get("/todos", response_class=HTMLResponse)
-async def todos_page(status: str = None):
-    todos = get_todos(status)
+async def todos_page(status: str = None, db: Session = Depends(get_db)):
+    """Retrieve ToDos as an HTML table."""
+    todos = get_todos(db=db, status=status)
 
-    # Generate table rows dynamically
     rows = ""
     for todo in todos:
         rows += f"""

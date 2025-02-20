@@ -1,0 +1,721 @@
+#!/usr/bin/env python3
+
+# FastAPI imports
+from fastapi import FastAPI, HTTPException, Form
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
+from fastapi.responses import Response, HTMLResponse
+from fastapi import Body
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+# Other required imports
+from contextlib import asynccontextmanager
+import uvicorn
+import logging
+from typing import Any, List
+import asyncio
+import os
+import pytz
+import random
+import inspect
+from twitchAPI.type import CustomRewardRedemptionStatus
+
+# Routes
+from routes.todo import router as todo_router
+from routes.admin import admin_router
+from routes.hub import router as hub_router
+
+# Database stuff
+from database.session import init_db, get_db
+from database.crud.overlay import get_overlay_data
+from database.crud.events import save_event
+from database.crud.planets import get_planets
+from database.crud.chat import get_recent_chat_messages
+
+# Own modules
+from modules.printer_manager import PrinterManager
+from modules.websocket_handler import websocket_endpoint, broadcast_message
+from modules.schemas import PrintRequest, PrintElement, OverlayMessage, ClickData, ClickableObject
+from modules.heat_api import HeatAPIClient, update_clickable_objects, CLICKABLE_OBJECTS
+from modules import event_handlers
+from modules.twitch_api import TwitchAPI
+from modules.twitch_chat import TwitchChatBot
+from modules.misc import load_sequences
+from modules.sequence_runner import get_sequence_names, execute_sequence, reload_sequences, ACTION_SEQUENCES
+from modules.obs_api import OBSController
+import config
+
+# ANSI escape codes for module-based colors
+MODULE_COLORS = {
+    "twitch_api": "\033[95m",  # Purple
+    "twitch_chat": "\033[94m",  # Blue
+    "heat_api": "\033[93m",  # Yellow
+    "firebot_api": "\033[92m",  # Green
+    "printer_manager": "\033[96m",  # Cyan
+    "admin": "\033[90m", # Magenta
+    "uvicorn.error": "\033[91m",  # Red (Uvicorn errors)
+}
+
+# Reset color
+RESET_COLOR = "\033[0m"
+
+# Define the desired local timezone (Change if needed)
+LOCAL_TIMEZONE = pytz.timezone("Europe/Berlin")
+FALLBACK_COLORS = [
+    "#FF4500", "#32CD32", "#1E90FF", "#FFD700", "#FF69B4", "#8A2BE2", "#00CED1"
+]
+
+class ColorFormatter(logging.Formatter):
+    """Custom formatter to apply colors based on module names only."""
+
+    def format(self, record):
+        module_color = MODULE_COLORS.get(record.module, "\033[97m")
+
+        log_message = super().format(record)
+
+        return f"{module_color}{log_message}{RESET_COLOR}"
+
+class SuppressLogFilter(logging.Filter):
+    def filter(self, record):
+        """Suppress logs for specific paths"""
+        ignored_paths = ["/admin/pending-rewards", "/admin/events/", "/admin/viewer-count", "/admin/rewards"]
+        return not any(path in record.getMessage() for path in ignored_paths)
+
+
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(SuppressLogFilter())
+
+# Apply to all Uvicorn and custom loggers
+formatter = ColorFormatter(
+    "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
+    datefmt=config.APP_LOG_TIME_FORMAT)
+
+for handler in logging.getLogger("uvicorn").handlers:
+    handler.setFormatter(formatter)
+
+DISABLE_HEAT_API = os.getenv("DISABLE_HEAT_API", "false").lower() == "true"
+DISABLE_PRINTER = os.getenv("DISABLE_PRINTER", "false").lower() == "true"
+DISABLE_TWITCH = os.getenv("DISABLE_TWITCH", "false").lower() == "true"
+DISABLE_OBS = os.getenv("DISABLE_OBS", "false").lower() == "true"
+
+ACTION_SEQUENCES = load_sequences()
+
+BADGES = {}  # Store badge data globally
+
+# Configure the logger
+logger = logging.getLogger("uvicorn.error")
+
+# Apply format to all Uvicorn handlers
+for handler in logging.getLogger("uvicorn").handlers:
+    handler.setFormatter(formatter)
+
+# Instantiate the PrinterManager
+printer_manager = PrinterManager()
+
+# Heat API
+heat_api_client: HeatAPIClient = None
+
+# Create an async queue for event sharing
+event_queue = asyncio.Queue()
+
+# Global variable for the Twitch module
+twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, event_queue=event_queue)
+twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, event_queue=event_queue, twitch_api=twitch_api)
+
+# OBS
+obs = OBSController(host=config.OBS_WS_HOST, port=config.OBS_WS_PORT, password=config.OBS_WS_PASSWORD)
+
+templates = Jinja2Templates(directory="templates")
+
+# Keep track of connected clients
+connected_clients = []
+clicks: List[ClickData] = []
+
+# Required for Startup and Shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifecycle event manager for the FastAPI application.
+    Initializes modules and ensures Twitch authentication does not block startup.
+    """
+    logger.info("Initializing modules")
+    try:
+        init_db()
+        # cleanup_old_data()
+        asyncio.create_task(process_queue())  # Run queue processor in background
+
+        if not DISABLE_PRINTER:
+            printer_manager.initialize()
+        else:
+            logger.info("🚫 Printer is disabled.")
+
+        if not DISABLE_HEAT_API:
+            global heat_api_client
+            heat_api_client = HeatAPIClient(config.TWITCH_CHANNEL_ID, event_queue)
+            heat_api_client.start()
+            logger.info("🔥 Heat API started successfully")
+        else:
+            logger.info("🚫 Heat API is disabled.")
+
+        if (not DISABLE_TWITCH) and (config.TWITCH_CLIENT_ID is not None):
+            global twitch_api
+            global twitch_chat
+            asyncio.create_task(twitch_api.initialize())
+            asyncio.create_task(twitch_chat.start_chat())
+        else:
+            if config.TWITCH_CLIENT_ID is None:
+                logger.warning("No Twitch login found!")
+            logger.info("🚫 Twitch API is disabled.")
+
+        if not DISABLE_OBS:
+            global obs
+            await obs.initialize()
+        else:
+            logger.info("🚫 OBS API is disabled.")
+
+        yield
+
+    except Exception as e:
+        logger.error(f"Error during lifespan: {e}")
+        yield
+    finally:
+        logger.info("Shutting down modules")
+
+        if not DISABLE_PRINTER:
+            printer_manager.shutdown()
+
+        if not DISABLE_HEAT_API and heat_api_client:
+            heat_api_client.stop()
+
+        if not DISABLE_TWITCH and twitch_chat.is_running:
+            logger.info("🛑 Stopping Twitch ChatBot...")
+            await twitch_chat.stop()
+
+        if not DISABLE_OBS:
+            await obs.disconnect()
+# App config
+app = FastAPI(
+    title="Ferdy’s Twitchiverse",
+    summary="Get data from Twitch and send it to the local network.",
+    description="An API to manage Twitch-related events, overlay updates, and thermal printing.",
+    lifespan=lifespan,
+    swagger_ui_parameters={
+        "syntaxHighlight.theme": "monokai"
+    }
+)
+
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.state.twitch_api = twitch_api
+
+# Add the WebSocket route
+app.add_api_websocket_route("/ws", websocket_endpoint)
+app.include_router(admin_router)
+app.include_router(todo_router)
+app.include_router(hub_router)
+
+@app.get(
+    "/overlay",
+    response_class=HTMLResponse,
+    summary="Display the overlay",
+    description="Serves the HTML page that acts as an overlay for OBS."
+)
+def overlay(request: Request):
+    """
+    Endpoint to serve the OBS overlay HTML page.
+    """
+    return templates.TemplateResponse("overlay.html", {"request": request})
+
+@app.post(
+    "/send-to-overlay",
+    summary="Send data to the overlay",
+    description="Accepts data and broadcasts it to all connected WebSocket clients for overlay updates.",
+    response_description="Acknowledges the broadcast status."
+)
+async def send_to_overlay(payload: OverlayMessage = Body(...)):
+    """
+    Endpoint to send data to the overlay via WebSocket.
+    Ensures errors in event processing do not trigger a broadcast.
+    """
+    all_success = True  # Track success
+
+    try:
+        for event_type, event_data in payload.model_dump().items():
+            if event_data:  # Only process non-empty events
+                success = await event_handlers.handle_event(event_type, event_data, add_clickable_object, remove_clickable_object)
+                logger.info(f"🔍 handle_event() returned: {success}")
+                if not success:
+                    logger.error(f"❌ Event failed: {event_type}")
+                    all_success = False  # Mark failure
+
+        # Only broadcast if all events succeeded
+        if all_success:
+            await broadcast_message(payload.model_dump())
+            logger.info(f"📡 Data broadcasted to overlay: {payload.model_dump()}")
+            return {"status": "success", "message": "Data sent to overlay"}
+        else:
+            logger.error("❌ Some events failed, skipping broadcast.")
+            return {"status": "error", "message": "One or more events failed. No broadcast sent."}
+
+    except Exception as e:
+        logger.error(f"❌ Error in send_to_overlay: {e}")
+        return {"status": "error", "message": "Failed to send data"}
+
+@app.get(
+    "/overlay-data",
+    summary="Fetch overlay data",
+    description="Retrieves the last follower and subscriber from the database.",
+    response_description="Returns the last follower and subscriber."
+)
+async def fetch_overlay_data(db: Session = Depends(get_db)):
+    """
+    Endpoint to fetch the most recent follower and subscriber from the database.
+    """
+
+    return {
+        "last_follower": get_overlay_data("last_follower", db) or "None",
+        "last_subscriber": get_overlay_data("last_subscriber", db) or "None",
+        "goal_text": get_overlay_data("goal_text", db) or "None",
+        "goal_current": get_overlay_data("goal_current", db) or "None",
+        "goal_target": get_overlay_data("goal_target", db) or "None"
+    }
+
+async def process_queue(db: Session = Depends(get_db)):
+    """ Continuously processes events from the queue """
+    while True:
+        task = await event_queue.get()
+        logger.info(f"📥 Processing event from queue: {task}")
+
+        # Handle function execution
+        if "function" in task:
+            function_name = task["function"]
+            parameters = task.get("data", {})
+
+            if parameters == "None":
+                parameters = {}
+
+            func = None
+            if function_name in globals():
+                func = globals()[function_name]
+            else:
+                parts = function_name.split(".")
+                if len(parts) == 2:
+                    instance_name, method_name = parts
+                    if instance_name in globals():
+                        instance = globals()[instance_name]
+                        func = getattr(instance, method_name, None)
+
+            if callable(func):
+                try:
+                    sig = inspect.signature(func)
+                    param_types = [param.annotation for param in sig.parameters.values()]
+
+                    if param_types and param_types[0] not in [inspect.Parameter.empty, dict]:
+                        expected_type = param_types[0]
+                        if isinstance(parameters, dict):
+                            parameters = expected_type(**parameters)
+
+                    if inspect.iscoroutinefunction(func):
+                        await func(parameters) if len(param_types) == 1 else await func(**parameters)
+                    else:
+                        func(parameters) if len(param_types) == 1 else func(**parameters)
+
+                    logger.info(f"✅ Executed function: {function_name} with parameters: {parameters}")
+
+                except TypeError as e:
+                    logger.error(f"❌ Function execution failed: {e}")
+                    save_event("error", None, f"Failed function: {function_name}, Error: {e}")
+            else:
+                logger.warning(f"⚠️ Function '{function_name}' not found or not callable!")
+                save_event("error", None, f"Function not found: {function_name}")
+
+        # Process Twitch message printing
+        if "command" in task:
+            command = task["command"]
+            user = task["user"]
+            user_id = task["user_id"]
+
+            try:
+                user_data = await twitch_api.get_user_info(user_id=user_id)
+
+                if command == "print":
+                    message = task.get("message", "")
+                    logger.info(f"🖨️ Printing requested by {user}: {message}")
+
+                    print_request = PrintRequest(
+                        print_elements=[
+                            PrintElement(type="headline_1", text="Chatogram"),
+                            PrintElement(type="image", url=user_data.get("profile_image_url", "")),
+                            PrintElement(type="headline_2", text=user),
+                            PrintElement(type="message", text=message)
+                        ],
+                        print_as_image=True
+                    )
+
+                    result = await obs.find_scene_item("Pixel 2")
+                    for item in result:
+                        await obs.set_source_visibility(item["scene"], item["id"], True)
+
+                    response = await print_data(print_request)
+                    logger.info(f"🖨️ Print status: {response}")
+
+                    await twitch_api.twitch.update_redemption_status(
+                        config.TWITCH_CHANNEL_ID,
+                        task["reward_id"],
+                        task["redeem_id"],
+                        CustomRewardRedemptionStatus.FULFILLED
+                    )
+
+            except Exception as e:
+                logger.error(f"❌ Error in printing from Twitch command: {e}")
+                await twitch_api.twitch.update_redemption_status(
+                    config.TWITCH_CHANNEL_ID,
+                    task["reward_id"],
+                    task["redeem_id"],
+                    CustomRewardRedemptionStatus.CANCELED
+                )
+            finally:
+                await asyncio.sleep(2)
+                for item in result:
+                    await obs.set_source_visibility(item["scene"], item["id"], False)
+
+
+        # Process heatmap clicks
+        if "heat_click" in task:
+            try:
+                click_event = task["heat_click"]
+
+                user = click_event.get("user_id")
+                x = click_event.get("x")
+                y = click_event.get("y")
+                clicked_object = click_event.get("object_id")
+
+                real_user = "Anonymous" if user.startswith("A") else "Unverified"
+
+                if not user.startswith("A") and not user.startswith("U"):
+                    user_data = await twitch_api.get_user_info(user_id=user)
+                    real_user = user_data.get("display_name", "Unknown")
+
+                logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
+
+                if clicked_object == "hidden_star":
+                    await broadcast_message({
+                        "hidden": {
+                            "action": "found",
+                            "user": real_user,
+                            "x": x,
+                            "y": y
+                        }
+                    })
+                    await execute_sequence("reset_star", event_queue)
+                    await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
+                    save_event("heat_click", user, "Hat aufgeräumt!", db=db)
+
+            except Exception as e:
+                logger.error(f"❌ Error processing heatmap click: {e}")
+
+        # Create Twitch Channel Point Redemptions
+        if "create_redemption" in task:
+            try:
+                redemption = task["create_redemption"]
+
+                await twitch_api.twitch.create_custom_reward(
+                    broadcaster_id=config.TWITCH_CHANNEL_ID,
+                    title=redemption.get("title"),
+                    cost=redemption.get("cost"),
+                    is_enabled=True
+                )
+
+                logger.info(f"✅ Created Twitch reward: {redemption.get('title')} for {redemption.get('cost')} points")
+
+            except Exception as e:
+                logger.error(f"❌ Failed to create Twitch reward: {e}")
+
+        event_queue.task_done()
+
+@app.post(
+    "/print",
+    summary="Print data to thermal printer",
+    description="Send structured data to the thermal printer for printing.",
+    response_description="Returns a success message when printing is completed."
+)
+async def print_data(request: PrintRequest):
+    """
+    Endpoint to send data to the thermal printer for printing.
+    Validates the printer state and sends the print elements.
+    """
+    if not printer_manager.is_online():
+        printer_manager.reconnect()
+        if not printer_manager.is_online():
+            raise HTTPException(status_code=500, detail="Printer not available")
+
+    try:
+        result = await obs.find_scene_item("Pixel 2")
+        for item in result:
+            await obs.set_source_visibility(item["scene"], item["id"], True)
+        if request.print_as_image:
+            # Print a image
+            pimage = await printer_manager.create_image(elements=request.print_elements)
+            printer_manager.printer.image(pimage,
+                        high_density_horizontal=True,
+                        high_density_vertical=True,
+                        impl="bitImageColumn",
+                        fragment_height=960,
+                        center=True)
+        else:
+            for element in request.print_elements:
+                if await printer_manager.print_element(element):
+                    printer_manager.newline(1)
+        printer_manager.cut_paper(partial=True)
+        return {"status": "success", "message": "Print done!"}
+    except Exception as e:
+        logger.error(f"Error during printing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get(
+    "/state",
+    summary="Get API state",
+    description="Checks the current status of all modules (Printer, Twitch, Heat API, Firebot, etc.).",
+    response_description="Returns the API and module statuses."
+)
+async def status():
+    """
+    Dynamically fetches the status of all active modules.
+    """
+
+    # Check printer status
+    printer_status = {
+        "is_online": printer_manager.is_online(),
+        "message": "Printer is operational" if printer_manager.is_online() else "Printer is offline",
+    }
+
+    # Check heat api status
+    heat_api_status = {
+        "is_connected": heat_api_client.is_connected,
+        "message": "Heat API is connected" if heat_api_client.is_connected else "Heat API is offline"
+    }
+
+    # Check Twitch API & Chat Bot
+    twitch_api_status = {
+        "is_authenticated": twitch_api is not None,
+        "message": "Twitch API authenticated" if twitch_api else "Twitch API not authenticated",
+    }
+
+    twitch_chat_status = {
+        "is_running": twitch_chat is not None and twitch_chat.is_running,
+        "message": "Twitch Chat Bot running" if twitch_chat and twitch_chat.is_running else "Twitch Chat Bot offline",
+    }
+
+    return {
+        "status": "online",
+        "printer": printer_status,
+        "heat_api": heat_api_status,
+        "twitch_api": twitch_api_status,
+        "twitch_chat": twitch_chat_status,
+    }
+
+@app.get(
+    "/solar",
+    response_class=HTMLResponse,
+    summary="Display the Solar-System overlay",
+    description="Serves the HTML page that acts as an overlay for OBS."
+)
+def solarsystem(request: Request):
+    """
+    Endpoint to serve the OBS overlay HTML page.
+    """
+    return templates.TemplateResponse("solar-system.html", {"request": request})
+
+@app.get(
+    "/raid",
+    response_class=HTMLResponse,
+    summary="Display the Raid overlay",
+    description="Serves the HTML page that acts as an overlay for OBS."
+)
+def raiders(request: Request):
+    """
+    Endpoint to serve the OBS overlay HTML page.
+    """
+    return templates.TemplateResponse("raid.html", {"request": request})
+
+@app.get(
+    "/planets",
+    summary="Get all planets (raiders)",
+    description="Retrieve all planets in the solar system (saved raids).",
+    response_description="Returns a list of planets."
+)
+async def get_all_planets(db: Session = Depends(get_db)):
+    """
+    Fetch all saved planets (raiders) from the database.
+    """
+    planets = get_planets(db)  # ✅ Use database session
+    return [
+        {
+            "raider_name": planet.raider_name,
+            "raid_size": planet.raid_size,
+            "angle": planet.angle,
+            "distance": planet.distance
+        }
+        for planet in planets
+    ]
+
+async def add_clickable_object(obj: ClickableObject):
+    object_id = obj.object_id
+
+    if object_id in CLICKABLE_OBJECTS:
+        logger.error(f"Clickable object {object_id} already exists")
+        return {"status": "error", "message": f"Clickable object {object_id} already exists"}
+
+    # Ensure we store a dictionary, not a Pydantic model
+    CLICKABLE_OBJECTS[object_id] = obj.model_dump()
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    return {"status": "success", "message": f"Clickable object '{object_id}' added"}
+
+async def remove_clickable_object(object_id):
+    # Remove from CLICKABLE_OBJECTS dictionary
+    removed_obj = CLICKABLE_OBJECTS.pop(object_id)
+    update_clickable_objects(CLICKABLE_OBJECTS)
+
+    logger.info(f"🗑️ Clickable object '{object_id}' removed: {removed_obj}")
+
+    return {"status": "success", "message": f"Clickable object '{object_id}' removed"}
+
+@app.get("/get-clickable-objects")
+async def get_clickable_objects():
+    """
+    Retrieve all currently defined `.clickable` elements.
+    """
+    return CLICKABLE_OBJECTS
+
+@app.post("/debug")
+async def test_debug(payload: Any = Body(...)):
+    try:
+        # Ensure it's a dictionary before calling .model_dump()
+        payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload
+        logger.info(f"📡 Debug Payload: {payload_data}")
+
+        # Broadcast to WebSocket clients
+        await broadcast_message(payload_data)
+
+        return {"status": "success", "message": "Debug message sent"}
+
+    except Exception as e:
+        logger.error(f"❌ Error in /debug: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send debug data")
+
+@app.post("/trigger-overlay/")
+async def trigger_overlay(request: Request):
+    body = await request.json()
+    action = body.get("action")
+    data = body.get("data", {})
+
+    if not action:
+        raise HTTPException(status_code=400, detail="Missing action type")
+
+    ACTION_SEQUENCES = load_sequences()
+
+    if action in ACTION_SEQUENCES:
+        await execute_sequence(action, event_queue, data)  # Pass event_queue
+    else:
+        save_event("overlay_action", None, f"Direct overlay action: {action} with data: {data}")
+        await broadcast_message({"overlay_event": {"action": action, "data": data}})
+
+    return {"status": "success", "message": f"Overlay triggered: {action}"}
+
+@app.post("/reload-sequences")
+async def reload_sequences_endpoint():
+    """Manually reload sequences from YAML file."""
+    await reload_sequences()
+    return {"status": "success", "message": "Sequences reloaded!"}
+
+@app.get("/chat", response_class=HTMLResponse)
+async def get_chat_messages(db: Session = Depends(get_db)):
+    """
+    Retrieve the last 50 chat messages from the database, formatted identically to WebSocket messages.
+    """
+    messages = get_recent_chat_messages(db=db)
+
+    if not messages:
+        return "<p class='chat-placeholder text-gray-500 text-center'>No messages yet...</p>"
+
+    chat_html = ""
+
+    for msg in reversed(messages):  # Reverse to show oldest messages first
+        username = msg.username or "Unknown"
+        avatar_url = msg.avatar or "/static/images/default_avatar.png"
+        user_color = msg.user_color or random.choice(FALLBACK_COLORS)
+
+        # Convert timestamp to local timezone
+        utc_time = msg.timestamp.replace(tzinfo=pytz.utc)  # Ensure UTC
+        local_time = utc_time.astimezone(LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
+
+        # Handle badges (If available)
+        badge_html = ""
+        if msg.badges:
+            badge_list = msg.badges.split(",")  # Convert stored CSV to list
+            badge_html = "".join([f'<img src="{badge}" class="chat-badge" alt="badge">' for badge in badge_list])
+
+        important = False
+        if msg.message and "!ping" in msg.message.strip().lower():
+            important = True
+
+        # HTML structure (Matches WebSocket messages)
+        chat_color = "bg-red-400 text-black-600" if important else "bg-gray-900 text-gray-300"
+        chat_html += f"""
+            <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
+                data-message-id="{msg.id}" data-user-id="{msg.twitch_id}">
+                <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
+                <div class="chat-content flex flex-col w-full">
+                    <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
+                        <div class="chat-username font-bold" style="color: {user_color};">{badge_html}{username}</div>
+                        <div class="chat-timestamp text-xs">{local_time}</div>
+                    </div>
+                    <div class="chat-text break-words {chat_color} p-2 rounded-lg w-fit max-w-3xl">
+                        {msg.message}
+                    </div>
+                </div>
+            </div>
+        """
+
+    return HTMLResponse(content=chat_html)
+
+@app.post("/send-chat/")
+async def send_chat_message(
+    message: str = Form(...),
+    sender: str = Form("streamer")  # Default to Streamer
+):
+    """
+    Send a chat message from the admin panel as either the Bot or the Streamer.
+    """
+    if not message.strip():
+        return Response("", media_type="text/html")  # Don't send empty messages
+
+    if sender == "bot":
+        await twitch_chat.send_message(message)
+    elif sender == "streamer":
+        await twitch_api.send_message_as_streamer(message)
+
+    return Response("", media_type="text/html")
+
+@app.get(
+    "/",
+    summary="API home",
+    description="Provides links to the API documentation, overlay, and status endpoints.",
+    response_description="Links to API resources.",
+    response_class=HTMLResponse)
+async def homepage(request: Request):
+    """Serve the API Overview Homepage."""
+    sequence_names = get_sequence_names()
+    return templates.TemplateResponse("homepage.html", {"request": request, "sequence_names": sequence_names})
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app,
+        host=config.APP_HOST,
+        port=config.APP_PORT,
+        log_level=config.APP_LOG_LEVEL
+    )

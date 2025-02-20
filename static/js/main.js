@@ -18,7 +18,7 @@ import {
 } from "./modules/clickables.js";
 
 // Example: Fetch initial data for the top bar and goal
-fetch("/overlay-data")
+fetch("/overlay/data")
   .then((response) => response.json())
   .then((data) => {
     updateTopBar("follower", data.last_follower || "None");

@@ -12,7 +12,7 @@ async function sendChatMessage() {
   }
 
   try {
-    const response = await fetch("/send-chat/", {
+    const response = await fetch("/chat/send/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ message, sender: senderType }),

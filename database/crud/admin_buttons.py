@@ -1,13 +1,15 @@
 import json
+from fastapi import Depends
 from sqlalchemy.orm import Session
+from database.session import get_db
 from database.base import AdminButton
 
-def get_admin_buttons(db: Session):
+def get_admin_buttons(db: Session = Depends(get_db)):
     """Retrieve all admin buttons ordered by position."""
     return db.query(AdminButton).order_by(AdminButton.position).all()
 
-def add_admin_button(db: Session, label: str, action: str, data: dict, prompt: bool):
-    """Add a new admin button to the database."""
+def add_admin_button(label: str, action: str, data: dict, prompt: bool, db: Session = Depends(get_db)):
+    """Add a new admin button."""
     try:
         button_data = json.dumps(data) if isinstance(data, dict) else "{}"
         new_button = AdminButton(label=label, action=action, data=button_data, prompt=prompt)
@@ -22,8 +24,8 @@ def add_admin_button(db: Session, label: str, action: str, data: dict, prompt: b
         db.rollback()
         return None
 
-def update_admin_button(db: Session, button_id: int, label: str, action: str, data: dict, prompt: bool):
-    """Update an existing admin button in the database."""
+def update_admin_button(button_id: int, label: str, action: str, data: dict, prompt: bool, db: Session = Depends(get_db)):
+    """Update an existing admin button."""
     button = db.query(AdminButton).filter(AdminButton.id == button_id).first()
     if not button:
         return None  # Button not found
@@ -45,8 +47,8 @@ def update_admin_button(db: Session, button_id: int, label: str, action: str, da
         db.rollback()
         return None
 
-def remove_admin_button(db: Session, button_id: int):
-    """Remove an admin button from the database."""
+def remove_admin_button(button_id: int, db: Session = Depends(get_db)):
+    """Remove an admin button."""
     button = db.query(AdminButton).filter(AdminButton.id == button_id).first()
     if not button:
         return None  # Button not found
@@ -60,7 +62,7 @@ def remove_admin_button(db: Session, button_id: int):
         db.rollback()
         return None
 
-def reorder_admin_buttons(db: Session, updated_buttons: list):
+def reorder_admin_buttons(updated_buttons: list, db: Session = Depends(get_db)):
     """Update the order of admin buttons."""
     try:
         for button_data in updated_buttons:

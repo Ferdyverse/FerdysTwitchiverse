@@ -9,7 +9,7 @@ let spaceObjects = [];
 // Fetch and create clickable objects
 export async function loadClickableObjects() {
   try {
-    const response = await fetch(`${backendURL}/get-clickable-objects`);
+    const response = await fetch(`${backendURL}/overlay/clickable-objects`);
     const objects = await response.json();
 
     console.log("🎯 Clickable objects received:", objects);

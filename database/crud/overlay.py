@@ -1,9 +1,10 @@
-from database.session import SessionLocal
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from database.session import get_db
 from database.base import OverlayData
 
-def save_overlay_data(key: str, value: str):
+def save_overlay_data(key: str, value: str, db: Session = Depends(get_db)):
     """Save or update overlay data."""
-    db = SessionLocal()
     try:
         overlay_data = db.query(OverlayData).filter_by(key=key).first()
         if overlay_data:
@@ -15,18 +16,14 @@ def save_overlay_data(key: str, value: str):
         return overlay_data
     except Exception as e:
         print(f"❌ Error saving overlay data: {e}")
+        db.rollback()
         return None
-    finally:
-        db.close()
 
-def get_overlay_data(key: str):
+def get_overlay_data(key: str, db: Session = Depends(get_db)):
     """Retrieve overlay data."""
-    db = SessionLocal()
     try:
         overlay_data = db.query(OverlayData).filter_by(key=key).first()
         return overlay_data.value if overlay_data else None
     except Exception as e:
         print(f"❌ Failed to retrieve overlay data: {e}")
         return None
-    finally:
-        db.close()
