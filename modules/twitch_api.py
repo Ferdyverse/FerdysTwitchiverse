@@ -11,7 +11,6 @@ from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.type import CustomRewardRedemptionStatus
 
 from modules.db_manager import get_db, save_event, save_viewer, Viewer, save_todo
-from sqlalchemy.orm import Session
 
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
@@ -50,11 +49,12 @@ scopes = [
 ]
 
 class TwitchAPI:
-    def __init__(self, client_id, client_secret, event_queue: asyncio.Queue):
+    def __init__(self, client_id, client_secret, test_mode=False):
         """Initialize the Twitch API client"""
         self.client_id = client_id
         self.client_secret = client_secret
-        self.event_queue = event_queue
+        self.test_mode = test_mode
+        self.event_queue = None
         self.twitch = None
         self.auth = None
         self.auth_headers = None
@@ -64,6 +64,11 @@ class TwitchAPI:
 
     async def authenticate(self):
         """Authenticate with Twitch and retrieve access tokens."""
+
+        if self.test_mode:
+            logger.info("⚠️ Using Twitch CLI Mock API, skipping authentication.")
+            return True
+
         try:
             logger.info("🔄 Checking stored tokens before authentication...")
             tokens = load_tokens("api")
@@ -108,8 +113,11 @@ class TwitchAPI:
             logger.error(f"❌ Authentication failed: {e}")
             return False
 
-    async def initialize(self):
+    async def initialize(self, app):
         """Authenticate and start EventSub WebSocket"""
+
+        self.event_queue = app.state.event_queue
+
         if not await self.authenticate():
             logger.error("❌ Failed authentication, skipping Twitch API startup.")
             return
@@ -392,6 +400,9 @@ class TwitchAPI:
     async def get_user_info(self, username: str = None, user_id: str = None):
         """Retrieve Twitch user info, including color & badges, and store it in the database"""
 
+        if self.test_mode:
+            return self._mock_get_user_info(username)
+
         if not self.twitch:
             raise Exception("❌ Twitch API not initialized.")
 
@@ -455,6 +466,14 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
             return None
+    def _mock_get_user_info(self, username: str):
+        """Mock user info for Twitch CLI API."""
+        return {
+            "id": "123456",
+            "login": username,
+            "display_name": username.capitalize(),
+            "profile_image_url": f"https://mock.twitch.tv/{username}.png",
+        }
 
     async def get_chat_metadata(self, user_id: str):
         """Retrieve Twitch user chat color and badges using the Helix API."""

@@ -18,6 +18,7 @@ from routes.twitch import router as twitch_router
 from routes.viewers import router as viewers_router
 from routes.chat import router as chat_router
 from routes.planets import router as planets_router
+from routes.print import router as print_router
 
 # Import modules
 from modules.websocket_handler import websocket_endpoint
@@ -44,6 +45,7 @@ app.include_router(twitch_router)
 app.include_router(viewers_router)
 app.include_router(chat_router)
 app.include_router(planets_router)
+app.include_router(print_router)
 
 # WebSocket endpoint
 app.add_api_websocket_route("/ws", websocket_endpoint)

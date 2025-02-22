@@ -25,14 +25,15 @@ scopes = [
 ]
 
 class TwitchChatBot:
-    def __init__(self, client_id: str, client_secret: str, twitch_channel: str, event_queue: asyncio.Queue, twitch_api: TwitchAPI):
+    def __init__(self, client_id: str, client_secret: str, twitch_channel: str, twitch_api: TwitchAPI, test_mode=False):
         """Initialize Twitch Chat Bot."""
         self.client_id = client_id
         self.client_secret = client_secret
         self.twitch_channel = twitch_channel
-        self.event_queue = event_queue
+        self.event_queue = None
         self.recent_messages = []
         self.twitch_api = twitch_api
+        self.test_mode = test_mode
         self.twitch = None
         self.chat = None
         self.token = None
@@ -76,8 +77,15 @@ class TwitchChatBot:
             logger.error(f"❌ Authentication failed: {e}")
             return False
 
-    async def start_chat(self):
+    async def start_chat(self, app):
         """Initialize and start Twitch chat bot."""
+
+        if self.test_mode:
+            logger.info("⚠️ Running in test mode, skipping real chat connection.")
+            return
+
+        self.event_queue = app.state.event_queue
+
         if not await self.authenticate():
             logger.error("❌ Failed authentication, skipping chat bot startup.")
             return
@@ -118,6 +126,11 @@ class TwitchChatBot:
         Handle incoming chat messages, store in the database,
         and send them to both the overlay and admin panel.
         """
+
+        if self.test_mode:
+            logger.info(f"💬 [MOCK] Sending message: {message}")
+            return
+
         logger.debug(f"DEBUG: Event Emotes: {json.dumps(event.emotes, indent=2)}")
 
         db = next(get_db())

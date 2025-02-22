@@ -6,7 +6,6 @@ from modules.schemas import AlertSchema, GoalSchema, IconSchema, HtmlSchema, Cli
 
 logger = logging.getLogger("uvicorn.error.events")
 
-# ✅ Dictionary to map event names to handler functions
 EVENT_MAPPING = {
     "alert": (AlertSchema, "handle_alert"),
     "goal": (GoalSchema, "handle_goal"),
@@ -16,7 +15,6 @@ EVENT_MAPPING = {
     "clickable": (ClickableObject, "handle_clickable"),
 }
 
-# ✅ Main function to handle all event types dynamically
 async def handle_event(event_type, event_data, add_clickable_object=None, remove_clickable_object=None):
     """
     Dynamically calls the appropriate event handler based on the event_type.
@@ -37,10 +35,8 @@ async def handle_event(event_type, event_data, add_clickable_object=None, remove
         return False
 
     try:
-        # ✅ Validate event data against the schema
         validated_data = schema(**event_data)
 
-        # ✅ Call the handler with validated data
         if event_type == "clickable":
             result = await handler(validated_data, add_clickable_object, remove_clickable_object)
         else:
@@ -56,7 +52,7 @@ async def handle_event(event_type, event_data, add_clickable_object=None, remove
             logger.error(f"❌ Event processing failed: {result.get('message', 'Unknown error')}")
             return False  # Indicate failure
 
-        return True  # ✅ Indicate success
+        return True
     except Exception as e:
         logger.error(f"❌ Error in event handler for {event_type}: {e}")
         return False

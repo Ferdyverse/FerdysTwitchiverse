@@ -18,12 +18,11 @@ FALLBACK_COLORS = [
 ]
 
 # Initialize Twitch modules
-twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET, event_queue=None)
+twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
 twitch_chat = TwitchChatBot(
     client_id=config.TWITCH_CLIENT_ID,
     client_secret=config.TWITCH_CLIENT_SECRET,
     twitch_channel=config.TWITCH_CHANNEL,
-    event_queue=None,
     twitch_api=twitch_api
 )
 

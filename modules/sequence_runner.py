@@ -26,7 +26,7 @@ def get_sequence_names():
     return list(ACTION_SEQUENCES.keys())
 
 async def execute_sequence(action: str, event_queue, context: dict = []):
-    """Execute a predefined sequence of actions from YAML using the event queue."""
+    """Execute a predefined sequence using the global event queue from `app.state`."""
     if action not in ACTION_SEQUENCES:
         logger.warning(f"⚠️ Sequence '{action}' not found.")
         return
@@ -43,13 +43,15 @@ async def execute_sequence(action: str, event_queue, context: dict = []):
 
     await broadcast_message({"admin_alert": {"type": "button_click", "message": f"Sequence '{action}' executed"}})
 
-async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict):
-    """ Execute a single sequence step using the event queue, returning success status. """
+async def execute_sequence_step(step, event_queue, context: dict):
+    """ Execute a single sequence step using the shared event queue. """
     step_type = step.get("type")
     step_data = resolve_random_values(step.get("data", {}))
     step_data = resolve_variables(step_data, context)
 
     try:
+        # Get the global event queue from app state
+
         # Handle delays
         if step_type == "sleep":
             delay_time = step_data if isinstance(step_data, (int, float)) else 1
@@ -104,9 +106,8 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict)
 
         if step_type == "show_icon":
             icon = {"icon": {"id": step_data.get("name"), "action": step_data.get("action"), "name": step_data.get("icon")}}
-            logger.error(icon)
             await broadcast_message(icon)
-            logger.info(f"Show icon: {icon}")
+            logger.info(f"✅ Show icon: {icon}")
             return True
 
         if step_type == "todo":
@@ -119,7 +120,7 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict)
                 complete_todo(int(todo_id))
 
             await broadcast_message(todo)
-            logger.info(f"Trigger ToDo: {todo}")
+            logger.info(f"✅ Trigger ToDo: {todo}")
             return True
 
         # Handle overlay events
@@ -131,7 +132,7 @@ async def execute_sequence_step(step, event_queue: asyncio.Queue, context: dict)
         logger.error(f"❌ Error executing step '{step_type}': {e}")
         return False  # ❌ Stop execution if an error occurs
 
-async def wait_for_task_success(task, event_queue: asyncio.Queue):
+async def wait_for_task_success(task, event_queue):
     """ Wait for a task to complete and return whether it succeeded. """
     return True
 

@@ -6,7 +6,7 @@ from modules.schemas import ClickableObject
 
 logger = logging.getLogger("uvicorn.error.heat")
 
-# ✅ Dynamic dictionary for clickable objects (Updated via API)
+# Dynamic dictionary for clickable objects (Updated via API)
 CLICKABLE_OBJECTS = {}
 
 class HeatAPIClient:
@@ -14,7 +14,7 @@ class HeatAPIClient:
     Connects to Twitch Heat API WebSocket and processes user clicks.
     """
 
-    def __init__(self, channel_id: int, event_queue: asyncio.Queue):
+    def __init__(self, app, channel_id: int):
         """
         Initialize the Heat API client.
 
@@ -23,7 +23,7 @@ class HeatAPIClient:
         """
         self.channel_id = channel_id
         self.is_connected = False
-        self.event_queue = event_queue
+        self.event_queue =  app.state.event_queue.get()
         self.websocket_task = None
         self.heat_api_url = f"wss://heat-api.j38.net/channel/{self.channel_id}"
 
