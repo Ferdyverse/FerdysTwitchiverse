@@ -21,7 +21,7 @@ DISABLE_FIREBOT = getenv_bool("DISABLE_FIREBOT")
 DISABLE_PRINTER = getenv_bool("DISABLE_PRINTER")
 DISABLE_TWITCH = getenv_bool("DISABLE_TWITCH")
 DISABLE_OBS = getenv_bool("DISABLE_OBS")
-USE_MOCK_API = getenv_bool("USE_MOCK_API")
+USE_MOCK_API = getenv_bool("ENABLE_MOCK_API")
 
 # App configuration
 APP_HOST = "0.0.0.0"

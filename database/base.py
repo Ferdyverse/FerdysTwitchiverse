@@ -10,7 +10,7 @@ class Event(Base):
     viewer_id = Column(Integer, ForeignKey('viewers.twitch_id'), nullable=True)
     event_type = Column(String, index=True)
     message = Column(String)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -19,7 +19,7 @@ class ChatMessage(Base):
     message = Column(String, nullable=False)
     message_id = Column(String, unique=True, nullable=True, index=True)
     stream_id = Column(String, nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
 
 class OverlayData(Base):
     __tablename__ = "overlay_data"
@@ -30,7 +30,7 @@ class OverlayData(Base):
 class Planet(Base):
     __tablename__ = "planets"
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, default=datetime.datetime.utcnow)
+    date = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     raider_name = Column(String, nullable=False)
     raid_size = Column(Integer, nullable=False)
     angle = Column(Float, nullable=False)
@@ -39,7 +39,7 @@ class Planet(Base):
 class Viewer(Base):
     __tablename__ = "viewers"
     twitch_id = Column(Integer, primary_key=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     login = Column(String, nullable=False)
     display_name = Column(String, nullable=False)
     account_type = Column(String)
@@ -62,7 +62,7 @@ class ViewerStats(Base):
     chat_messages = Column(Integer, default=0)
     used_emotes = Column(Integer, default=0)
     replies = Column(Integer, default=0)
-    last_message_time = Column(DateTime, default=datetime.datetime.utcnow)
+    last_message_time = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
 
 class AdminButton(Base):
     __tablename__ = "admin_buttons"
@@ -78,7 +78,7 @@ class Todo(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(String, nullable=False)
     twitch_id = Column(Integer, ForeignKey("viewers.twitch_id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     status = Column(String, default="pending")  # "pending" or "completed"
 
 class ScheduledMessage(Base):
@@ -87,7 +87,7 @@ class ScheduledMessage(Base):
     category = Column(String, nullable=True)
     message = Column(String, nullable=True)
     interval = Column(Integer, nullable=False)
-    next_run = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    next_run = Column(DateTime, nullable=False, default=datetime.datetime.now(datetime.timezone.utc))
     enabled = Column(Boolean, default=True)
 
 class ScheduledMessagePool(Base):

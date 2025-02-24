@@ -1,7 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from fastapi import Depends
+from sqlalchemy import case
 from database.session import get_db
-from database.base import Event
+from database.base import Event, Viewer
 import datetime
 
 def save_event(event_type: str, viewer_id: int = None, message: str = "", db: Session = Depends(get_db)):
@@ -19,4 +20,20 @@ def save_event(event_type: str, viewer_id: int = None, message: str = "", db: Se
 
 def get_recent_events(limit: int = 50, db: Session = Depends(get_db)):
     """Retrieve the last `limit` events."""
-    return db.query(Event).order_by(Event.timestamp.desc()).limit(limit).all()
+    # Ensure we fetch ALL events, even if viewer_id is NULL
+    events = db.query(
+        Event.id,
+        Event.message,
+        Event.event_type,
+        Event.timestamp,
+        case(
+            (Viewer.display_name.isnot(None), Viewer.display_name),  # If viewer exists, use display_name
+            else_="Unknown"  # Otherwise, return "Unknown"
+        ).label("username"),
+        Viewer.profile_image_url.label("avatar"),
+        Viewer.color.label("user_color"),
+        Viewer.badges.label("badges"),
+        Event.viewer_id.label("twitch_id")
+    ).outerjoin(Viewer, Event.viewer_id == Viewer.twitch_id).order_by(Event.timestamp.desc()).limit(limit).all()
+
+    return events

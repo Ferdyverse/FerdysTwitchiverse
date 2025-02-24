@@ -37,13 +37,16 @@ This project is evolving rapidly, and due to the time I’m investing in develop
 ## 📥 Installation
 
 ### 1️⃣ Clone the Repository
+
 ```bash
 git clone https://github.com/Ferdyverse/FerdysTwitchiverse.git
 cd FerdysTwitchiverse
 ```
 
 ### 2️⃣ Install Dependencies
+
 Set up a **virtual environment** and install required packages:
+
 ```bash
 python -m venv env
 source env/bin/activate  # Windows: .\env\Scripts\activate
@@ -51,7 +54,9 @@ pip install -r requirements.txt
 ```
 
 ### 3️⃣ Configure the Application
+
 Modify the `config.py` file with your settings:
+
 ```python
 # config.py
 APP_HOST = "0.0.0.0"
@@ -70,13 +75,25 @@ PRINTER_PROFILE = "default"
 ## ▶ Running the Application
 
 ### 🛠 Development Mode (Auto-Reload)
+
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 🚀 Production Mode
+
 ```bash
 python main.py
+```
+
+---
+
+## Twitch CLI
+
+```
+twitch-cli mock-api start
+
+twitch-cli event websocket start -p 8081
 ```
 
 ---

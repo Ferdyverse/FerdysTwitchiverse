@@ -8,6 +8,7 @@ import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
 import {
   showHTML,
+  showURL,
   createTodo,
   hideTodo,
   showTodo,

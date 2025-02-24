@@ -55,7 +55,7 @@ async def lifespan(app):
             app.state.printer = None
 
         # Initialize Heat API
-        if not config.DISABLE_HEAT_API:
+        if not config.DISABLE_HEAT_API and not use_mock_api:
             global heat_api_client
             heat_api_client = HeatAPIClient(app, config.TWITCH_CHANNEL_ID)
             heat_api_client.start()
@@ -72,7 +72,8 @@ async def lifespan(app):
                 asyncio.create_task(twitch_chat.start_chat(app))
             app.state.twitch_api = twitch_api
             app.state.twitch_chat = twitch_chat
-            register_function("twitch_chat.send_message", twitch_chat.send_message)
+            if not use_mock_api:
+                register_function("twitch_chat.send_message", twitch_chat.send_message)
         else:
             logger.info("🚫 Twitch API is disabled.")
             app.state.twitch_api = None

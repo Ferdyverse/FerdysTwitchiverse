@@ -2,7 +2,7 @@ import logging
 import config
 import datetime
 import aiohttp
-import asyncio
+import time
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
@@ -10,14 +10,14 @@ from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.type import CustomRewardRedemptionStatus
 
-from modules.db_manager import get_db, save_event, save_viewer, Viewer, save_todo
+from modules.db_manager import get_db, save_event, save_viewer, Viewer, save_todo, save_overlay_data
 
 from modules.misc import save_tokens, load_tokens
 from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
-scopes = [
+REAL_SCOPES = [
     AuthScope.CHAT_READ,
     AuthScope.CHAT_EDIT,
     AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
@@ -48,6 +48,24 @@ scopes = [
     AuthScope.USER_WRITE_CHAT
 ]
 
+MOCK_SCOPES = [
+    AuthScope.USER_READ_FOLLOWS,
+    AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
+    AuthScope.CHANNEL_READ_HYPE_TRAIN,
+    AuthScope.CHANNEL_MANAGE_POLLS,
+    AuthScope.BITS_READ,
+    AuthScope.CHANNEL_MANAGE_POLLS,
+    AuthScope.CHANNEL_READ_GOALS,
+    AuthScope.CHANNEL_MANAGE_POLLS,
+    AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
+    AuthScope.CHANNEL_READ_HYPE_TRAIN,
+    AuthScope.CHANNEL_MANAGE_PREDICTIONS,
+    AuthScope.CHANNEL_MANAGE_REDEMPTIONS,
+    AuthScope.MODERATOR_MANAGE_SHOUTOUTS,
+    AuthScope.CHANNEL_READ_CHARITY,
+    AuthScope.CHANNEL_READ_REDEMPTIONS,
+]
+
 class TwitchAPI:
     def __init__(self, client_id, client_secret, test_mode=False):
         """Initialize the Twitch API client"""
@@ -60,14 +78,35 @@ class TwitchAPI:
         self.auth_headers = None
         self.token = None
         self.refresh_token = None
+        self.scopes = MOCK_SCOPES if self.test_mode else REAL_SCOPES
         self.is_running = False
+
+        if self.test_mode:
+            logger.warning("⚠️ Running in Twitch Mock API mode!")
+            self.base_url = "http://localhost:8080/mock/"
+            self.auth_base_url = "http://localhost:8080/auth/"
+            self.websocket_url = "ws://127.0.0.1:8081/ws"
+            self.subscription_url = "http://127.0.0.1:8081/"
+        else:
+            self.base_url = "https://api.twitch.tv/helix"
+            self.auth_base_url = "https://id.twitch.tv/oauth2"
 
     async def authenticate(self):
         """Authenticate with Twitch and retrieve access tokens."""
 
         if self.test_mode:
-            logger.info("⚠️ Using Twitch CLI Mock API, skipping authentication.")
-            return True
+            logger.info("⚠️ Using Twitch CLI Mock API, skipping real authentication.")
+            try:
+                self.twitch = await Twitch(self.client_id, self.client_secret, base_url=self.base_url, auth_base_url=self.auth_base_url)
+                self.twitch.auto_refresh_auth = False
+                auth = UserAuthenticator(self.twitch, self.scopes, auth_base_url=self.auth_base_url)
+                self.token = await auth.mock_authenticate(config.TWITCH_CHANNEL_ID)
+                await self.twitch.set_user_authentication(self.token, self.scopes)
+                logger.info("✅ Successfully authenticated with Twitch Mock API.")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Mock authentication failed: {e}")
+                return False
 
         try:
             logger.info("🔄 Checking stored tokens before authentication...")
@@ -86,23 +125,21 @@ class TwitchAPI:
                 "Client-Id": self.client_id
             }
 
-            global scopes
-
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
+                auth = UserAuthenticator(self.twitch, self.scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("api", self.token, self.refresh_token)
 
             try:
-                await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+                await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
             except:
                 logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
+                auth = UserAuthenticator(self.twitch, self.scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("api", self.token, self.refresh_token)
                 try:
-                    await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+                    await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
                 except:
                     return False
 
@@ -132,45 +169,67 @@ class TwitchAPI:
     async def start_eventsub(self):
         """Initialize WebSocket EventSub and subscribe to events"""
         try:
-            self.eventsub = EventSubWebsocket(self.twitch)
+            self.eventsub = EventSubWebsocket(self.twitch,
+                                                connection_url=self.websocket_url if self.test_mode else None,
+                                                subscription_url=self.subscription_url if self.test_mode else None)
             self.eventsub.start()
 
             user = await first(self.twitch.get_users())  # Get broadcaster ID
             broadcaster_id = user.id
 
+            endpoints = []
             # Subscribe to Twitch events
             logger.info("Register follow event")
-            await self.eventsub.listen_channel_follow_v2(broadcaster_id, broadcaster_id, self.handle_follow)
+            event_id = await self.eventsub.listen_channel_follow_v2(broadcaster_id, broadcaster_id, self.handle_follow)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.follow -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register subscribe event")
-            await self.eventsub.listen_channel_subscribe(broadcaster_id, self.handle_subscribe)
+            event_id = await self.eventsub.listen_channel_subscribe(broadcaster_id, self.handle_subscribe)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscribe -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register sub gift event")
-            await self.eventsub.listen_channel_subscription_gift(broadcaster_id, self.handle_gift_sub)
+            event_id = await self.eventsub.listen_channel_subscription_gift(broadcaster_id, self.handle_gift_sub)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscription.gift -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register sub msg event")
-            await self.eventsub.listen_channel_subscription_message(broadcaster_id, self.handle_sub_message)
+            event_id = await self.eventsub.listen_channel_subscription_message(broadcaster_id, self.handle_sub_message)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscription.message -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register cheer event")
-            await self.eventsub.listen_channel_cheer(broadcaster_id, self.handle_cheer)
+            event_id = await self.eventsub.listen_channel_cheer(broadcaster_id, self.handle_cheer)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.cheer -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register raid event")
-            await self.eventsub.listen_channel_raid(self.handle_raid, None, broadcaster_id)
+            event_id = await self.eventsub.listen_channel_raid(self.handle_raid, broadcaster_id, None)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.raid -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register points event")
-            await self.eventsub.listen_channel_points_custom_reward_redemption_add(
+            event_id = await self.eventsub.listen_channel_points_custom_reward_redemption_add(
                 broadcaster_id, self.handle_channel_point_redeem
             )
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.channel_points_custom_reward_redemption.add -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register ban event")
-            await self.eventsub.listen_channel_ban(broadcaster_id, self.handle_ban)
+            event_id = await self.eventsub.listen_channel_ban(broadcaster_id, self.handle_ban)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.ban -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register unban event")
-            await self.eventsub.listen_channel_unban(broadcaster_id, self.handle_mod_action)
+            event_id = await self.eventsub.listen_channel_unban(broadcaster_id, self.handle_mod_action)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.unban -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register mod add event")
-            await self.eventsub.listen_channel_moderator_add(broadcaster_id, self.handle_mod_action)
+            event_id = await self.eventsub.listen_channel_moderator_add(broadcaster_id, self.handle_mod_action)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderator.add -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register mod remove event")
-            await self.eventsub.listen_channel_moderator_remove(broadcaster_id, self.handle_mod_action)
-            logger.info("Register chat clear event")
-            await self.eventsub.listen_channel_chat_clear(broadcaster_id, broadcaster_id, self.handle_mod_action)
-            logger.info("Register msg delete event")
-            await self.eventsub.listen_channel_chat_message_delete(broadcaster_id, broadcaster_id, self.handle_deleted_message)
+            event_id = await self.eventsub.listen_channel_moderator_remove(broadcaster_id, self.handle_mod_action)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderator.remove -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
+            if not self.test_mode:
+                logger.info("Register chat clear event")
+                await self.eventsub.listen_channel_chat_clear(broadcaster_id, broadcaster_id, self.handle_mod_action)
+                logger.info("Register msg delete event")
+                await self.eventsub.listen_channel_chat_message_delete(broadcaster_id, broadcaster_id, self.handle_deleted_message)
             logger.info("Register ad break event")
-            await self.eventsub.listen_channel_ad_break_begin(broadcaster_id, self.handle_ad_break)
+            event_id = await self.eventsub.listen_channel_ad_break_begin(broadcaster_id, self.handle_ad_break)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.ad_break.begin -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
 
             logger.info("✅ Successfully subscribed to EventSub WebSocket events.")
+
+            if self.test_mode:
+                with open("commands.md", "w") as cmd_file:
+                    for command in endpoints:
+                        cmd_file.write(f"{command}\n\n")
+                logger.info(f'🔧 The current commandlist can be found in the commands.md file')
 
         except Exception as e:
             logger.error(f"❌ Error initializing EventSub WebSocket: {e}")
@@ -187,16 +246,14 @@ class TwitchAPI:
             twitch_id=user_id,
             login=data.event.user_login,
             display_name=username,
-            account_type=None,
-            broadcaster_type=None,
-            profile_image_url="",
-            account_age="",
-            follower_date=datetime.datetime.utcnow(),
-            subscriber_date=None
+            follower_date=datetime.datetime.now(datetime.timezone.utc)
         )
 
         # Save event
         save_event("follow", user_id, "")
+
+        if not self.test_mode:
+            save_overlay_data("", username)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
@@ -204,30 +261,49 @@ class TwitchAPI:
     async def handle_subscribe(self, data: dict):
         """Handle subscription event, save it, and broadcast it"""
         username = data.event.user_name
+        user_id = int(data.event.user_id)
         logger.info(f"🎉 New subscription: {username}")
 
-        save_event("subscription", username, "")
+        # Store viewer data
+        save_viewer(
+            twitch_id=user_id,
+            login=data.event.user_login,
+            display_name=username,
+            subscriber_date=datetime.datetime.now(datetime.timezone.utc)
+        )
+
+        # Save event
+        save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
 
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
 
     async def handle_gift_sub(self, data: dict):
         """Handle gift subscription event, save it, and broadcast it"""
-        gifter = data.event.user_name
+        username = data.event.user_name
+        user_id = int(data.event.user_id)
         recipient_count = data.event.total
-        logger.info(f"🎁 {gifter} gifted {recipient_count} subs!")
+        logger.info(f"🎁 {username} gifted {recipient_count} subs!")
 
-        save_event("gift_sub", gifter, f"Gifted {recipient_count} subs")
+        if not data.event.is_anonymouse:
+            save_viewer(
+                twitch_id=user_id,
+                login=data.event.user_login,
+                display_name=username
+            )
+        else:
+            username = "Anonym"
 
-        await broadcast_message({"alert": {"type": "gift_sub", "user": gifter, "size": recipient_count}})
+        save_event("gift_sub", username, f"Gifted {recipient_count} subs")
+
+        await broadcast_message({"alert": {"type": "gift_sub", "user": username, "size": recipient_count}})
 
     async def handle_sub_message(self, data: dict):
         """Handle subscription messages (e.g., resubs with a custom message)."""
         username = data.event.user_name
+        user_id = int(data.event.user_id)
         cumulative_months = data.event.cumulative_months
         sub_tier = data.event.tier
         message = data.event.message.text if data.event.message else ""
-        user = await first(self.twitch.get_users())
-        broadcaster_id = user.id
 
         logger.info(f"🎉 {username} resubscribed at {sub_tier} for {cumulative_months} months! Message: {message}")
 
@@ -243,15 +319,23 @@ class TwitchAPI:
         })
 
         # Save subscription event in database
-        await save_event("subscription_message", int(data["event"]["user_id"]), f"{username} resubbed ({sub_tier}) for {cumulative_months} months. Message: {message}")
+        await save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
 
     async def handle_raid(self, data: dict):
         """Handle raid event, save it, and broadcast it"""
         username = data.event.from_broadcaster_user_name
+        user_id = data.event.from_broadcaster_user_id
         viewer_count = data.event.viewers
+
         logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
 
-        save_event("raid", username, f"Raid with {viewer_count} viewers")
+        save_viewer(
+                twitch_id=user_id,
+                login=data.event.from_broadcaster_user_login,
+                display_name=username
+            )
+
+        save_event("raid", user_id, f"Raid with {viewer_count} viewers")
 
         await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
 
@@ -333,10 +417,11 @@ class TwitchAPI:
         """Handle ban event"""
         moderator = data.event.moderator_user_name
         target = data.event.user_name
+        target_id = data.event.user_id
+        reason = data.event.reason
         logger.info(f"🚨 {moderator} banned {target}!")
 
-        save_event("ban", int(data.event.user_id), f"Banned by {moderator}")
-        await broadcast_message({"alert": {"type": "ban", "moderator": moderator, "user": target}})
+        save_event("ban", int(data.event.user_id), f"Banned by {moderator} for {reason}")
 
     async def handle_timeout(self, data: dict):
         """Handle timeout (temporary ban)"""
@@ -345,17 +430,15 @@ class TwitchAPI:
         duration = data.event.duration
         logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
 
-        save_event("timeout", int(data["event"]["user_id"]), f"Timed out for {duration}s by {moderator}")
-        await broadcast_message({"alert": {"type": "timeout", "moderator": moderator, "user": target, "duration": duration}})
+        save_event("timeout", int(data.event.user_id), f"Timed out for {duration}s by {moderator}")
 
     async def handle_mod_action(self, data: dict):
         """Handle moderator actions (deleting messages, enabling slow mode, etc.)"""
-        moderator = data["event"]["moderator_user_name"]
-        action = data["event"]["action"]
+        moderator = data.event.moderator_user_name
+        action = data.event.action
         logger.info(f"🔧 {moderator} performed mod action: {action}")
 
         save_event("mod_action", None, f"{moderator} performed: {action}")
-        await broadcast_message({"alert": {"type": "mod_action", "moderator": moderator, "action": action}})
 
     async def handle_deleted_message(self, data: dict):
         """Handle deleted messages"""
@@ -383,7 +466,7 @@ class TwitchAPI:
                 "type": "ad_break",
                 "message": f"⏳ Ad break starts soon!",
                 "duration": ad_length,
-                "start_time": int(time.time())  # Send current timestamp for countdown sync
+                "start_time": int(datetime.datetime.now(datetime.timezone.utc))  # Send current timestamp for countdown sync
             }
         })
 
@@ -466,6 +549,7 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
             return None
+
     def _mock_get_user_info(self, username: str):
         """Mock user info for Twitch CLI API."""
         return {
