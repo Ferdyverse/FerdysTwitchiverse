@@ -59,7 +59,7 @@ async def update_admin_button(button_id: int, request: Request, db: Session = De
 @router.delete("/remove/{button_id}", response_class=HTMLResponse)
 async def remove_admin_button(button_id: int, request: Request, db: Session = Depends(get_db)):
     """Remove a button and return updated list."""
-    buttons = remove_admin_button(db, button_id)
+    buttons = remove_admin_button(button_id, db)
 
     if buttons is None:
         raise HTTPException(status_code=404, detail="Button not found")
@@ -70,7 +70,7 @@ async def remove_admin_button(button_id: int, request: Request, db: Session = De
 @router.put("/reorder")
 def reorder_buttons(updated_buttons: list[dict], db: Session = Depends(get_db)):
     """Update the order of admin buttons."""
-    success = reorder_admin_buttons(db, updated_buttons)
+    success = reorder_admin_buttons(updated_buttons, db)
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update button order")

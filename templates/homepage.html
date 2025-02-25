@@ -41,8 +41,6 @@
             <div class="spacer"></div>
 
             <h3 class="text-lg font-bold mb-3">Overlay Effects</h3>
-            <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded mb-3"
-                    onclick="openButtonModal(false)" >➕ Add Button</button>
 
             <!-- Button List -->
             <div id="button-container" class="space-y-2"
@@ -57,16 +55,6 @@
 
             <!-- Section for managing Channel Point Rewards -->
             <div>
-                <h2 class="text-lg font-bold mb-2">Channel Point Rewards</h2>
-
-                <!-- Button to open the modal -->
-                <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded mb-3" onclick="openGenericModal('reward-modal')">
-                    ➕ Create Reward
-                </button>
-            <button onclick="openGenericModal('rewards-modal')" class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 rounded shadow-md">
-                    🎁 Manage Rewards
-                </button>
-
                 <h2 class="text-lg font-bold mt-4 mb-2">Pending Redemptions</h2>
                 <div id="pending-rewards" class="overflow-y-auto bg-gray-800 p-4 rounded-lg h-96 w-full max-w-3xl mx-auto"
                     hx-get="/admin/twitch/pending-rewards"
@@ -122,27 +110,6 @@
 
             <div class="spacer"></div>
 
-            <!-- Manage Scheduled Messages Button -->
-            <button onclick="openGenericModal('scheduled-messages-modal')"
-                    class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded mb-3">
-                📅 Manage Scheduled Messages
-            </button>
-
-            <!-- Manage Message Pool Button -->
-            <button onclick="openGenericModal('message-pool-modal')"
-                    class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
-                🎲 Manage Message Pool
-            </button>
-
-            <div class="spacer"></div>
-
-            <button onclick="openGenericModal('todo-modal')"
-                    class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-1 text-sm font-bold rounded">
-                📋 Manage ToDos
-            </button>
-
-            <div class="spacer"></div>
-
             <div class="col-span-3 bg-gray-800 rounded-lg">
                 <h3 class="text-lg font-bold mb-3">Event Log</h3>
                 <div id="event-log" class="event-log-container p-4"
@@ -152,6 +119,66 @@
                     hx-swap="innerHTML"
                     onload="scrollEventsToBottom()">
                 </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="relative">
+        <!-- Button to open/close the menu -->
+        <button id="toggle-menu" class="fixed top-4 left-4 p-3 bg-gray-800 text-white rounded-md shadow-lg">
+            ☰ Actions
+        </button>
+
+        <!-- Sidebar -->
+        <div id="button-menu"
+            class="fixed top-0 left-0 h-full w-72 bg-gray-900 shadow-lg transform -translate-x-full transition-transform duration-300 p-4 overflow-y-auto">
+
+            <!-- Sidebar Header -->
+            <div class="sticky top-0 bg-gray-900 p-2 flex justify-between items-center border-b border-gray-700">
+                <h2 class="text-white text-lg">🎛️ Controls</h2>
+                <button id="close-menu" class="text-white text-xl">✖</button>
+            </div>
+
+            <!-- Sections -->
+            <div class="mt-4">
+                <h3 class="text-gray-300 text-sm font-semibold mb-2">Overlay Effects</h3>
+                <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-2 text-sm font-bold rounded"
+                        onclick="openButtonModal(false)">
+                    ➕ Add Effect
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <h3 class="text-gray-300 text-sm font-semibold mb-2">Channel Points</h3>
+                <button class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-2 text-sm font-bold rounded mb-2"
+                        onclick="openGenericModal('reward-modal')">
+                    ➕ Create Reward
+                </button>
+                <button onclick="openGenericModal('rewards-modal')"
+                        class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 text-sm font-bold rounded">
+                    🎁 Manage Rewards
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <h3 class="text-gray-300 text-sm font-semibold mb-2">Scheduler</h3>
+                <button onclick="openGenericModal('scheduled-messages-modal')"
+                        class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 text-sm font-bold rounded mb-2">
+                    📅 Manage Scheduled Messages
+                </button>
+                <button onclick="openGenericModal('message-pool-modal')"
+                        class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-2 text-sm font-bold rounded">
+                    🎲 Manage Message Pool
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <h3 class="text-gray-300 text-sm font-semibold mb-2">ToDos</h3>
+                <button onclick="openGenericModal('todo-modal')"
+                        class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-2 text-sm font-bold rounded">
+                    📋 Manage ToDos
+                </button>
             </div>
         </div>
     </div>

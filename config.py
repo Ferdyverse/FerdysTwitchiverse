@@ -28,6 +28,7 @@ APP_HOST = "0.0.0.0"
 APP_PORT = 8000
 APP_LOG_LEVEL = "info"
 APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+APP_DOMAIN = "http://localhost:8000"
 
 # Printer configuration
 PRINTER_VENDOR_ID = 0x0aa7  # WINCOR NIXDORF
@@ -50,6 +51,7 @@ else:
     TWITCH_CHANNEL = "Ferdyverse"
     TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
     TWITCH_API_BASE_URL = "https://api.twitch.tv/helix"
+    TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
 
 if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
     raise RuntimeError("🚨 Missing Twitch credentials! Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env")

@@ -4,6 +4,7 @@ import time
 import datetime
 import html
 import json
+import config
 from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, EventData
@@ -54,7 +55,7 @@ class TwitchChatBot:
 
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, scopes)
+                auth = UserAuthenticator(twitch=self.twitch, scopes=scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/bot/login")
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("bot", self.token, self.refresh_token)
 
@@ -62,7 +63,7 @@ class TwitchChatBot:
                 await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
             except:
                 logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, scopes)
+                auth = UserAuthenticator(twitch=self.twitch, scopes=scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/bot/login")
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("bot", self.token, self.refresh_token)
                 try:
@@ -240,8 +241,9 @@ class TwitchChatBot:
 
         db.close()
 
-    async def send_message(self, message: str):
+    async def send_message(self, message):
         """Send a chat message as the bot."""
+        logger.info(f"Chat: {self.chat}, Running: {self.is_running}")
         if not self.chat or not self.is_running:
             logger.error("❌ ChatBot is not running, cannot send message.")
             return

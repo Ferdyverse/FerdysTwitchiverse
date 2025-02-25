@@ -778,3 +778,26 @@ function loadTodos(status = null) {
     swap: "innerHTML",
   });
 }
+
+
+// Action sidebar
+const toggleButton = document.getElementById("toggle-menu");
+  const closeButton = document.getElementById("close-menu");
+  const menu = document.getElementById("button-menu");
+  const actionButtons = menu.querySelectorAll("button:not(#close-menu)");
+
+  // Toggle menu visibility
+  toggleButton.addEventListener("click", () => {
+      menu.classList.toggle("-translate-x-full");
+  });
+
+  closeButton.addEventListener("click", () => {
+      menu.classList.add("-translate-x-full");
+  });
+
+  // Close menu when clicking any action button
+  actionButtons.forEach(button => {
+      button.addEventListener("click", () => {
+          menu.classList.add("-translate-x-full");
+      });
+  });

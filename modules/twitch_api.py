@@ -2,7 +2,6 @@ import logging
 import config
 import datetime
 import aiohttp
-import time
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
@@ -127,7 +126,7 @@ class TwitchAPI:
 
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, self.scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
+                auth = UserAuthenticator(twitch=self.twitch, scopes=self.scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/api/login")
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("api", self.token, self.refresh_token)
 
@@ -135,7 +134,7 @@ class TwitchAPI:
                 await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
             except:
                 logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
-                auth = UserAuthenticator(self.twitch, self.scopes, force_verify=False, url="http://localhost:17564", host="0.0.0.0", port=17564)
+                auth = UserAuthenticator(twitch=self.twitch, scopes=self.scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/api/login")
                 self.token, self.refresh_token = await auth.authenticate()
                 save_tokens("api", self.token, self.refresh_token)
                 try:
@@ -165,6 +164,33 @@ class TwitchAPI:
         await self.start_eventsub()
 
         self.is_running = True
+
+    async def stop(self):
+        """Stops the Twitch API and EventSub WebSocket."""
+        if self.is_running:
+            logger.info("🛑 Stopping Twitch API and EventSub WebSocket...")
+
+            # Stop EventSub WebSocket
+            if hasattr(self, "eventsub") and self.eventsub:
+                try:
+                    await self.eventsub.stop()
+                    logger.info("✅ EventSub WebSocket stopped.")
+                except Exception as e:
+                    logger.error(f"❌ Error stopping EventSub WebSocket: {e}")
+
+            # Close Twitch API connection
+            try:
+                if self.twitch:
+                    await self.twitch.close()
+                    logger.info("✅ Twitch API connection closed.")
+            except Exception as e:
+                logger.error(f"❌ Error closing Twitch API connection: {e}")
+
+            self.is_running = False
+            logger.info("🛑 Twitch API stopped.")
+        else:
+            logger.info("⚠️ Twitch API was not running.")
+
 
     async def start_eventsub(self):
         """Initialize WebSocket EventSub and subscribe to events"""
@@ -253,7 +279,7 @@ class TwitchAPI:
         save_event("follow", user_id, "")
 
         if not self.test_mode:
-            save_overlay_data("", username)
+            save_overlay_data("last_follower", username)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
@@ -274,6 +300,9 @@ class TwitchAPI:
 
         # Save event
         save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
+
+        if not self.test_mode:
+            save_overlay_data("last_subscriber", username)
 
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
 
@@ -320,6 +349,9 @@ class TwitchAPI:
 
         # Save subscription event in database
         await save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
+
+        if not self.test_mode:
+            save_overlay_data("last_subscriber", username)
 
     async def handle_raid(self, data: dict):
         """Handle raid event, save it, and broadcast it"""
