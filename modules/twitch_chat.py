@@ -94,6 +94,10 @@ class TwitchChatBot:
         try:
             self.chat = await Chat(self.twitch)
 
+            if not self.chat:
+                logger.error("❌ Failed to initialize Chat instance!")
+                return
+
             # Register event handlers
             self.chat.register_event(ChatEvent.READY, self.on_ready)
             self.chat.register_event(ChatEvent.MESSAGE, self.on_message)
@@ -243,8 +247,11 @@ class TwitchChatBot:
 
     async def send_message(self, message):
         """Send a chat message as the bot."""
-        logger.info(f"Chat: {self.chat}, Running: {self.is_running}")
-        if not self.chat or not self.is_running:
+        if not self.chat:
+            logger.error("❌ Chat instance is not initialized!")
+            return
+
+        if not self.is_running:
             logger.error("❌ ChatBot is not running, cannot send message.")
             return
 

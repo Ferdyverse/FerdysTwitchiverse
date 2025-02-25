@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Response
+from fastapi import APIRouter, Depends, Form, Response, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from database.session import get_db
@@ -16,15 +16,6 @@ LOCAL_TIMEZONE = pytz.timezone("Europe/Berlin")
 FALLBACK_COLORS = [
     "#FF4500", "#32CD32", "#1E90FF", "#FFD700", "#FF69B4", "#8A2BE2", "#00CED1"
 ]
-
-# Initialize Twitch modules
-twitch_api = TwitchAPI(config.TWITCH_CLIENT_ID, config.TWITCH_CLIENT_SECRET)
-twitch_chat = TwitchChatBot(
-    client_id=config.TWITCH_CLIENT_ID,
-    client_secret=config.TWITCH_CLIENT_SECRET,
-    twitch_channel=config.TWITCH_CHANNEL,
-    twitch_api=twitch_api
-)
 
 @router.get("/", response_class=HTMLResponse)
 async def get_chat_messages(db: Session = Depends(get_db)):
@@ -78,13 +69,17 @@ async def get_chat_messages(db: Session = Depends(get_db)):
     return HTMLResponse(content=chat_html)
 
 @router.post("/send/")
-async def send_chat_message(
+async def send_chat_message(request: Request,
     message: str = Form(...),
-    sender: str = Form("streamer")  # Default to Streamer
+    sender: str = Form("streamer")
 ):
     """
     Send a chat message from the admin panel as either the Bot or the Streamer.
     """
+
+    twitch_chat = request.app.state.twitch_chat
+    twitch_api = request.app.state.twitch_api
+
     if not message.strip():
         return Response("", media_type="text/html")  # Don't send empty messages
 
