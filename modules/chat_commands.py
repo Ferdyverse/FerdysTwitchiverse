@@ -2,8 +2,10 @@ import logging
 import json
 import os
 import config
-from modules.db_manager import get_todos, save_todo, get_scheduled_messages, remove_scheduled_message, add_scheduled_message, get_messages_from_pool, add_message_to_pool
-
+from fastapi.responses import HTMLResponse
+from modules.db_manager import get_todos, save_todo
+from routes.hub import show_hub
+from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.chat_commands")
 
@@ -173,3 +175,23 @@ async def command_todos(bot, params: str, event):
     else:
         await bot.send_message(message)
 COMMANDS["todos"] = command_todos
+
+async def command_hub(bot, params: str, event):
+    """Handles the !hub command and filters text through show_hub."""
+
+    if not params:
+        await bot.send_message(f"⚠️ @{event.user.display_name}, bitte gib einen Text für den Hub an!")
+        return
+
+    hub_response = show_hub(params)  # Holt die HTMLResponse
+
+    if isinstance(hub_response, HTMLResponse):
+        hub_html = hub_response.body.decode("utf-8")  # Extrahiere den HTML-Code
+    else:
+        hub_html = str(hub_response)  # Falls kein HTMLResponse, konvertiere zu String
+
+    await broadcast_message({"html": {"content": hub_html, "lifetime": 100000}})
+
+    logger.info(f"✅ !hub processed: {params} -> {hub_html}")
+
+COMMANDS["hub"] = command_hub

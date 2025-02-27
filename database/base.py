@@ -88,10 +88,11 @@ class ScheduledMessage(Base):
     message = Column(String, nullable=True)
     interval = Column(Integer, nullable=False)
     next_run = Column(DateTime, nullable=False, default=datetime.datetime.now(datetime.timezone.utc))
-    enabled = Column(Boolean, default=True)
+    enabled = Column(Boolean, default=1)
 
 class ScheduledMessagePool(Base):
     __tablename__ = "scheduled_message_pool"
     id = Column(Integer, primary_key=True, autoincrement=True)
     category = Column(String, nullable=False, index=True)
     message = Column(String, nullable=False)
+    enabled = Column(Boolean, default=1)

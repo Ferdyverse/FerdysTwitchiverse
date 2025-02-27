@@ -118,3 +118,44 @@
     cursor: grab;
     padding-right: 10px;
 }
+
+#ad-countdown {
+    position: relative;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.5s ease-in-out;
+}
+
+.progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 5px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.progress-bar::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: limegreen;
+    transition: width 1s linear;
+}
+
+/* Blinking animation for last 60 seconds */
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+.blinking {
+    animation: blink 1s infinite;
+}

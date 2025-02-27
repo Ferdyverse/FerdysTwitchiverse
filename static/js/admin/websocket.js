@@ -38,10 +38,14 @@ function connectWebSocket() {
     if (data.admin_chat) {
         const { username, message, avatar, badges, color, timestamp } = data.admin_chat;
         updateAdminChat(username, message, avatar, badges, color, timestamp);
-    } else if (data.admin_alert && data.admin_alert.type === "ad_break") {
-        startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
+    } else if (data.admin_alert) {
+        if (data.admin_alert.type === "ad_break"){
+          startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
+        }
     } else if (data.event) {
         updateEventLog(data.event.message);
+    } else {
+      console.log(data)
     }
   };
 
@@ -155,20 +159,51 @@ function updateEventLog(message) {
  */
 function startAdCountdown(duration, startTime) {
   const adCountdown = document.getElementById("ad-countdown");
-  adCountdown.style.display = "block";
+  const progressBar = document.createElement("div");
+  progressBar.classList.add("progress-bar");
 
-  let remainingTime = duration - (Math.floor(Date.now() / 1000) - startTime);
+  if (!adCountdown.querySelector(".progress-bar")) {
+    adCountdown.appendChild(progressBar);
+  }
+
+  adCountdown.style.display = "flex";
+  adCountdown.style.opacity = "1";
+
+  function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  }
 
   function updateCountdown() {
+    const currentTime = Math.floor(Date.now() / 1000);
+    let remainingTime = (currentTime - startTime);
+
     if (remainingTime <= 0) {
-      adCountdown.style.display = "none";
+      adCountdown.innerHTML = `🚨 <strong>Ad Break Now!</strong>`;
+      progressBar.style.width = "0%";
+      adCountdown.classList.add("blinking");
+
+      // Hide after 5 seconds
+      setTimeout(() => {
+        adCountdown.style.opacity = "0";
+        setTimeout(() => (adCountdown.style.display = "none"), 500);
+      }, 5000);
       return;
     }
 
-    adCountdown.innerHTML = `⏳ Ad break starts in ${remainingTime} seconds...`;
-    remainingTime--;
+    // Apply blinking effect if < 60 seconds left
+    if (remainingTime <= 60) {
+      adCountdown.classList.add("blinking");
+    } else {
+      adCountdown.classList.remove("blinking");
+    }
 
-    setTimeout(updateCountdown, 1000);
+    adCountdown.innerHTML = `⏳ <strong>${formatTime(remainingTime)}</strong>`;
+    adCountdown.appendChild(progressBar);
+    progressBar.style.width = `${(remainingTime / duration) * 100}%`;
+
+    requestAnimationFrame(updateCountdown);
   }
 
   updateCountdown();

@@ -1,6 +1,7 @@
 # config.py
 from dotenv import load_dotenv
 import os
+import pytz
 
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path)
@@ -69,3 +70,4 @@ TOKEN_FILE = "twitch_tokens.json"
 SEQUENCES_FILE = "storage/sequences.yaml"
 STATE_FILE = "storage/state.json"
 COMMAND_RESPONSES_FILE = "storage/command_responses.json"
+LOCAL_TIMEZONE = pytz.timezone("Europe/Berlin")

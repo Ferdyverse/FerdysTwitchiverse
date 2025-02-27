@@ -18,6 +18,7 @@ from routes.chat import router as chat_router
 from routes.planets import router as planets_router
 from routes.print import router as print_router
 from routes.auth import router as auth_router
+from routes.ads import router as ads_router
 
 # Import modules
 from modules.websocket_handler import websocket_endpoint
@@ -28,13 +29,13 @@ MODULE_COLORS = {
     "twitch_api": "\033[95m",  # Purple
     "twitch_chat": "\033[94m",  # Blue
     "heat_api": "\033[93m",  # Yellow
-    "firebot_api": "\033[92m",  # Green
+    "event_queue_processor": "\033[92m",  # Green
     "printer_manager": "\033[96m",  # Cyan
     "uvicorn.error": "\033[91m",  # Red (Uvicorn errors)
     "uvicorn.lifespan": "\033[35m",  # Magenta
     "uvicorn": "\033[90m",  # Dark Gray (General Uvicorn logs)
     "database": "\033[38;5;208m",  # Orange
-    "scheduler": "\033[38;5;214m",  # Gold
+    "scheduled_messages": "\033[38;5;214m",  # Gold
     "queue_manager": "\033[38;5;33m",  # Deep Blue
 }
 
@@ -80,6 +81,7 @@ app.include_router(chat_router)
 app.include_router(planets_router)
 app.include_router(print_router)
 app.include_router(auth_router)
+app.include_router(ads_router)
 
 # WebSocket endpoint
 app.add_api_websocket_route("/ws", websocket_endpoint)

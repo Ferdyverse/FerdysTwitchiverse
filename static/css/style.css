@@ -513,13 +513,14 @@ canvas {
 .hub {
     z-index:99999999999999;
     position:absolute;
-    left: 60px;
+    left: 50%;
     bottom: 40px;
     font-family: 'helvetica', 'sans-serif';
     background-color: #000;
     border-radius: 12px;
     margin: 0px;
     padding: 9px 4px 8px 9px;
+    transform: translate(-50%,-0%);
 }
 
 .hub h1 {

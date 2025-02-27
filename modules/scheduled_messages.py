@@ -25,7 +25,7 @@ async def process_scheduled_messages(twitch_chat: TwitchChatBot):
         if msg.next_run <= now:
             new_delay = random.randint(0, msg.interval)  # Random delay within the interval
             msg.next_run = now + datetime.timedelta(seconds=new_delay)
-            logger.info(f"⏳ Delayed '{msg.message or msg.category}' by {new_delay} seconds.")
+            logger.info(f"⏳ Delayed '{msg.message if msg.message is not None else msg.category}' by {new_delay} seconds.")
 
     db.commit()
     db.close()
@@ -43,7 +43,9 @@ async def process_scheduled_messages(twitch_chat: TwitchChatBot):
         for msg in messages:
             message_text = msg.message
 
-            if not message_text and msg.category:
+            logger.info(f"text: {msg.message}, cat: {msg.category}")
+
+            if message_text is not None and msg.category:
                 logger.info(f"Searching for messages in {msg.category}")
                 # If message is empty, pick one from the pool
                 pool_messages = db.query(ScheduledMessagePool).filter(

@@ -2,6 +2,7 @@ import logging
 import config
 import datetime
 import aiohttp
+import pytz
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.type import AuthScope
@@ -489,18 +490,7 @@ class TwitchAPI:
 
         logger.info(f"📢 Upcoming ad break! Duration: {ad_length}s | Next ad at: {ad_start_time}")
 
-        # Save ad break as an event in the database
-        save_event("ad_break", None, f"Ad break starts in {ad_length}s (Next at {ad_start_time})")
-
-        # Broadcast ad break event with countdown for admin panel
-        await broadcast_message({
-            "admin_alert": {
-                "type": "ad_break",
-                "message": f"⏳ Ad break starts soon!",
-                "duration": ad_length,
-                "start_time": int(datetime.datetime.now(datetime.timezone.utc))  # Send current timestamp for countdown sync
-            }
-        })
+        self.get_ad_schedule()
 
     async def send_message_as_streamer(self, message: str):
         """
@@ -669,3 +659,27 @@ class TwitchAPI:
         """Load badge data on startup."""
         global BADGES
         BADGES = await self.fetch_badge_data()
+
+    async def get_ad_schedule(self):
+        """ Get the current AD Schedule"""
+        ads = await self.twitch.get_ad_schedule(config.TWITCH_CHANNEL_ID)
+        snooze_count = ads.snooze_count  # Number of available snoozes
+        snooze_refresh = ads.snooze_refresh_at  # When snoozes refresh
+        next_ad_time = ads.next_ad_at  # When the next ad will play
+        duration = ads.duration  # Duration of the next ad (in seconds)
+        last_ad = ads.last_ad_at  # Last played ad timestamp (can be None)
+        preroll_free_time = ads.preroll_free_time  # Time left without preroll ads (in seconds)
+
+        utc_next_ad_time = next_ad_time.replace(tzinfo=pytz.utc)  # Ensure UTC
+        local_next_ad_timestamp = int(utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE).timestamp())
+        local_next_ad_time = utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE)
+        current_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+
+        if ( local_next_ad_timestamp - current_timestamp ) < 1 :
+            return { "unknown" }
+
+        save_event("ad_break", None, f"Ad break starts at {local_next_ad_time.strftime("%H:%M:%S")} for {duration} seconds")
+
+        await broadcast_message({ "admin_alert": { "type": "ad_break", "duration": duration, "start_time": local_next_ad_timestamp}})
+
+        return { "duration": duration, "start_time": local_next_ad_time }
