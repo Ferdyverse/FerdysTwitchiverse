@@ -49,15 +49,13 @@
     height: 700px; /* Make it even bigger */
     overflow-y: scroll; /* Enable scrolling but hide scrollbar */
     padding-right: 5px; /* Prevent text from hitting the edge */
+    -ms-overflow-style: none;  /* Hide scrollbar for IE/Edge */
+    scrollbar-width: none;  /* Hide scrollbar for Firefox */
 }
 
 /* Hide scrollbar while keeping scrolling functionality */
 .event-log-container::-webkit-scrollbar {
     display: none;
-}
-.event-log-container {
-    -ms-overflow-style: none;  /* Hide scrollbar for IE/Edge */
-    scrollbar-width: none;  /* Hide scrollbar for Firefox */
 }
 
 /* Individual event items */
@@ -158,4 +156,22 @@
 
 .blinking {
     animation: blink 1s infinite;
+}
+
+.first-marker {
+    background-color: gold;
+    color: black;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 5px;
+    text-transform: uppercase;
+    animation: pulse 1s infinite alternate;
+}
+
+/* Optional: Add a pulse animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    100% { opacity: 0.6; }
 }

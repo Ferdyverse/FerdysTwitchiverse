@@ -475,10 +475,11 @@ class TwitchAPI:
 
     async def handle_deleted_message(self, data: dict):
         """Handle deleted messages"""
-        target = data.event.user_name
+        logger.info(vars(data.event))
+        target = data.event.target_user_name
         logger.info(f"🗑️ Message deleted from {target}")
 
-        save_event("message_deleted", int(data.event.user_id), f"Message deleted")
+        save_event("message_deleted", int(data.event.target_user_id), f"Message deleted")
         await broadcast_message({"alert": {"type": "message_deleted", "user": target}})
 
     async def handle_ad_break(self, data: dict):
@@ -659,6 +660,9 @@ class TwitchAPI:
         """Load badge data on startup."""
         global BADGES
         BADGES = await self.fetch_badge_data()
+
+    async def delete_message(self, message_id):
+        return await self.twitch.delete_chat_message(config.TWITCH_CHANNEL_ID, config.TWITCH_CHANNEL_ID, message_id)
 
     async def get_ad_schedule(self):
         """ Get the current AD Schedule"""

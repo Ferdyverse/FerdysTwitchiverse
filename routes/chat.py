@@ -52,7 +52,7 @@ async def get_chat_messages(db: Session = Depends(get_db)):
         chat_color = "bg-red-400 text-black-600" if important else "bg-gray-900 text-gray-300"
         chat_html += f"""
             <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
-                data-message-id="{msg.id}" data-user-id="{msg.twitch_id}">
+                data-message-id="{msg.message_id}" data-user-id="{msg.twitch_id}">
                 <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
                 <div class="chat-content flex flex-col w-full">
                     <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">

@@ -17,7 +17,7 @@ def get_chat_messages(limit: int = 50, db: Session = Depends(get_db)):
 def delete_chat_message(message_id: int, db: Session = Depends(get_db)):
     """Delete a chat message by ID from the database."""
     try:
-        message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+        message = db.query(ChatMessage).filter(ChatMessage.message_id == message_id).first()
         if not message:
             return {"error": "Message not found"}
 
@@ -52,6 +52,7 @@ def get_recent_chat_messages(limit: int = 50, db: Session = Depends(get_db)):
             ChatMessage.id,
             ChatMessage.message,
             ChatMessage.timestamp,
+            ChatMessage.message_id,
             Viewer.display_name.label("username"),
             Viewer.profile_image_url.label("avatar"),
             Viewer.color.label("user_color"),

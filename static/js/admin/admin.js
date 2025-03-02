@@ -339,37 +339,126 @@ async function triggerButtonAction(action, data, ask = false) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  const chatBox = document.getElementById("chat-box");
-  const chatMenu = document.getElementById("chat-context-menu");
+document.addEventListener("DOMContentLoaded", () => {
+    const chatBox = document.getElementById("chat-box");
+    const contextMenu = document.getElementById("chat-context-menu");
+    let selectedMessage = null;
+    let selectedMessageId = null; // Store message ID
+    let selectedUser = null; // Store user ID
 
-  chatBox.addEventListener("contextmenu", function (event) {
-    event.preventDefault();
+    chatBox.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        const messageElement = event.target.closest(".chat-message");
+        if (!messageElement) return;
 
-    // Find the clicked chat message
-    let messageElement = event.target.closest(".chat-message");
-    if (!messageElement) return;
+        selectedMessage = messageElement;
+        selectedMessageId = selectedMessage.getAttribute("data-message-id"); // Get message ID
+        selectedUser = selectedMessage.getAttribute("data-user-id"); // Get user ID
+        const username = selectedMessage.querySelector(".chat-username").textContent.trim();
 
-    // Store message and user info
-    selectedMessage = messageElement.dataset.messageId;
-    selectedUser = messageElement.dataset.userId;
+        document.getElementById("context-username").textContent = `@${username}`;
+        contextMenu.style.top = `${event.pageY}px`;
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.classList.remove("hidden");
+    });
 
-    // Position the menu at cursor
-    chatMenu.style.left = `${event.pageX}px`;
-    chatMenu.style.top = `${event.pageY}px`;
-    chatMenu.classList.remove("hidden");
-  });
+    document.addEventListener("click", (event) => {
+        if (!contextMenu.contains(event.target)) {
+            contextMenu.classList.add("hidden");
+        }
+    });
 
-  // Hide menu when clicking outside
-  document.addEventListener("click", function (event) {
-    if (!event.target.closest("#chat-context-menu")) {
-      chatMenu.classList.add("hidden");
-    }
-  });
+    // Copy Message
+    window.copyMessage = () => {
+        if (!selectedMessage) return;
+        const text = selectedMessage.querySelector(".chat-text").textContent.trim();
+        navigator.clipboard.writeText(text);
+        showFlashMessage("Message copied to clipboard!", "success");
+        contextMenu.classList.add("hidden");
+    };
 
-  scrollChatToBottom();
-  scrollEventsToBottom();
-  initSortable();
+    // Pin Message
+    window.pinMessage = () => {
+        if (!selectedMessage) return;
+        const pinnedContainer = document.getElementById("pinned-messages");
+        if (!pinnedContainer) return;
+
+        const clonedMessage = selectedMessage.cloneNode(true);
+        clonedMessage.classList.add("border-yellow-400", "bg-yellow-900/20", "p-2");
+        pinnedContainer.appendChild(clonedMessage);
+
+        showFlashMessage("Message pinned!", "success");
+        contextMenu.classList.add("hidden");
+    };
+
+    // Delete Message
+    window.deleteMessage = async () => {
+        if (!selectedMessageId) return;
+
+        const response = await fetch(`/admin/twitch/delete-message/${selectedMessageId}`, {
+            method: "DELETE",
+        });
+
+        const result = await response.json();
+        showFlashMessage(
+            result.message,
+            result.status === "success" ? "success" : "error"
+        );
+
+        contextMenu.classList.add("hidden");
+        htmx.ajax("GET", "/chat", {
+            target: "#chat-box",
+            swap: "innerHTML",
+        });
+    };
+
+    // Ban User
+    window.banUser = async () => {
+        if (!selectedUser) return;
+        const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
+            method: "POST",
+        });
+
+        const result = await response.json();
+        showFlashMessage(
+            result.message,
+            result.status === "success" ? "success" : "error"
+        );
+
+        contextMenu.classList.add("hidden");
+    };
+
+    // Timeout User
+    window.timeoutUser = async () => {
+        if (!selectedUser) return;
+        const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
+            method: "POST",
+        });
+
+        const result = await response.json();
+        showFlashMessage(
+            result.message,
+            result.status === "success" ? "success" : "error"
+        );
+
+        contextMenu.classList.add("hidden");
+    };
+
+    // Update Viewer
+    window.updateViewer = async () => {
+        if (!selectedUser) return;
+        const response = await fetch(`/admin/twitch/update-viewer/${selectedUser}`, {
+            method: "POST",
+        });
+
+        const result = await response.json();
+        showFlashMessage(
+            result.message,
+            result.status === "success" ? "success" : "error"
+        );
+
+        contextMenu.classList.add("hidden");
+    };
 });
 
 function applyVisualReordering(buttons) {
@@ -377,73 +466,6 @@ function applyVisualReordering(buttons) {
   btn_container.innerHTML = ""; // Clear container
   buttons.forEach((button) => btn_container.appendChild(button)); // Re-add buttons in new order
   console.log("🔄 Applied visual reordering after first move!");
-}
-
-async function deleteMessage() {
-  if (!selectedMessage) return;
-  const response = await fetch(
-    `/admin/twitch/delete-message/${selectedMessage}`,
-    {
-      method: "DELETE",
-    }
-  );
-
-  const result = await response.json();
-  showFlashMessage(
-    result.message,
-    result.status === "success" ? "success" : "error"
-  );
-
-  document.getElementById("chat-context-menu").classList.add("hidden");
-  htmx.ajax("GET", "/chat", {
-    target: "#pending-rewards",
-    swap: "innerHTML",
-  });
-}
-
-async function banUser() {
-  if (!selectedUser) return;
-  const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
-    method: "POST",
-  });
-
-  const result = await response.json();
-  showFlashMessage(
-    result.message,
-    result.status === "success" ? "success" : "error"
-  );
-
-  document.getElementById("chat-context-menu").classList.add("hidden");
-}
-
-async function timeoutUser() {
-  if (!selectedUser) return;
-  const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
-    method: "POST",
-  });
-
-  const result = await response.json();
-  showFlashMessage(
-    result.message,
-    result.status === "success" ? "success" : "error"
-  );
-
-  document.getElementById("chat-context-menu").classList.add("hidden");
-}
-
-async function updateViewer() {
-  if (!selectedUser) return;
-  const response = await fetch(`/admin/twitch/update-viewer/${selectedUser}`, {
-    method: "POST",
-  });
-
-  const result = await response.json();
-  showFlashMessage(
-    result.message,
-    result.status === "success" ? "success" : "error"
-  );
-
-  document.getElementById("chat-context-menu").classList.add("hidden");
 }
 
 function initSortable() {

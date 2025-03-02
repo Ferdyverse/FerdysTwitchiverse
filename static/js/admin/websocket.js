@@ -36,8 +36,8 @@ function connectWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.admin_chat) {
-        const { username, message, avatar, badges, color, timestamp } = data.admin_chat;
-        updateAdminChat(username, message, avatar, badges, color, timestamp);
+        const { username, message, avatar, badges, color, timestamp, message_id, is_first } = data.admin_chat;
+        updateAdminChat(username, message, avatar, badges, color, timestamp, message_id, is_first);
     } else if (data.admin_alert) {
         if (data.admin_alert.type === "ad_break"){
           startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
@@ -68,17 +68,19 @@ function connectWebSocket() {
 /**
  * Update Admin Chat Box (WebSocket Messages)
  */
-function updateAdminChat(username, message, avatarUrl = "", badges = [], userColor = "#ffffff", timestamp = null) {
+function updateAdminChat(username, message, avatarUrl = "", badges = [], userColor = "#ffffff", timestamp = null, message_id = null, is_first = false) {
     const chatBox = document.getElementById("chat-box");
 
     // Convert timestamp to local time ⏰
     const now = timestamp ? new Date(timestamp * 1000) : new Date();
     const localTime = now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 
+    console.log(is_first)
+
     // Create message container
     const newMessage = document.createElement("div");
     newMessage.classList.add("chat-message", "flex", "items-start", "space-x-3", "p-3", "rounded-md", "bg-gray-800", "border", "border-gray-700", "mb-2", "shadow-sm");
-
+    newMessage.dataset.messageId = message_id;
     // Avatar (Optional)
     const avatar = avatarUrl
         ? `<img src="${avatarUrl}" alt="${username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">`
@@ -102,7 +104,10 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
 
     // Message HTML
     newMessage.innerHTML = `
-        ${avatar}
+        <div class="chat-avatar-container flex flex-col items-center">
+          ${avatar}
+          ${is_first ? '<span class="first-marker mt-1">First</span>' : ''}
+      </div>
         <div class="chat-content flex flex-col w-full">
             <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
                 <div class="chat-username font-bold flex items-center" style="color: ${userColor};">

@@ -12,22 +12,45 @@ import html
 logger = logging.getLogger("uvicorn.error.twitch")
 router = APIRouter(prefix="/twitch", tags=["Twitch Integration"])
 
-@router.delete("/delete-message/{message_id}", response_class=HTMLResponse)
+@router.delete("/delete-message/{message_id}")
 async def delete_chat_message_endpoint(
-    message_id: int, request: Request, db: Session = Depends(get_db)
+    message_id: str, request: Request, db: Session = Depends(get_db)
 ):
     """Delete a chat message from Twitch and the local database."""
     twitch_api = request.app.state.twitch_api
 
     if not twitch_api:
+        logger.info("Twitch API Fail")
         return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
 
-    result = delete_chat_message(db, twitch_api, message_id)
+    await twitch_api.delete_message(message_id)
+
+    result = delete_chat_message(message_id, db)
 
     # Broadcast chat update to UI
     await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
 
-    return await get_chat_messages(db)
+    return True
+
+@router.post("/pin-message/{message_id}")
+async def pin_chat_message_endpoint(
+    message_id: str, request: Request, db: Session = Depends(get_db)
+):
+    """Delete a chat message from Twitch and the local database."""
+    twitch_api = request.app.state.twitch_api
+
+    if not twitch_api:
+        logger.info("Twitch API Fail")
+        return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
+
+    await twitch_api.delete_message(message_id)
+
+    result = delete_chat_message(message_id, db)
+
+    # Broadcast chat update to UI
+    await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
+
+    return True
 
 @router.post("/create-reward/")
 async def create_channel_point_reward(request: Request):

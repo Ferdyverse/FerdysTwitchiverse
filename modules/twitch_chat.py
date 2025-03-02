@@ -146,6 +146,7 @@ class TwitchChatBot:
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0
         is_reply = event.reply_parent_msg_id is not None  # Check if message is a reply
+        is_first = event.first
 
         # Check if user exists in DB first
         existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
@@ -209,9 +210,9 @@ class TwitchChatBot:
         update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
 
         # Prepare message for overlay
-        message_id = f"{username}_{int(time.time())}"  # Unique ID
+        ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
         chat_message = {
-            "id": message_id,
+            "id": ov_message_id,
             "user": username,
             "message": message,
             "timestamp": int(time.time()) + 19,  # Message disappears after 19s
@@ -228,6 +229,8 @@ class TwitchChatBot:
         # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
+        is_first = True
+
         # Send chat update to admin panel (single latest message)
         admin_chat_message = {
             "admin_chat": {
@@ -235,7 +238,9 @@ class TwitchChatBot:
                 "message": message,
                 "avatar": avatar_url,
                 "badges": user_badges,
-                "color": user_color
+                "color": user_color,
+                "message_id": message_id,
+                "is_first": is_first
             }
         }
         await broadcast_message(admin_chat_message)
