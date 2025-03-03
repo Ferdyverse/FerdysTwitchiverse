@@ -49,17 +49,20 @@ async def get_chat_messages(db: Session = Depends(get_db)):
             important = True
 
         # HTML structure (Matches WebSocket messages)
-        chat_color = "bg-red-400 text-black-600" if important else "bg-gray-900 text-gray-300"
+        ping_marker = '<span class="ping-marker mt-1">Ping</span>' if important else ""
         chat_html += f"""
             <div class="chat-message flex items-start space-x-3 p-3 rounded-md bg-gray-800 border border-gray-700 mb-2 shadow-sm"
                 data-message-id="{msg.message_id}" data-user-id="{msg.twitch_id}">
-                <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
+                <div class="chat-avatar-container flex flex-col items-center justify-center">
+                    <img src="{avatar_url}" alt="{username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">
+                    {ping_marker}
+                </div>
                 <div class="chat-content flex flex-col w-full">
                     <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
                         <div class="chat-username font-bold" style="color: {user_color};">{badge_html}{username}</div>
                         <div class="chat-timestamp text-xs">{local_time}</div>
                     </div>
-                    <div class="chat-text break-words {chat_color} p-2 rounded-lg w-fit max-w-3xl">
+                    <div class="chat-text break-words bg-gray-900 text-gray-300 p-2 rounded-lg w-fit max-w-3xl">
                         {msg.message}
                     </div>
                 </div>

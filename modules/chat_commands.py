@@ -68,7 +68,7 @@ async def handle_command(bot, command_name: str, params: str, event):
         await handler_function(bot, params, event)
     else:
         logger.warning(f"⚠️ Unknown command: !{command_name} (no handler found)")
-        await bot.send_message(f"❌ Unknown command: !{command_name}")
+        # await bot.send_message(f"❌ Unknown command: !{command_name}")
 
 
 # ─── Command Handlers ───────────────────────────────────────────────

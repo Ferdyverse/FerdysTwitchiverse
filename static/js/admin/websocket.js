@@ -94,20 +94,18 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
             .join("");
     }
 
-    let important = false;
+    let is_ping = false;
     if (message && message.trim().toLowerCase().includes("!ping")) {
-        important = true;
+        is_ping = true;
     }
-
-    // Set background color based on importance
-    let chatColor = important ? "bg-red-400 text-black-600" : "bg-gray-900 text-gray-300";
 
     // Message HTML
     newMessage.innerHTML = `
-        <div class="chat-avatar-container flex flex-col items-center">
+        <div class="chat-avatar-container flex flex-col items-center justify-center">
           ${avatar}
           ${is_first ? '<span class="first-marker mt-1">First</span>' : ''}
-      </div>
+          ${is_ping ? '<span class="ping-marker mt-1">Ping</span>' : ''}
+        </div>
         <div class="chat-content flex flex-col w-full">
             <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
                 <div class="chat-username font-bold flex items-center" style="color: ${userColor};">
@@ -115,7 +113,7 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
                 </div>
                 <div class="chat-timestamp text-xs">${localTime}</div>
             </div>
-            <div class="chat-text ${chatColor} break-words p-2 rounded-lg w-fit max-w-3xl">
+            <div class="chat-text bg-gray-900 text-gray-300 break-words p-2 rounded-lg w-fit max-w-3xl">
                 ${message}
             </div>
         </div>

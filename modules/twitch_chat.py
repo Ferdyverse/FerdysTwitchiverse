@@ -229,8 +229,6 @@ class TwitchChatBot:
         # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        is_first = True
-
         # Send chat update to admin panel (single latest message)
         admin_chat_message = {
             "admin_chat": {
