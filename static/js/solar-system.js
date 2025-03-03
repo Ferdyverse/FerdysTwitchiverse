@@ -67,9 +67,7 @@ function createStars() {
 }
 createStars();
 
-// Generate a cartoonish sun texture
-// Function to generate a cartoonish sun texture without a border
-// Function to generate a cartoonish sun texture without a border
+// Generate a sun
 function generateCartoonSunTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -109,9 +107,6 @@ const sunMaterial = new THREE.MeshStandardMaterial({
 });
 const sun = new THREE.Mesh(sunGeometry, sunMaterial);
 scene.add(sun);
-
-// Add a PointLight for visible pulsing light effect
-
 
 // Function to animate the sun pulsing light
 function animateSun() {

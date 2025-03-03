@@ -80,7 +80,7 @@ async function submitButtonForm() {
 
   const buttonId = submitButton.getAttribute("data-button-id");
   const isEdit = buttonId && buttonId !== "null";
-  const promptChecked = document.getElementById("modal-prompt").checked; // ✅ Prompt-Checkbox auslesen
+  const promptChecked = document.getElementById("modal-prompt").checked;
 
   const jsonData = {
     label: document.getElementById("modal-label").value.trim(),
@@ -167,7 +167,7 @@ async function createReward() {
     return;
   }
 
-  const response = await fetch("/admin/twitch/create-reward/", {
+  const response = await fetch("/admin/twitch/reward/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -195,7 +195,7 @@ async function createReward() {
 
 // === Channel Point Redemptions ===
 async function fulfillRedemption(rewardId, redeemId) {
-  const response = await fetch("/admin/twitch/fulfill-redemption", {
+  const response = await fetch("/admin/twitch/redemption/fulfill", {
     method: "POST",
     body: JSON.stringify({ reward_id: rewardId, redeem_id: redeemId }),
     headers: { "Content-Type": "application/json" },
@@ -204,14 +204,14 @@ async function fulfillRedemption(rewardId, redeemId) {
   const result = await response.json();
   showFlashMessage(result.message, result.status);
 
-  htmx.ajax("GET", "/admin/twitch/pending-rewards", {
+  htmx.ajax("GET", "/admin/twitch/rewards/pending", {
     target: "#pending-rewards",
     swap: "innerHTML",
   });
 }
 
 async function cancelRedemption(rewardId, redeemId) {
-  const response = await fetch("/admin/twitch/cancel-redemption", {
+  const response = await fetch("/admin/twitch/redemption/cancel", {
     method: "POST",
     body: JSON.stringify({ reward_id: rewardId, redeem_id: redeemId }),
     headers: { "Content-Type": "application/json" },
@@ -220,7 +220,7 @@ async function cancelRedemption(rewardId, redeemId) {
   const result = await response.json();
   showFlashMessage(result.message, result.status);
 
-  htmx.ajax("GET", "/admin/twitch/pending-rewards", {
+  htmx.ajax("GET", "/admin/twitch/rewards/pending", {
     target: "#pending-rewards",
     swap: "innerHTML",
   });
@@ -275,7 +275,7 @@ async function deleteReward(rewardId) {
   if (!confirmDelete) return;
 
   try {
-    const response = await fetch(`/admin/twitch/delete-reward/${rewardId}`, {
+    const response = await fetch(`/admin/twitch/reward/delete/${rewardId}`, {
       method: "DELETE",
     });
 
@@ -362,6 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
         contextMenu.classList.remove("hidden");
     });
 
+    // Hide context menu
     document.addEventListener("click", (event) => {
         if (!contextMenu.contains(event.target)) {
             contextMenu.classList.add("hidden");
@@ -521,7 +522,7 @@ async function submitScheduledMessage(event) {
   const data = {
     message: messageText,
     interval: parseInt(interval, 10),
-    category: category || null, // ✅ Handle "No Category" case
+    category: category || null,
   };
 
   const url = messageId
@@ -539,8 +540,8 @@ async function submitScheduledMessage(event) {
     const result = await response.json();
     if (result.success) {
       console.log("✅ Scheduled message updated!");
-      reloadScheduledMessages(); // ✅ Reload table after success
-      resetScheduledMessageForm(); // ✅ Reset form but KEEP modal open
+      reloadScheduledMessages();
+      resetScheduledMessageForm();
     } else {
       console.error("❌ Failed to update scheduled message:", result.error);
     }
@@ -564,7 +565,7 @@ async function removeScheduledMessage(messageId) {
     });
     if (response.ok) {
       console.log("✅ Scheduled message deleted!");
-      reloadScheduledMessages(); // ✅ Reload table
+      reloadScheduledMessages();
     }
   } catch (error) {
     console.error("❌ Failed to delete scheduled message:", error);
@@ -670,7 +671,7 @@ async function removePoolMessage(messageId) {
     });
     if (response.ok) {
       console.log("✅ Pool message deleted!");
-      reloadMessagePool(); // ✅ Reload table
+      reloadMessagePool();
     }
   } catch (error) {
     console.error("❌ Failed to delete message from pool:", error);
