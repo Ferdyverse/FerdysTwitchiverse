@@ -17,7 +17,6 @@ from routes.viewers import router as viewers_router
 from routes.chat import router as chat_router
 from routes.planets import router as planets_router
 from routes.print import router as print_router
-from routes.auth import router as auth_router
 from routes.ads import router as ads_router
 
 # Import modules
@@ -80,7 +79,6 @@ app.include_router(viewers_router)
 app.include_router(chat_router)
 app.include_router(planets_router)
 app.include_router(print_router)
-app.include_router(auth_router)
 app.include_router(ads_router)
 
 # WebSocket endpoint
