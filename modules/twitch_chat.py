@@ -55,21 +55,19 @@ class TwitchChatBot:
 
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(twitch=self.twitch, scopes=scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/bot/login")
-                self.token, self.refresh_token = await auth.authenticate()
+                code_flow = CodeFlow(self.twitch, scopes)
+                code, url = await code_flow.get_code()
+                logger.info(f"📢 Open the following URL to authenticate with twitch (Bot): {url}")
+                token, refresh = await code_flow.wait_for_auth_complete()
+                self.token = token
+                self.refresh_token = refresh
                 save_tokens("bot", self.token, self.refresh_token)
 
             try:
                 await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
             except:
-                logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
-                auth = UserAuthenticator(twitch=self.twitch, scopes=scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/bot/login")
-                self.token, self.refresh_token = await auth.authenticate()
-                save_tokens("bot", self.token, self.refresh_token)
-                try:
-                    await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
-                except:
-                    return False
+                logger.warning("⚠️ Failed to authenticate with twitch!")
+                return False
 
             logger.info("✅ Twitch authentication successful.")
             return True

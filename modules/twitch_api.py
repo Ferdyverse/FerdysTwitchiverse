@@ -4,7 +4,7 @@ import datetime
 import aiohttp
 import pytz
 from twitchAPI.twitch import Twitch
-from twitchAPI.oauth import UserAuthenticator
+from twitchAPI.oauth import UserAuthenticator, CodeFlow
 from twitchAPI.type import AuthScope
 from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
@@ -118,30 +118,29 @@ class TwitchAPI:
 
             self.twitch = await Twitch(self.client_id, self.client_secret)
 
+            # Codeflow Auth
+            if not self.token or not self.refresh_token:
+                logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
+                code_flow = CodeFlow(self.twitch, self.scopes)
+                code, url = await code_flow.get_code()
+                logger.info(f"📢 Open the following URL to authenticate with twitch (Streamer): {url}")
+                token, refresh = await code_flow.wait_for_auth_complete()
+                self.token = token
+                self.refresh_token = refresh
+                save_tokens("api", self.token, self.refresh_token)
+
+            try:
+                await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
+            except:
+                logger.warning("⚠️ Failed to authenticate with twitch!")
+                return False
+
             app_token = self.twitch.get_app_token()
 
             self.auth_headers = {
                 "Authorization": f"Bearer {app_token}",
                 "Client-Id": self.client_id
             }
-
-            if not self.token or not self.refresh_token:
-                logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                auth = UserAuthenticator(twitch=self.twitch, scopes=self.scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/api/login")
-                self.token, self.refresh_token = await auth.authenticate()
-                save_tokens("api", self.token, self.refresh_token)
-
-            try:
-                await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
-            except:
-                logger.warning("⚠️ No valid stored user tokens found. Running full authentication...")
-                auth = UserAuthenticator(twitch=self.twitch, scopes=self.scopes, force_verify=True, url=f"{config.APP_DOMAIN}/auth/api/login")
-                self.token, self.refresh_token = await auth.authenticate()
-                save_tokens("api", self.token, self.refresh_token)
-                try:
-                    await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
-                except:
-                    return False
 
             logger.info("✅ Twitch authentication successful.")
             return True
@@ -679,10 +678,12 @@ class TwitchAPI:
         local_next_ad_time = utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE)
         current_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
+        formated_time = local_next_ad_time.strftime("%H:%M:%S")
+
         if ( local_next_ad_timestamp - current_timestamp ) < 1 :
             return { "unknown" }
 
-        save_event("ad_break", None, f"Ad break starts at {local_next_ad_time.strftime("%H:%M:%S")} for {duration} seconds")
+        save_event("ad_break", None, f"Ad break starts at {formated_time} for {duration} seconds")
 
         await broadcast_message({ "admin_alert": { "type": "ad_break", "duration": duration, "start_time": local_next_ad_timestamp}})
 
