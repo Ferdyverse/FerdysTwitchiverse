@@ -8,7 +8,7 @@ import config
 from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, EventData
-from twitchAPI.oauth import UserAuthenticator
+from twitchAPI.oauth import UserAuthenticator, CodeFlow
 from twitchAPI.type import AuthScope
 from modules.twitch_api import TwitchAPI
 from modules.misc import save_tokens, load_tokens, replace_emotes
