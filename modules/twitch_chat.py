@@ -4,16 +4,20 @@ import time
 import datetime
 import html
 import json
-import config
-from modules.db_manager import get_db, save_chat_message, update_viewer_stats, save_viewer, Viewer
+
 from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, ChatEvent, EventData
-from twitchAPI.oauth import UserAuthenticator, CodeFlow
+from twitchAPI.oauth import CodeFlow
 from twitchAPI.type import AuthScope
 from modules.twitch_api import TwitchAPI
 from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
 from modules.chat_commands import handle_command
+
+from database.base import Viewer
+from database.session import get_db
+from database.crud.viewers import save_viewer, update_viewer_stats
+from database.crud.chat import save_chat_message
 
 logger = logging.getLogger("uvicorn.error.twitch_chat")
 

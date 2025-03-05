@@ -6,7 +6,7 @@ import logging
 import config
 from modules.websocket_handler import broadcast_message
 from modules.state_manager import check_condition, set_condition
-from modules.db_manager import complete_todo
+from database.crud.todos import complete_todo
 
 logger = logging.getLogger("uvicorn.error.sequence_runner")
 

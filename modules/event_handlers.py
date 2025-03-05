@@ -1,7 +1,8 @@
 import random
 import math
 import logging
-from modules.db_manager import save_data, save_planet
+from database.crud.overlay import save_overlay_data
+from database.crud.planets import save_planet
 from modules.schemas import AlertSchema, GoalSchema, IconSchema, HtmlSchema, ClickableObject
 
 logger = logging.getLogger("uvicorn.error.events")
@@ -61,10 +62,10 @@ async def handle_alert(alert):
     """Handles Twitch alerts like follows, subs, and raids."""
     try:
         if alert.type == "follower":
-            save_data("last_follower", alert.user)
+            save_overlay_data("last_follower", alert.user)
             logger.info(f"📌 Saved last follower: {alert.user}")
         elif alert.type == "subscriber":
-            save_data("last_subscriber", alert.user)
+            save_overlay_data("last_subscriber", alert.user)
             logger.info(f"📌 Saved last subscriber: {alert.user}")
         elif alert.type == "raid":
             user = alert.user
@@ -82,9 +83,9 @@ async def handle_alert(alert):
 async def handle_goal(goal):
     """Handles goal updates."""
     try:
-        save_data("goal_text", goal.text)
-        save_data("goal_current", goal.current)
-        save_data("goal_target", goal.target)
+        save_overlay_data("goal_text", goal.text)
+        save_overlay_data("goal_current", goal.current)
+        save_overlay_data("goal_target", goal.target)
         logger.info(f"🎯 Goal updated: {goal.text} ({goal.current}/{goal.target})")
 
         return {"status": "success", "message": "Goal updated successfully"}
@@ -95,7 +96,7 @@ async def handle_goal(goal):
 async def handle_message(message):
     """Handles custom overlay messages."""
     try:
-        save_data("last_message", message)
+        save_overlay_data("last_message", message)
         logger.info(f"💬 Message received: {message}")
 
         return {"status": "success", "message": "Message processed successfully"}
@@ -119,8 +120,8 @@ async def handle_icon(icon):
 async def handle_html(html):
     """Handles overlay HTML updates."""
     try:
-        save_data("html_content", html.content)
-        save_data("html_lifetime", html.lifetime)
+        save_overlay_data("html_content", html.content)
+        save_overlay_data("html_lifetime", html.lifetime)
         logger.info(f"🖼️ HTML content received: {html.content} (Lifetime: {html.lifetime}ms)")
         return {"status": "success", "message": "HTML saved"}
     except Exception as e:

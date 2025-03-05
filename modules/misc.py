@@ -3,9 +3,7 @@ import os
 import config
 import logging
 import yaml
-import datetime
 import html
-import aiohttp
 
 logger = logging.getLogger("uvicorn.error.misc")
 

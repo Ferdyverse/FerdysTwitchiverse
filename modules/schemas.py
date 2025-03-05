@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, RootModel
-from typing import List, Optional, Dict, Union, Any
+from typing import List, Optional
 
 class PrintElement(BaseModel):
     type: str = Field(

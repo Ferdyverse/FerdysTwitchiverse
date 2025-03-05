@@ -3,7 +3,7 @@ import json
 import os
 import config
 from fastapi.responses import HTMLResponse
-from modules.db_manager import get_todos, save_todo
+from database.crud.todos import get_todos, save_todo
 from routes.hub import show_hub
 from modules.websocket_handler import broadcast_message
 
