@@ -26,7 +26,7 @@ async def process_alert_queue(app):
     twitch_api = app.state.twitch_api
     twitch_chat = app.state.twitch_chat
     obs = app.state.obs
-    alert_queue = app.state.event_queue
+    alert_queue = app.state.alert_queue
 
     db = next(get_db())
     try:

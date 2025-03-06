@@ -34,9 +34,17 @@ REAL_SCOPES = [
     AuthScope.MODERATOR_READ_CHATTERS,
     AuthScope.MODERATOR_MANAGE_CHAT_MESSAGES,
     AuthScope.MODERATOR_READ_FOLLOWERS,
+    AuthScope.MODERATOR_MANAGE_AUTOMOD,
     AuthScope.MODERATOR_MANAGE_SHOUTOUTS,
     AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS,
+    AuthScope.MODERATOR_MANAGE_BLOCKED_TERMS,
+    AuthScope.MODERATOR_MANAGE_CHAT_SETTINGS,
+    AuthScope.MODERATOR_MANAGE_UNBAN_REQUESTS,
+    AuthScope.MODERATOR_MANAGE_BANNED_USERS,
+    AuthScope.MODERATOR_MANAGE_WARNINGS,
+    AuthScope.MODERATOR_READ_MODERATORS,
     AuthScope.MODERATION_READ,
+    AuthScope.MODERATOR_READ_VIPS,
     AuthScope.USER_READ_EMAIL,
     AuthScope.USER_READ_FOLLOWS,
     AuthScope.USER_READ_CHAT,
@@ -126,18 +134,12 @@ class TwitchAPI:
             # Codeflow Auth
             if not self.token or not self.refresh_token:
                 logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
-                code_flow = CodeFlow(self.twitch, self.scopes)
-                code, url = await code_flow.get_code()
-                logger.info(f"📢 Open the following URL to authenticate with twitch (Streamer): {url}")
-                token, refresh = await code_flow.wait_for_auth_complete()
-                self.token = token
-                self.refresh_token = refresh
-                save_tokens("api", self.token, self.refresh_token)
+                await self.run_codeflow()
 
             try:
                 await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
-            except:
-                logger.warning("⚠️ Failed to authenticate with twitch!")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to authenticate with twitch! {e}")
                 return False
 
             app_token = self.twitch.get_app_token()
@@ -154,14 +156,34 @@ class TwitchAPI:
             logger.error(f"❌ Authentication failed: {e}")
             return False
 
+    async def run_codeflow(self):
+        try:
+            code_flow = CodeFlow(self.twitch, self.scopes)
+            code, url = await code_flow.get_code()
+            logger.info(f"📢 Open the following URL to authenticate with twitch (Streamer): {url}")
+            token, refresh = await code_flow.wait_for_auth_complete()
+            self.token = token
+            self.refresh_token = refresh
+            save_tokens("api", self.token, self.refresh_token)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Authentication failed: {e}")
+            return False
+
     async def initialize(self, app):
         """Authenticate and start EventSub WebSocket"""
 
         self.event_queue = app.state.event_queue
 
         if not await self.authenticate():
-            logger.error("❌ Failed authentication, skipping Twitch API startup.")
-            return
+            logger.warning("❌ First auth failed! Running CodeFlow!")
+            if not await self.run_codeflow():
+                logger.error("❌ Failed authentication, skipping Twitch API startup.")
+                return
+            else:
+                if not await self.authenticate():
+                    logger.error("❌ Failed authentication (second try), skipping Twitch API startup.")
+                    return
 
         await self.initialize_badges()
 
@@ -245,7 +267,13 @@ class TwitchAPI:
             logger.info("Register mod remove event")
             event_id = await self.eventsub.listen_channel_moderator_remove(broadcaster_id, self.handle_mod_action)
             if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderator.remove -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
+            logger.info("Register mod event")
+            event_id = await self.eventsub.listen_channel_moderate(broadcaster_id, broadcaster_id ,self.handle_mod_action)
+            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderate -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
+
             if not self.test_mode:
+                logger.info("Register automod event")
+                await self.eventsub.listen_automod_message_hold(broadcaster_id, broadcaster_id, self.handle_automod_action)
                 logger.info("Register chat clear event")
                 await self.eventsub.listen_channel_chat_clear(broadcaster_id, broadcaster_id, self.handle_mod_action)
                 logger.info("Register msg delete event")
@@ -318,7 +346,7 @@ class TwitchAPI:
         recipient_count = data.event.total
         logger.info(f"🎁 {username} gifted {recipient_count} subs!")
 
-        if not data.event.is_anonymouse:
+        if not data.event.is_anonymous:
             save_viewer(
                 twitch_id=user_id,
                 login=data.event.user_login,
@@ -468,6 +496,13 @@ class TwitchAPI:
         logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
 
         save_event("timeout", int(data.event.user_id), f"Timed out for {duration}s by {moderator}")
+
+    async def handle_automod_action(self, data: dict):
+        """Handle moderator actions (deleting messages, enabling slow mode, etc.)"""
+        logger.info(vars(data.event))
+        logger.info(f"🔧 There is a automod message")
+
+        save_event("mod_action", None, f"Automod message waiting!")
 
     async def handle_mod_action(self, data: dict):
         """Handle moderator actions (deleting messages, enabling slow mode, etc.)"""

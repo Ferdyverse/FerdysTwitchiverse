@@ -147,7 +147,7 @@ class TwitchChatBot:
         message_id = event.id
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0
-        is_reply = event.reply_parent_msg_id is not None  # Check if message is a reply
+        is_reply = event.reply_parent_user_id is not None  # Check if message is a reply
         is_first = event.first
 
         # Check if user exists in DB first

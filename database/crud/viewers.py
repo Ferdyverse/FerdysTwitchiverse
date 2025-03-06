@@ -1,4 +1,5 @@
 from fastapi import Depends
+import datetime
 from sqlalchemy.orm import Session
 from database.session import get_db
 from database.base import Viewer, ViewerStats
@@ -66,15 +67,38 @@ def get_viewer_stats(twitch_id: int, db: Session = Depends(get_db)):
         print(f"❌ Failed to retrieve viewer stats: {e}")
         return None
 
-def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_used: int, is_reply: bool, db: Session = Depends(get_db)):
+def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_used: int, is_reply: str, db: Session = Depends(get_db)):
     """Update viewer stats without needing an explicit db session."""
+
+    # Handle replays
+    try:
+        if not None in is_reply:
+            viewer = db.query(Viewer).filter(Viewer.twitch_id == is_reply).first()
+            viewer.total_replies += 1 if is_reply else 0
+            db.commit()
+
+            stats = db.query(ViewerStats).filter(ViewerStats.twitch_id == is_reply, ViewerStats.stream_id == stream_id).first()
+            if stats:
+                stats.replies += 1 if is_reply else 0
+            else:
+                stats = ViewerStats(
+                    twitch_id=is_reply,
+                    stream_id=stream_id,
+                    chat_messages=1,
+                    used_emotes=emotes_used,
+                    replies=1
+                )
+                db.add(stats)
+            # Save changes
+            db.commit()
+    except Exception as e:
+        print(f"❌ Failed to update reply stats: {e}")
 
     try:
         viewer = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
         if viewer:
             viewer.total_chat_messages += 1
             viewer.total_used_emotes += emotes_used
-            viewer.total_replies += 1 if is_reply else 0
             db.commit()
 
         stats = db.query(ViewerStats).filter(ViewerStats.twitch_id == twitch_id, ViewerStats.stream_id == stream_id).first()
@@ -83,7 +107,7 @@ def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_use
             stats.chat_messages += 1
             stats.used_emotes += emotes_used
             stats.replies += 1 if is_reply else 0
-            stats.last_message_time = datetime.datetime.utcnow()
+            stats.last_message_time = datetime.datetime.now(datetime.timezone.utc)
         else:
             stats = ViewerStats(
                 twitch_id=twitch_id,

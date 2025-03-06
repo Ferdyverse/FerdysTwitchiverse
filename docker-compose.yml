@@ -1,0 +1,9 @@
+services:
+  ferdyverse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - DISABLE_OBS=true
