@@ -12,7 +12,6 @@ from modules.twitch_chat import TwitchChatBot
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 # Define the desired local timezone (Change if needed)
-LOCAL_TIMEZONE = pytz.timezone("Europe/Berlin")
 FALLBACK_COLORS = [
     "#FF4500", "#32CD32", "#1E90FF", "#FFD700", "#FF69B4", "#8A2BE2", "#00CED1"
 ]
@@ -36,7 +35,7 @@ async def get_chat_messages(db: Session = Depends(get_db)):
 
         # Convert timestamp to local timezone
         utc_time = msg.timestamp.replace(tzinfo=pytz.utc)  # Ensure UTC
-        local_time = utc_time.astimezone(LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
+        local_time = utc_time.astimezone(config.LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
 
         # Handle badges (If available)
         badge_html = ""

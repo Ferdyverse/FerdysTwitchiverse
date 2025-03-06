@@ -8,16 +8,16 @@ import logging
 import config
 
 # Import routers
-from routes.todo import router as todo_router
 from routes.admin import admin_router
+from routes.ads import router as ads_router
+from routes.chat import router as chat_router
 from routes.hub import router as hub_router
 from routes.overlay import router as overlay_router
-from routes.twitch import router as twitch_router
-from routes.viewers import router as viewers_router
-from routes.chat import router as chat_router
 from routes.planets import router as planets_router
 from routes.print import router as print_router
-from routes.ads import router as ads_router
+from routes.todo import router as todo_router
+from routes.twitch import router as twitch_router
+from routes.viewers import router as viewers_router
 
 # Import modules
 from modules.websocket_handler import websocket_endpoint
@@ -71,15 +71,15 @@ app = FastAPI(
 
 # Include routers
 app.include_router(admin_router)
-app.include_router(todo_router)
+app.include_router(ads_router)
+app.include_router(chat_router)
 app.include_router(hub_router)
 app.include_router(overlay_router)
-app.include_router(twitch_router)
-app.include_router(viewers_router)
-app.include_router(chat_router)
 app.include_router(planets_router)
 app.include_router(print_router)
-app.include_router(ads_router)
+app.include_router(todo_router)
+app.include_router(twitch_router)
+app.include_router(viewers_router)
 
 # WebSocket endpoint
 app.add_api_websocket_route("/ws", websocket_endpoint)

@@ -22,11 +22,11 @@ from database.crud.chat import save_chat_message
 logger = logging.getLogger("uvicorn.error.twitch_chat")
 
 scopes = [
-    AuthScope.CHAT_READ,
     AuthScope.CHAT_EDIT,
-    AuthScope.USER_WRITE_CHAT,
+    AuthScope.CHAT_READ,
+    AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS,
     AuthScope.MODERATOR_READ_CHATTERS,
-    AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS
+    AuthScope.USER_WRITE_CHAT,
 ]
 
 class TwitchChatBot:
