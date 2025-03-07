@@ -2,68 +2,96 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from database.session import get_db
-from database.crud.scheduled_messages import (
-    get_scheduled_messages, add_scheduled_message, remove_scheduled_message,
-    get_scheduled_message_pool, add_message_to_pool, delete_message_from_pool,
-    update_scheduled_message, update_pool_message
-)
+from database.crud.scheduled_messages import get_scheduled_message_pool, add_message_to_pool, delete_message_from_pool, update_pool_message
+from database.crud.scheduled_jobs import get_scheduled_jobs, add_scheduled_job, update_scheduled_job, remove_scheduled_job, get_scheduled_job_by_id
+from modules.apscheduler import load_scheduled_jobs
 from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="templates")
 
-router = APIRouter(prefix="/scheduled", tags=["Scheduled Messages"])
+router = APIRouter(prefix="/scheduled", tags=["Scheduled Jobs"])
 
-@router.get("/messages", response_class=HTMLResponse)
-async def scheduled_messages(request: Request, db: Session = Depends(get_db)):
-    messages = get_scheduled_messages(db)
-    return templates.TemplateResponse("includes/admin_scheduled_messages.html", {
+@router.get("/jobs", response_class=HTMLResponse)
+async def scheduled_jobs(request: Request, db: Session = Depends(get_db)):
+    jobs = get_scheduled_jobs(db)
+    return templates.TemplateResponse("includes/admin_scheduled_jobs.html", {
         "request": request,
-        "messages": messages
+        "jobs": jobs
     })
 
-@router.post("/messages/add", response_model=dict)
-async def create_or_update_scheduled_message(
+# Add or Update a Scheduled Job
+@router.post("/jobs/add", response_model=dict)
+async def create_or_update_scheduled_job(
+    request: Request,
     data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
-    """HTMX endpoint to add or update a scheduled message."""
-    message_id = data.get("id")  # Check if it's an existing message
-    message = data.get("message", "")
-    interval = data.get("interval")
-    category = data.get("category") if data.get("category") else None
+    """HTMX endpoint to add or update a scheduled job."""
+    job_id = data.get("id")
+    job_type = data.get("job_type")  # "twitch_message", "overlay_event", "interval", "cron"
+    interval_seconds = data.get("interval_seconds")
+    cron_expression = data.get("cron_expression")
+    payload = data.get("payload", {})  # Stores additional data (e.g., Twitch message text)
 
-    if not interval or (not message and not category):
-        return {"error": "You must provide either a message or a category, and an interval."}
+    if not job_type or (job_type == "interval" and not interval_seconds) or (job_type == "cron" and not cron_expression):
+        raise HTTPException(status_code=400, detail="Missing required fields for job scheduling.")
 
-    if message_id:
-        success = update_scheduled_message(message_id, message, interval, category, db)
-        return {"success": success}
+    if job_id:
+        success = update_scheduled_job(job_id, job_type, interval_seconds, cron_expression, payload, db)
+    else:
+        success = add_scheduled_job(job_type, interval_seconds, cron_expression, payload, db)
 
-    add_scheduled_message(category=category, interval=interval, db=db)
-    return {"success": True}
+    # Reload jobs in APScheduler to apply changes
+    load_scheduled_jobs(request.app)
 
-# ✏️ Edit Scheduled Message
-@router.post("/messages/edit/{message_id}")
-async def edit_scheduled_message(
-    message_id: int,
-    data: dict = Body(...),
-    db: Session = Depends(get_db)
-):
-    """Edit a scheduled message."""
-    new_message = data.get("message", "")
-    new_interval = data.get("interval")
-    new_category = data.get("category") if data.get("category") else None
-
-    if not new_interval or (not new_message and not new_category):
-        return {"error": "You must provide either a message or a category, and an interval."}
-
-    success = update_scheduled_message(message_id, new_message, new_interval, new_category, db)
     return {"success": success}
 
-# Delete Scheduled Message
-@router.delete("/messages/{message_id}")
-async def delete_scheduled_message(message_id: int, db: Session = Depends(get_db)):
-    remove_scheduled_message(message_id, db)
+@router.get("/jobs/edit/{job_id}")
+async def get_scheduled_job(job_id: int, db: Session = Depends(get_db)):
+    """Returns job details as JSON to populate the modal."""
+    job = get_scheduled_job_by_id(job_id, db)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {
+        "job_id": job.job_id,
+        "job_type": job.job_type,
+        "interval_seconds": job.interval_seconds,
+        "cron_expression": job.cron_expression,
+        "payload": job.payload
+    }
+
+@router.post("/jobs/edit/{job_id}")
+async def edit_scheduled_job(
+    request: Request,
+    job_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Edit a scheduled job."""
+    job_type = data.get("job_type")
+    interval_seconds = data.get("interval_seconds")
+    cron_expression = data.get("cron_expression")
+    payload = data.get("payload", {})
+
+    if not job_type or (job_type == "interval" and not interval_seconds) or (job_type == "cron" and not cron_expression):
+        raise HTTPException(status_code=400, detail="Missing required fields for job scheduling.")
+
+    success = update_scheduled_job(job_id, job_type, interval_seconds, cron_expression, payload, db)
+
+    # Reload jobs in APScheduler to apply changes
+    load_scheduled_jobs(request.app)
+
+    return {"success": success}
+
+# Delete a Scheduled Job
+@router.delete("/jobs/{job_id}")
+async def delete_scheduled_job(request: Request, job_id: int, db: Session = Depends(get_db)):
+    remove_scheduled_job(job_id, db)
+
+    # Reload jobs in APScheduler to remove the deleted job
+    load_scheduled_jobs(request.app)
+
     return {"success": True}
 
 # GET Message Pool List

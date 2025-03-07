@@ -510,114 +510,47 @@ function initSortable() {
   console.log("✅ Sortable initialized successfully!");
 }
 
-// 📅 Submit Scheduled Message (Add or Edit)
-async function submitScheduledMessage(event) {
-  event.preventDefault();
+async function submitScheduledJob(event) {
+    event.preventDefault();
 
-  const messageId = document.getElementById("scheduled-message-id").value;
-  const messageText = document.getElementById("scheduled-message-text").value;
-  const interval = document.getElementById("scheduled-message-interval").value;
-  const category = document.getElementById("scheduled-message-category").value;
+    const jobId = document.getElementById("scheduled-job-id").value;
+    const jobType = document.getElementById("scheduled-job-type").value;
+    const intervalSeconds = document.getElementById("scheduled-job-interval").value;
+    const cronExpression = document.getElementById("scheduled-job-cron").value;
+    const payload = document.getElementById("scheduled-job-payload").value;
 
-  const data = {
-    message: messageText,
-    interval: parseInt(interval, 10),
-    category: category || null,
-  };
+    const jobData = {
+        job_type: jobType,
+        interval_seconds: intervalSeconds ? parseInt(intervalSeconds) : null,
+        cron_expression: cronExpression || null,
+        payload: payload ? JSON.parse(payload) : {}
+    };
 
-  const url = messageId
-    ? `/admin/scheduled/messages/edit/${messageId}`
-    : "/admin/scheduled/messages/add";
-  const method = messageId ? "POST" : "POST";
+    const endpoint = jobId ? `/admin/scheduled/jobs/edit/${jobId}` : `/admin/scheduled/jobs/add`;
 
-  try {
-    const response = await fetch(url, {
-      method: method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+    const response = await fetch(endpoint, {
+        method: jobId ? "POST" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jobData)
     });
 
     const result = await response.json();
+
     if (result.success) {
-      console.log("✅ Scheduled message updated!");
-      reloadScheduledMessages();
-      resetScheduledMessageForm();
+        closeGenericModal('scheduled-jobs-modal');
+        resetScheduledJobForm();
+        reloadScheduledJobs();
     } else {
-      console.error("❌ Failed to update scheduled message:", result.error);
+        alert("Error saving job: " + (result.error || "Unknown error"));
     }
-  } catch (error) {
-    console.error("❌ Error updating scheduled message:", error);
-  }
 }
 
-function resetScheduledMessageForm() {
-  document.getElementById("scheduled-message-id").value = "";
-  document.getElementById("scheduled-message-text").value = "";
-  document.getElementById("scheduled-message-interval").value = "";
-  document.getElementById("scheduled-message-category").value = ""; // ✅ Reset category
-}
-
-// 🗑️ Delete Scheduled Message
-async function removeScheduledMessage(messageId) {
-  try {
-    const response = await fetch(`/admin/scheduled/messages/${messageId}`, {
-      method: "DELETE",
-    });
-    if (response.ok) {
-      console.log("✅ Scheduled message deleted!");
-      reloadScheduledMessages();
-    }
-  } catch (error) {
-    console.error("❌ Failed to delete scheduled message:", error);
-  }
-}
-
-// 🎲 Submit Message Pool Entry (Add or Edit)
-async function submitScheduledMessage(event) {
-  event.preventDefault();
-
-  const messageId =
-    document.getElementById("scheduled-message-id").value || null;
-  const messageText = document
-    .getElementById("scheduled-message-text")
-    .value.trim();
-  const interval = document.getElementById("scheduled-message-interval").value;
-  const category =
-    document.getElementById("scheduled-message-category").value || null;
-
-  if ((!messageText && !category) || !interval) {
-    console.error("❌ Either a message or a category must be provided.");
-    return;
-  }
-
-  const data = {
-    id: messageId, // ✅ Send the ID for edit mode
-    message: messageText || null,
-    interval: parseInt(interval, 10),
-    category: category,
-  };
-
-  console.log("🚀 Sending Scheduled Message:", data);
-
-  try {
-    const response = await fetch(`/admin/scheduled/messages/add`, {
-      // ✅ Always use /add
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-
-    const result = await response.json();
-    if (result.success) {
-      console.log("✅ Scheduled message updated/added!");
-      reloadScheduledMessages();
-      resetScheduledMessageForm();
-    } else {
-      console.error("❌ Failed to update/add scheduled message:", result.error);
-    }
-  } catch (error) {
-    console.error("❌ Error updating/adding scheduled message:", error);
-  }
+function resetScheduledJobForm() {
+  document.getElementById("scheduled-job-id").value = "";
+  document.getElementById("scheduled-job-type").value = "";
+  document.getElementById("scheduled-job-interval").value = "";
+  document.getElementById("scheduled-job-cron").value = "";
+  document.getElementById("scheduled-job-payload").value = "";
 }
 
 async function submitMessagePool(event) {
@@ -678,13 +611,17 @@ async function removePoolMessage(messageId) {
   }
 }
 
-// ✏️ Edit Scheduled Message (Fills the form for editing)
-function editScheduledMessage(id, message, interval) {
-  document.getElementById("scheduled-message-id").value = id;
-  document.getElementById("scheduled-message-text").value = message;
-  document.getElementById("scheduled-message-interval").value = interval;
+// ✏️ Edit Scheduled Job (Fills the form for editing)
+function editScheduledJob(id, jobType, interval, cron, payload) {
+    document.getElementById("scheduled-job-id").value = id;
+    document.getElementById("scheduled-job-type").value = jobType;
+    document.getElementById("scheduled-job-interval").value = interval || "";
+    document.getElementById("scheduled-job-cron").value = cron || "";
 
-  openGenericModal("scheduled-messages-modal"); // Show modal
+    // Ensure payload is shown properly (as JSON)
+    document.getElementById("scheduled-job-payload").value = payload ? JSON.stringify(payload, null, 2) : "";
+
+    openGenericModal("scheduled-jobs-modal"); // Show modal
 }
 
 // ✏️ Edit Pool Message (Fills the form for editing)
@@ -772,13 +709,13 @@ function addMessageToPool() {
   openMessagePoolModal();
 }
 
-async function reloadScheduledMessages() {
+async function reloadScheduledJobs() {
   try {
-    const response = await fetch("/admin/scheduled/messages");
+    const response = await fetch("/admin/scheduled/jobs");
     const html = await response.text();
-    document.getElementById("scheduled-messages").innerHTML = html;
+    document.getElementById("scheduled-jobs").innerHTML = html;
   } catch (error) {
-    console.error("❌ Failed to reload scheduled messages:", error);
+    console.error("❌ Failed to reload scheduled jobs:", error);
   }
 }
 

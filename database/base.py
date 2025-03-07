@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey, Text, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
+import uuid
 import datetime
 
 Base = declarative_base()
@@ -81,18 +82,24 @@ class Todo(Base):
     created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     status = Column(String, default="pending")  # "pending" or "completed"
 
-class ScheduledMessage(Base):
-    __tablename__ = "scheduled_messages"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    category = Column(String, nullable=True)
-    message = Column(String, nullable=True)
-    interval = Column(Integer, nullable=False)
-    next_run = Column(DateTime, nullable=False, default=datetime.datetime.now(datetime.timezone.utc))
-    enabled = Column(Boolean, default=1)
-
 class ScheduledMessagePool(Base):
     __tablename__ = "scheduled_message_pool"
     id = Column(Integer, primary_key=True, autoincrement=True)
     category = Column(String, nullable=False, index=True)
     message = Column(String, nullable=False)
     enabled = Column(Boolean, default=1)
+
+class ScheduledJobs(Base):
+    __tablename__ = "scheduled_jobs"
+
+    job_id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String, unique=True, nullable=False, default=lambda: str(uuid.uuid4()))   # Unique event identifier
+    job_type = Column(String, nullable=False)  # "twitch_message", "overlay_event", "date", "interval", "cron"
+    run_at = Column(DateTime, nullable=True)  # Only for "date" jobs
+    interval_seconds = Column(Integer, nullable=True)  # Only for interval jobs
+    cron_expression = Column(String, nullable=True)  # Only for cron jobs
+    payload = Column(JSON, nullable=True)  # Stores additional data (e.g., chat message)
+    active = Column(Boolean, default=True)  # Enable/Disable job
+
+    def __repr__(self):
+        return f"<ScheduledJobs(job_id={self.job_id}, event_id={self.event_id}, job_type={self.job_type}, payload={self.payload})>"

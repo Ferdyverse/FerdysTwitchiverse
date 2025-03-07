@@ -1,0 +1,34 @@
+<table class="table-auto w-full border-collapse border border-gray-700 text-white">
+    <thead>
+        <tr class="bg-gray-800">
+            <th class="border border-gray-700 px-4 py-2">ID</th>
+            <th class="border border-gray-700 px-4 py-2">Type</th>
+            <th class="border border-gray-700 px-4 py-2">Interval (Seconds)</th>
+            <th class="border border-gray-700 px-4 py-2">Cron Expression</th>
+            <th class="border border-gray-700 px-4 py-2">Payload</th>
+            <th class="border border-gray-700 px-4 py-2">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr>
+            <td class="border border-gray-700 px-4 py-2">{{ job.job_id }}</td>
+            <td class="border border-gray-700 px-4 py-2">{{ job.job_type }}</td>
+            <td class="border border-gray-700 px-4 py-2">{{ job.interval_seconds if job.interval_seconds else 'N/A' }}</td>
+            <td class="border border-gray-700 px-4 py-2">{{ job.cron_expression if job.cron_expression else 'N/A' }}</td>
+            <td class="border border-gray-700 px-4 py-2">{{ job.payload }}</td>
+            <td class="border border-gray-700 px-4 py-2">
+                <button class="text-white"
+                        onclick="editScheduledJob('{{ job.job_id }}', '{{ job.job_type }}', '{{ job.interval_seconds }}', '{{ job.cron_expression }}', {{ job.payload }})">
+                    ✏️
+                </button>
+                <button class="text-white"
+                        hx-delete="/admin/scheduled/jobs/{{ job.job_id }}" hx-target="closest tr"
+                        hx-confirm="Are you sure you want to delete this job?">
+                    🗑️
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

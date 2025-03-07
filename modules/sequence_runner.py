@@ -68,13 +68,13 @@ async def execute_sequence_step(step, event_queue, context: dict):
             if check_condition(condition_name):
                 logger.info(f"✅ Condition '{condition_name}' is TRUE, executing THEN block.")
                 for then_step in then_steps:
-                    success = await execute_sequence_step(then_step, event_queue)
+                    success = await execute_sequence_step(then_step, event_queue, context)
                     if not success:
                         return False  # Stop if a step fails
             else:  # ❌ Condition failed
                 logger.info(f"❌ Condition '{condition_name}' is FALSE, executing ELSE block.")
                 for else_step in else_steps:
-                    success = await execute_sequence_step(else_step, event_queue)
+                    success = await execute_sequence_step(else_step, event_queue, context)
                     if not success:
                         return False  # Stop if a step fails
             return True  # Continue sequence execution

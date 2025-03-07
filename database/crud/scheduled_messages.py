@@ -1,74 +1,12 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from database.session import get_db
-from database.base import ScheduledMessage, ScheduledMessagePool
+from database.base import ScheduledMessagePool
 import datetime
 import random
 import logging
 
 logger = logging.getLogger("uvicorn.error.scheduled_messages")
-
-def get_scheduled_messages(db: Session = Depends(get_db)):
-    """Retrieve all scheduled messages that are enabled and due to be sent."""
-    try:
-        return db.query(ScheduledMessage).filter(ScheduledMessage.enabled == True).all()
-    except Exception as e:
-        logger.error(f"❌ Failed to retrieve scheduled messages: {e}")
-        return []
-
-def add_scheduled_message(db: Session = Depends(get_db), category: str = None, message: str = None, interval: int = 60):
-    """Add a scheduled message. Either a message or a category must be provided."""
-    if not message and not category:
-        raise ValueError("Either `message` or `category` must be provided.")
-
-    try:
-        new_schedule = ScheduledMessage(
-            message=message,
-            category=category,
-            interval=interval
-        )
-        db.add(new_schedule)
-        db.commit()
-        return {"success": True}
-    except Exception as e:
-        logger.error(f"❌ Failed to add scheduled message: {e}")
-        return {"error": "Database error"}
-
-def update_scheduled_message(
-    message_id: int,
-    new_message: str,
-    new_interval: int,
-    new_category: str,
-    db: Session = Depends(get_db)
-):
-    """Update an existing scheduled message in the database."""
-    try:
-        message = db.query(ScheduledMessage).filter(ScheduledMessage.id == message_id).first()
-        if not message:
-            return {"error": "Message not found"}
-
-        if new_message:
-            message.message = new_message
-        if new_category:
-            message.category = new_category
-        message.interval = new_interval
-
-        db.commit()
-        return {"success": True}
-    except Exception as e:
-        logger.error(f"❌ Failed to update scheduled message: {e}")
-        db.rollback()
-        return {"error": "Database error"}
-
-def remove_scheduled_message(db: Session = Depends(get_db), message_id: int = None):
-    """Delete a scheduled message by ID."""
-    try:
-        deleted = db.query(ScheduledMessage).filter(ScheduledMessage.id == message_id).delete()
-        db.commit()
-        return deleted > 0
-    except Exception as e:
-        logger.error(f"❌ Failed to delete scheduled message: {e}")
-        return {"error": "Database error"}
 
 def get_random_message_from_category(db: Session = Depends(get_db), category: str = None):
     """Retrieve a random message from a specific category."""

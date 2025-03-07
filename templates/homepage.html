@@ -178,9 +178,9 @@
 
             <div class="mt-4">
                 <h3 class="text-gray-300 text-sm font-semibold mb-2">Scheduler</h3>
-                <button onclick="openGenericModal('scheduled-messages-modal')"
+                <button onclick="openGenericModal('scheduled-jobs-modal')"
                         class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 text-sm font-bold rounded mb-2">
-                    📅 Manage Scheduled Messages
+                    📅 Manage Scheduled Jobs
                 </button>
                 <button onclick="openGenericModal('message-pool-modal')"
                         class="w-full bg-green-500 hover:bg-green-400 text-black px-3 py-2 text-sm font-bold rounded">
@@ -290,37 +290,46 @@
         </div>
     </div>
 
-    <!-- 📅 Scheduled Messages Modal -->
-    <div id="scheduled-messages-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <!-- 📅 Scheduled Jobs Modal -->
+    <div id="scheduled-jobs-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
         <div class="bg-gray-800 p-5 rounded-lg shadow-lg w-full max-w-3xl relative">
-            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('scheduled-messages-modal')">✖</button>
-            <h3 class="text-lg font-bold mb-3">📅 Manage Scheduled Messages</h3>
+            <button class="absolute top-2 right-2 text-white text-lg" onclick="closeGenericModal('scheduled-jobs-modal')">✖</button>
+            <h3 class="text-lg font-bold mb-3">📅 Manage Scheduled Jobs</h3>
 
             <!-- Add/Edit Form -->
-            <form id="scheduled-message-form" class="mb-4" onsubmit="submitScheduledMessage(event)">
-                <input type="hidden" id="scheduled-message-id">
+            <form id="scheduled-job-form" class="mb-4" onsubmit="submitScheduledJob(event)">
+                <input type="hidden" id="scheduled-job-id">
 
-                <label class="text-sm">Category:</label>
-                <input type="text" id="scheduled-message-category" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
-
-                <label class="text-sm">Message:</label>
-                <input type="text" id="scheduled-message-text" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+                <label class="text-sm">Job Type:</label>
+                <select id="scheduled-job-type" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+                    <option value="cron">Cron</option>
+                    <option value="interval">Interval</option>
+                    <option value="overlay_event">Overlay Event</option>
+                    <option value="sequence">Sequence</option>
+                    <option value="twitch_message">Twitch Message</option>
+                </select>
 
                 <label class="text-sm">Interval (seconds):</label>
-                <input type="number" id="scheduled-message-interval" class="w-full bg-gray-700 text-white p-2 rounded mb-2" required>
+                <input type="number" id="scheduled-job-interval" class="w-full bg-gray-700 text-white p-2 rounded mb-2">
+
+                <label class="text-sm">Cron Expression:</label>
+                <input type="text" id="scheduled-job-cron" class="w-full bg-gray-700 text-white p-2 rounded mb-2" placeholder="e.g. 0 12 * * *">
+
+                <label class="text-sm">Payload (JSON format):</label>
+                <textarea id="scheduled-job-payload" class="w-full bg-gray-700 text-white p-2 rounded mb-2" placeholder='{"text": "Hello Twitch!"}' rows="6"></textarea>
 
                 <button type="submit" class="w-full bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 text-sm font-bold rounded">
-                    ✅ Save Message
+                    ✅ Save Job
                 </button>
             </form>
 
-            <!-- ✅ Scheduled Message List (HTMX Reload) -->
-            <div id="scheduled-messages"
-                hx-get="/admin/scheduled/messages"
-                hx-trigger="load, event:messageUpdated"
-                hx-target="#scheduled-messages"
+            <!-- ✅ Scheduled Jobs List (HTMX Reload) -->
+            <div id="scheduled-jobs"
+                hx-get="/admin/scheduled/jobs"
+                hx-trigger="load, event:jobUpdated"
+                hx-target="#scheduled-jobs"
                 hx-swap="innerHTML">
-                <p class="text-gray-400">Loading scheduled messages...</p>
+                <p class="text-gray-400">Loading scheduled jobs...</p>
             </div>
         </div>
     </div>

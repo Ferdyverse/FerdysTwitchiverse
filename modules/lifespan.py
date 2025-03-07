@@ -12,7 +12,7 @@ from modules.printer_manager import PrinterManager
 from modules.sequence_runner import load_sequences
 from modules.queues.manager import event_queue, alert_queue
 from modules.queues.function_registry import register_function
-from modules.scheduled_messages import process_scheduled_messages
+from modules.apscheduler import start_scheduler, shutdown_scheduler
 from modules.queues.event_processor import process_event_queue
 from modules.queues.alert_processor import process_alert_queue
 
@@ -75,7 +75,7 @@ async def lifespan(app):
             app.state.twitch_chat = twitch_chat
             if not use_mock_api:
                 register_function("twitch_chat.send_message", twitch_chat.send_message)
-                asyncio.create_task(process_scheduled_messages(twitch_chat))
+                start_scheduler(app)
         else:
             logger.info("🚫 Twitch API is disabled.")
             app.state.twitch_api = None
@@ -118,6 +118,7 @@ async def lifespan(app):
 
         if not config.DISABLE_TWITCH and twitch_chat:
             await twitch_chat.stop()
+            shutdown_scheduler()
 
         if not config.DISABLE_OBS:
             await obs.disconnect()
