@@ -108,17 +108,3 @@ sequences:
         else:
           - type: send_chat_message
             data: "The star is already hidden!"
-
-  action_z:
-    - type: hide_icon
-      data: "star"
-    - type: show_icon
-      data: "moon"
-    - type: send_chat_message
-      data: "The star has transformed into a moon! 🌙"
-    - type: sleep
-      data: 2  # ✅ Wait 2 seconds before next action
-    - type: call_function
-      data:
-        name: custom_python_function
-        parameters: "Custom parameter value"

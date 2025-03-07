@@ -21,10 +21,12 @@ async def process_scheduled_job(job_id: int, app):
     twitch_chat = app.state.twitch_chat
     logger.info(f"Starting job {job}")
 
+    # When the job failed
     if not job:
         logger.warning(f"⚠️ Job {job_id} not found, skipping.")
         return  # Job was deleted or invalid
 
+    # Send a chat message
     if job.job_type == "twitch_message":
         message_text = job.payload.get("text")
         message_category = job.payload.get("category")
@@ -50,22 +52,25 @@ async def process_scheduled_job(job_id: int, app):
             await twitch_chat.send_message(message_text)
             logger.info(f"✅ Sent scheduled message: {message_text}")
 
+    # Run a sequence
     elif job.job_type == "sequence":
         job_data = job.payload
         sequence = job_data.get("sequence")
         logger.info(f"Execute sequence: {sequence}")
         await execute_sequence(sequence, app.state.event_queue)
 
-
+    # Send something to the overlay
     elif job.job_type == "overlay_event":
         event_data = job.payload
         await broadcast_message(event_data)
         logger.info(f"✅ Triggered overlay event: {event_data}")
 
+    # Date -> Currently not used
     elif job.job_type == "date":
         logger.info(f"🔔 Running one-time scheduled job {job.event_id}")
         job.active = False  # Mark as completed
 
+    # Cron -> Also not used
     elif job.job_type == "cron":
         logger.info(f"🔔 Running cron job {job.event_id}")
 
