@@ -157,3 +157,19 @@
 .blinking {
     animation: blink 1s infinite;
 }
+
+.spotify-btn {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px 14px;
+    border-radius: 50%;
+    font-size: 18px;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.spotify-btn:hover {
+    background: rgba(30, 215, 96, 0.9);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(30, 215, 96, 0.4);
+}

@@ -130,6 +130,28 @@
 
             <div class="spacer"></div>
 
+            <div id="spotify-controls" class="flex flex-col items-center bg-gray-900 text-white px-5 py-3 rounded-lg shadow-md space-y-3">
+                <!-- First Row: Play Controls -->
+                <div class="flex space-x-4">
+                    <button onclick="sendCommand('/spotify/previous')"
+                        class="spotify-btn">⏮</button>
+                    <button id="playPauseBtn" onclick="togglePlayPause()"
+                        class="spotify-btn">▶️</button>
+                    <button onclick="sendCommand('/spotify/next')"
+                        class="spotify-btn">⏭</button>
+                </div>
+
+                <!-- Second Row: Volume Control -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-400">🔊</span>
+                    <input type="range" min="0" max="100" value="50" id="volume-slider"
+                        class="w-32 h-2 bg-gray-600 rounded-lg cursor-pointer accent-green-500"
+                        oninput="changeVolume(this.value)">
+                </div>
+            </div>
+
+            <div class="spacer"></div>
+
             <div class="col-span-3 bg-gray-800 rounded-lg">
                 <h3 class="text-lg font-bold mb-3">Event Log</h3>
                 <div id="event-log" class="event-log-container"

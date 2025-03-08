@@ -62,6 +62,11 @@ OBS_WS_HOST = "localhost"
 OBS_WS_PORT = 4455
 OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
 
+#Spotify
+SPOTIFY_CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET=os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_REDIRECT_URI="http://localhost:8000/spotify/auth"
+
 # FIREBOT
 FIREBOT_API_URL = "http://localhost:7472/api/v1"
 

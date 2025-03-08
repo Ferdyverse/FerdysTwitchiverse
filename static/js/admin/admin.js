@@ -775,3 +775,54 @@ function updateClock() {
 // Update clock every second
 setInterval(updateClock, 1000);
 updateClock();
+
+function sendCommand(endpoint) {
+    fetch(`http://localhost:8000${endpoint}`, {
+        method: "POST",
+    }).then(response => response.json())
+      .then(data => console.log("Response:", data))
+      .catch(error => console.error("Error:", error));
+}
+
+function changeVolume(value) {
+    fetch(`http://localhost:8000/spotify/volume/${value}`, {
+        method: "POST",
+    }).then(response => response.json())
+      .then(data => console.log("Volume changed:", data))
+      .catch(error => console.error("Error:", error));
+}
+
+function togglePlayPause() {
+    let btn = document.getElementById("playPauseBtn");
+    if (btn.innerText === "▶️") {
+        sendCommand('/spotify/play');
+        btn.innerText = "⏸";
+    } else {
+        sendCommand('/spotify/pause');
+        btn.innerText = "▶️";
+    }
+}
+
+function updatePlaybackState() {
+    fetch(`http://localhost:8000/spotify/currently-playing`)
+        .then(response => response.json())
+        .then(data => {
+            let btn = document.getElementById("playPauseBtn");
+            let volumeSlider = document.getElementById("volume-slider");
+
+            // Update play/pause button
+            if (!data.error && data.title) {
+                btn.innerText = "⏸"; // If something is playing, show Pause
+            } else {
+                btn.innerText = "▶️"; // Otherwise, show Play
+            }
+
+            // Update volume slider
+            if (data.volume !== null && data.volume !== undefined) {
+                volumeSlider.value = data.volume;
+                console.log(`Volume updated to: ${data.volume}`);
+            }
+        })
+        .catch(error => console.error("Error fetching playback state:", error));
+}
+updatePlaybackState();

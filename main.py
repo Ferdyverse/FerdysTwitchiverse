@@ -15,6 +15,7 @@ from routes.hub import router as hub_router
 from routes.overlay import router as overlay_router
 from routes.planets import router as planets_router
 from routes.print import router as print_router
+from routes.spotify import router as spotify_router
 from routes.todo import router as todo_router
 from routes.twitch import router as twitch_router
 from routes.viewers import router as viewers_router
@@ -77,6 +78,7 @@ app.include_router(hub_router)
 app.include_router(overlay_router)
 app.include_router(planets_router)
 app.include_router(print_router)
+app.include_router(spotify_router)
 app.include_router(todo_router)
 app.include_router(twitch_router)
 app.include_router(viewers_router)
