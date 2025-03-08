@@ -28,6 +28,11 @@
         <!-- Left Column (Buttons) -->
         <div class="col-span-3 bg-gray-800 p-4 rounded-lg shadow-lg">
 
+            <!-- Clock -->
+            <div id="overlay-clock" class="text-white text-2xl font-bold flex justify-center items-center"></div>
+
+            <div class="spacer"></div>
+
             <!-- Stream State Box -->
             <div class="bg-gray-800 mb-3 rounded-lg flex items-center justify-between"
                 hx-get="/admin/stream/state"
@@ -35,7 +40,7 @@
                 hx-target="#stream-state"
                 hx-swap="innerHTML">
                 <span class="text-lg font-bold text-white">👀 Stream:</span>
-                <span id="stream-state" class="text-xl font-semibold text-green-400">Loading...</span>
+                <span id="stream-state" class="text-lg font-semibold text-green-400">Loading...</span>
             </div>
 
             <div class="spacer"></div>
