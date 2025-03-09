@@ -29,7 +29,7 @@ def get_current_song():
             "artist": ", ".join(artist["name"] for artist in current_track["item"]["artists"]),
             "album": current_track["item"]["album"]["name"],
             "cover": current_track["item"]["album"]["images"][0]["url"],
-            "volume": current_track["device"]["volume_percent"]
+            "volume": current_track["device"]["volume_percent"] if "device" in current_track else None
         }
     return {"error": "No track currently playing"}
 

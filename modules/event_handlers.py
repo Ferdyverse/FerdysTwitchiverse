@@ -1,6 +1,7 @@
 import random
 import math
 import logging
+from database.session import get_db
 from database.crud.overlay import save_overlay_data
 from database.crud.planets import save_planet
 from modules.schemas import AlertSchema, GoalSchema, IconSchema, HtmlSchema, ClickableObject
@@ -61,19 +62,20 @@ async def handle_event(event_type, event_data, add_clickable_object=None, remove
 async def handle_alert(alert):
     """Handles Twitch alerts like follows, subs, and raids."""
     try:
-        if alert.type == "follower":
-            save_overlay_data("last_follower", alert.user)
-            logger.info(f"📌 Saved last follower: {alert.user}")
-        elif alert.type == "subscriber":
-            save_overlay_data("last_subscriber", alert.user)
-            logger.info(f"📌 Saved last subscriber: {alert.user}")
-        elif alert.type == "raid":
-            user = alert.user
-            size = alert.size or 0
-            angle = random.uniform(0, 2 * math.pi)
-            distance = random.uniform(200, 700)
-            save_planet(user, size, angle, distance)
-            logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
+        async with get_db() as db:
+            if alert.type == "follower":
+                await save_overlay_data("last_follower", alert.user, db)
+                logger.info(f"📌 Saved last follower: {alert.user}")
+            elif alert.type == "subscriber":
+                await save_overlay_data("last_subscriber", alert.user, db)
+                logger.info(f"📌 Saved last subscriber: {alert.user}")
+            elif alert.type == "raid":
+                user = alert.user
+                size = alert.size or 0
+                angle = random.uniform(0, 2 * math.pi)
+                distance = random.uniform(200, 700)
+                await save_planet(user, size, angle, distance, db)
+                logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
 
         return {"status": "success", "message": "Alert processed"}
     except Exception as e:
@@ -83,10 +85,11 @@ async def handle_alert(alert):
 async def handle_goal(goal):
     """Handles goal updates."""
     try:
-        save_overlay_data("goal_text", goal.text)
-        save_overlay_data("goal_current", goal.current)
-        save_overlay_data("goal_target", goal.target)
-        logger.info(f"🎯 Goal updated: {goal.text} ({goal.current}/{goal.target})")
+        async with get_db() as db:
+            await save_overlay_data("goal_text", goal.text, db)
+            await save_overlay_data("goal_current", goal.current, db)
+            await save_overlay_data("goal_target", goal.target, db)
+            logger.info(f"🎯 Goal updated: {goal.text} ({goal.current}/{goal.target})")
 
         return {"status": "success", "message": "Goal updated successfully"}
     except Exception as e:

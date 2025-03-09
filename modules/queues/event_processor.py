@@ -26,7 +26,6 @@ async def process_event_queue(app):
     obs = app.state.obs
     event_queue = app.state.event_queue
 
-    db = next(get_db())
     try:
         while True:
             task = await event_queue.get()
@@ -61,60 +60,12 @@ async def process_event_queue(app):
 
                     except TypeError as e:
                         logger.error(f"❌ Function execution failed: {e}")
-                        save_event("error", None, f"Failed function: {function_name}, Error: {e}", db)
+                        async with get_db() as db:
+                            await save_event("error", None, f"Failed function: {function_name}, Error: {e}", db)
                 else:
                     logger.warning(f"⚠️ Function '{function_name}' not found or not callable!")
-                    save_event("error", None, f"Function not found: {function_name}", db)
-
-            # Process Twitch message printing
-            if "command" in task:
-                command = task["command"]
-                user = task["user"]
-                user_id = task["user_id"]
-
-                try:
-                    user_data = await twitch_api.get_user_info(user_id=user_id)
-
-                    if command == "print":
-                        message = task.get("message", "")
-                        logger.info(f"🖨️ Printing requested by {user}: {message}")
-
-                        print_request = {
-                            "print_elements": [
-                                {"type": "headline_1", "text": "Chatogram"},
-                                {"type": "image", "url": user_data.get("profile_image_url", "")},
-                                {"type": "headline_2", "text": user},
-                                {"type": "message", "text": message}
-                            ],
-                            "print_as_image": True
-                        }
-
-                        result = await obs.find_scene_item("Pixel 2")
-                        for item in result:
-                            await obs.set_source_visibility(item["scene"], item["id"], True)
-
-                        response = await broadcast_message(print_request)
-                        logger.info(f"🖨️ Print status: {response}")
-
-                        await twitch_api.twitch.update_redemption_status(
-                            config.TWITCH_CHANNEL_ID,
-                            task["reward_id"],
-                            task["redeem_id"],
-                            CustomRewardRedemptionStatus.FULFILLED
-                        )
-
-                except Exception as e:
-                    logger.error(f"❌ Error in printing from Twitch command: {e}")
-                    await twitch_api.twitch.update_redemption_status(
-                        config.TWITCH_CHANNEL_ID,
-                        task["reward_id"],
-                        task["redeem_id"],
-                        CustomRewardRedemptionStatus.CANCELED
-                    )
-                finally:
-                    await asyncio.sleep(2)
-                    for item in result:
-                        await obs.set_source_visibility(item["scene"], item["id"], False)
+                    async with get_db() as db:
+                        await save_event("error", None, f"Function not found: {function_name}", db)
 
             # Process heatmap clicks
             if "heat_click" in task:
@@ -145,31 +96,13 @@ async def process_event_queue(app):
                         })
                         await execute_sequence("reset_star", event_queue)
                         await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
-                        save_event("heat_click", user, "Hat aufgeräumt!", db=db)
+
+                        async with get_db() as db:
+                            await save_event("heat_click", user, "Hat aufgeräumt!", db)
 
                 except Exception as e:
                     logger.error(f"❌ Error processing heatmap click: {e}")
 
-            # Create Twitch Channel Point Redemptions
-            if "create_redemption" in task:
-                try:
-                    redemption = task["create_redemption"]
-
-                    await twitch_api.twitch.create_custom_reward(
-                        broadcaster_id=config.TWITCH_CHANNEL_ID,
-                        title=redemption.get("title"),
-                        cost=redemption.get("cost"),
-                        is_enabled=True
-                    )
-
-                    logger.info(f"✅ Created Twitch reward: {redemption.get('title')} for {redemption.get('cost')} points")
-
-                except Exception as e:
-                    logger.error(f"❌ Failed to create Twitch reward: {e}")
-
             event_queue.task_done()
     except Exception as e:
-        print(f"❌ Error in Event Queue Processor: {e}")
-
-    finally:
-        db.close()
+        logger.error(f"❌ Error in Event Queue Processor: {e}")

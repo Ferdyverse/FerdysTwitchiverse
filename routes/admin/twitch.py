@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Body, Depends
 from twitchAPI.type import CustomRewardRedemptionStatus
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from database.session import get_db
 from database.crud.chat import get_chat_messages, delete_chat_message
 from modules.websocket_handler import broadcast_message
@@ -14,59 +14,70 @@ router = APIRouter(prefix="/twitch", tags=["Twitch Integration"])
 
 @router.delete("/delete-message/{message_id}")
 async def delete_chat_message_endpoint(
-    message_id: str, request: Request, db: Session = Depends(get_db)
+    message_id: str, request: Request, db: AsyncSession = Depends(get_db)
 ):
     """Delete a chat message from Twitch and the local database."""
     twitch_api = request.app.state.twitch_api
 
-    if not twitch_api:
-        logger.info("Twitch API Fail")
-        return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
+    if not twitch_api or not twitch_api.is_running:
+        logger.error("❌ Twitch API not initialized!")
+        return {"status": "error", "message": "Twitch API not initialized"}
 
-    await twitch_api.delete_message(message_id)
+    try:
+        await twitch_api.delete_message(message_id)
+        async with db as session:
+            await delete_chat_message(message_id, session)
 
-    result = delete_chat_message(message_id, db)
+        await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
+        return {"status": "success", "message": "Message deleted"}
 
-    # Broadcast chat update to UI
-    await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
-
-    return True
+    except Exception as e:
+        logger.error(f"❌ Failed to delete message: {e}")
+        return {"status": "error", "message": "Failed to delete message"}
 
 @router.post("/pin-message/{message_id}")
 async def pin_chat_message_endpoint(
-    message_id: str, request: Request, db: Session = Depends(get_db)
+    message_id: str, request: Request, db: AsyncSession = Depends(get_db)
 ):
-    """Delete a chat message from Twitch and the local database."""
+    """Pin a chat message in the admin panel."""
     twitch_api = request.app.state.twitch_api
 
-    if not twitch_api:
-        logger.info("Twitch API Fail")
-        return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
+    if not twitch_api or not twitch_api.is_running:
+        logger.error("❌ Twitch API not initialized!")
+        return {"status": "error", "message": "Twitch API not initialized"}
 
-    await twitch_api.delete_message(message_id)
+    try:
+        async with db as session:
+            message = await get_chat_messages(message_id, session)
 
-    result = delete_chat_message(message_id, db)
+        if not message:
+            return {"status": "error", "message": "Message not found"}
 
-    # Broadcast chat update to UI
-    await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
+        await broadcast_message({
+            "admin_alert": {
+                "type": "chat_pin",
+                "message": message["text"],
+                "username": message["username"],
+            }
+        })
+        return {"status": "success", "message": "Message pinned"}
 
-    return True
+    except Exception as e:
+        logger.error(f"❌ Failed to pin message: {e}")
+        return {"status": "error", "message": "Failed to pin message"}
 
 @router.post("/reward/create")
 async def create_channel_point_reward(request: Request):
     try:
         twitch_api = request.app.state.twitch_api
-        if not twitch_api.is_running:
-            return {"status": "error"}
+        if not twitch_api or not twitch_api.is_running:
+            return {"status": "error", "message": "Twitch API not initialized"}
 
         data = await request.json()
         title = data.get("title")
         cost = data.get("cost")
         prompt = data.get("prompt", "")
         require_input = data.get("require_input", False)
-
-        if not twitch_api:
-            return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
 
         if not title or not cost:
             return {"status": "error", "message": "⚠️ Title and cost are required."}
@@ -85,15 +96,15 @@ async def create_channel_point_reward(request: Request):
 
     except Exception as e:
         logger.error(f"❌ Failed to create reward: {e}")
-        return {"status": "error", "message": "❌ Failed to create reward. Check logs."}
+        return {"status": "error", "message": "❌ Failed to create reward"}
 
 @router.delete("/reward/delete/{reward_id}")
 async def delete_channel_point_reward(request: Request, reward_id: str):
     try:
         twitch_api = request.app.state.twitch_api
 
-        if not twitch_api.is_running:
-            return {"status": "error"}
+        if not twitch_api or not twitch_api.is_running:
+            return {"status": "error", "message": "Twitch API not initialized"}
 
         await twitch_api.twitch.delete_custom_reward(
             broadcaster_id=config.TWITCH_CHANNEL_ID,
@@ -101,124 +112,11 @@ async def delete_channel_point_reward(request: Request, reward_id: str):
         )
 
         logger.info(f"🗑️ Deleted reward {reward_id}")
-        return {"status": "success", "message": "🗑️ Reward deleted."}
+        return {"status": "success", "message": "🗑️ Reward deleted"}
 
     except Exception as e:
         logger.error(f"❌ Failed to delete reward: {e}")
-        return {"status": "error", "message": "❌ Failed to delete reward."}
-
-@router.get("/rewards/pending", response_class=HTMLResponse)
-async def get_pending_rewards(request: Request):
-    """Retrieve all unfulfilled Twitch channel point redemptions."""
-    twitch_api = request.app.state.twitch_api
-
-    if not twitch_api.is_running:
-        return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
-
-    try:
-        rewards = await get_all_custom_rewards(twitch_api)
-        if not rewards:
-            return "<p class='text-gray-500 text-sm'>No custom rewards found.</p>"
-
-        redemptions = await get_pending_redemptions(twitch_api, rewards)
-        if not redemptions:
-            return "<p class='text-gray-500 text-sm'>No pending redemptions.</p>"
-
-        html_output = "<div class='space-y-2'>"
-        for redemption in redemptions:
-            redeemed_at = redemption.redeemed_at.strftime('%d.%m.%Y %H:%M') if redemption.redeemed_at else "Unknown"
-
-            html_output += f"""
-            <div class='p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm'>
-                <div class='font-semibold text-white'>{redemption.reward.title}</div>
-                <div class='text-xs text-gray-400'>{redeemed_at}</div>
-                <div class='mt-2 text-gray-300 text-sm'>{html.escape(redemption.user_input)}</div>
-                <div class='mt-1 text-xs text-yellow-400 font-semibold'>{redemption.user_name}</div>
-                <div class='mt-2 flex space-x-2'>
-                    <button class='bg-green-500 hover:bg-green-400 text-white px-2 py-1 text-xs rounded'
-                            onclick="fulfillRedemption('{redemption.reward.id}', '{redemption.id}')">✔ Fulfill</button>
-                    <button class='bg-red-500 hover:bg-red-400 text-white px-2 py-1 text-xs rounded'
-                            onclick="cancelRedemption('{redemption.reward.id}', '{redemption.id}')">✖ Refund</button>
-                </div>
-            </div>
-            """
-        html_output += "</div>"
-
-        return HTMLResponse(content=html_output)
-
-    except Exception as e:
-        logger.error(f"Error fetching pending redemptions: {e}")
-        return "<p class='text-red-500 text-sm'>Error fetching pending redemptions.</p>"
-
-async def get_all_custom_rewards(twitch_api):
-    """Fetch all custom rewards from Twitch."""
-    if not twitch_api.is_running:
-        return []
-
-    try:
-        rewards = await twitch_api.twitch.get_custom_reward(
-            broadcaster_id=config.TWITCH_CHANNEL_ID,
-            only_manageable_rewards=True
-        )
-        return rewards
-    except Exception as e:
-        logger.error(f"Failed to fetch custom rewards: {e}")
-        return []
-
-async def get_pending_redemptions(twitch_api, rewards):
-    """Fetch pending redemptions for each reward."""
-    if not twitch_api.is_running:
-        return []
-
-    try:
-        redemptions = []
-        for reward in rewards:
-            redemptions_generator = twitch_api.twitch.get_custom_reward_redemption(
-                broadcaster_id=config.TWITCH_CHANNEL_ID,
-                reward_id=reward.id,
-                status=CustomRewardRedemptionStatus.UNFULFILLED
-            )
-
-            async for redemption in redemptions_generator:
-                redemptions.append(redemption)
-
-        return redemptions
-    except Exception as e:
-        logger.error(f"Failed to fetch pending redemptions: {e}")
-        return []
-
-@router.get("/rewards/", response_class=HTMLResponse)
-async def get_rewards(request: Request):
-    """Fetch and display the existing custom rewards."""
-    try:
-        twitch_api = request.app.state.twitch_api
-
-        if not twitch_api.is_running:
-            return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
-
-        rewards = await twitch_api.twitch.get_custom_reward(broadcaster_id=config.TWITCH_CHANNEL_ID)
-
-        if not rewards:
-            return "<p class='text-gray-400'>No rewards available.</p>"
-
-        reward_html = "".join(
-            f"""
-            <div class='bg-gray-800 p-3 rounded-md shadow-md flex justify-between items-center'>
-                <div>
-                    <p class='text-lg font-bold'>{reward.title}</p>
-                    <p class='text-sm text-gray-400'>Cost: {reward.cost} | Requires Input: {"Yes" if reward.is_user_input_required else "No"}</p>
-                    <p class='text-sm text-gray-500'>{reward.prompt}</p>
-                </div>
-                <button class='bg-red-500 px-3 py-1 rounded text-white'
-                    onclick="deleteReward('{reward.id}')">🗑️ Delete</button>
-            </div>
-            """ for reward in rewards
-        )
-
-        return reward_html
-    except Exception as e:
-        logger.error(f"❌ Failed to fetch rewards: {e}")
-        return "<p class='text-red-500'>Error fetching rewards.</p>"
+        return {"status": "error", "message": "❌ Failed to delete reward"}
 
 @router.post("/redemption/fulfill")
 async def fulfill_redemption(
@@ -244,7 +142,6 @@ async def fulfill_redemption(
     except Exception as e:
         logger.error(f"❌ Failed to fulfill redemption: {e}")
         return {"status": "error", "message": "Failed to fulfill redemption"}
-
 
 @router.post("/redemption/cancel")
 async def cancel_redemption(

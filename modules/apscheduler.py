@@ -1,9 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy.orm import Session
-from database.session import get_db
+from sqlalchemy.future import select
+from database.session import AsyncSessionLocal
 from database.base import ScheduledJobs
 from modules.scheduled_jobs import process_scheduled_job_sync
+import asyncio
 import logging
 
 logger = logging.getLogger("uvicorn.error.apscheduler")
@@ -11,15 +12,21 @@ logger = logging.getLogger("uvicorn.error.apscheduler")
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 
-# Load scheduled jobs from the database
-def load_scheduled_jobs(app):
-    """Loads and schedules all enabled jobs from the database."""
-    db: Session = next(get_db())
-    jobs = db.query(ScheduledJobs).filter(ScheduledJobs.active == True).all()
-    db.close()
+async def fetch_scheduled_jobs():
+    """Fetch scheduled jobs from the database asynchronously."""
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(select(ScheduledJobs).filter(ScheduledJobs.active == True))
+            return result.scalars().all()
+        except Exception as e:
+            logger.error(f"❌ Error fetching scheduled jobs: {e}")
+            return []
+
+async def load_scheduled_jobs(app):
+    """Loads and schedules all enabled jobs from the database asynchronously."""
+    jobs = await fetch_scheduled_jobs()
 
     for job in jobs:
-
         logger.info(f"Found job: {job}")
 
         if job.job_type in ["interval", "twitch_message", "sequence"]:
@@ -42,7 +49,7 @@ def load_scheduled_jobs(app):
             )
 
         elif job.job_type == "cron":
-            cron_parts = job.cron_expression.split()  # Example: "0 12 * * *"
+            cron_parts = job.cron_expression.split()
             scheduler.add_job(
                 process_scheduled_job_sync,
                 "cron",
@@ -58,9 +65,8 @@ def load_scheduled_jobs(app):
 
         logger.info(f"✅ Loaded {job.job_type} job: {job.job_id}")
 
-# Start scheduler
 def start_scheduler(app):
-    load_scheduled_jobs(app)
+    asyncio.create_task(load_scheduled_jobs(app))  # ✅ Starte als Background Task
     scheduler.start()
     logger.info("✅ APScheduler started.")
 

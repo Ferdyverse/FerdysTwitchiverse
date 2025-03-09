@@ -1,18 +1,27 @@
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from .base import Base
+from .base import Base  # Import Base to register models
 
-DATABASE_URL = "sqlite:///./storage/data.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+DATABASE_URL = "sqlite+aiosqlite:///./storage/data.db"
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create an asynchronous engine for SQLite
+async_engine = create_async_engine(DATABASE_URL, echo=True)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Define an asynchronous session factory
+AsyncSessionLocal = sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
+# Dependency function for FastAPI routes
+async def get_db():
+    """Provide an async database session using dependency injection."""
+    async with AsyncSessionLocal() as session:
+        yield session
+
+# Initialize the database asynchronously
+async def init_db():
+    """Create all database tables asynchronously using the registered models."""
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

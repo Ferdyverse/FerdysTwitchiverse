@@ -3,6 +3,7 @@ import json
 import os
 import config
 from fastapi.responses import HTMLResponse
+from database.session import get_db
 from database.crud.todos import get_todos, save_todo
 from routes.hub import show_hub
 from modules.websocket_handler import broadcast_message
@@ -136,17 +137,20 @@ async def command_todo(bot, params: str, event):
         await bot.send_message(f"⛔ @{event.user.display_name}, benutze die Kanalpunkte um ToDos hinzuzufügen")
         logger.warning(f"⚠️ Unauthorized attempt: {event.user.display_name} tried to add a todo.")
         return
-    if params != "":
-        save_todo(params, event.user.id)
-        await bot.send_message(f"✅ TODO added: {params}")
+
+    if params.strip():
+        async with get_db() as db:
+            await save_todo(params, event.user.id, db)
+            await bot.send_message(f"✅ TODO added: {params}")
     else:
-        await bot.send_message("Error: Got no argument to add as todo")
+        await bot.send_message("❌ Fehler: Kein Text angegeben für das ToDo.")
 COMMANDS["todo"] = command_todo
 
 async def command_todos(bot, params: str, event):
     """Handles the !todos command to list all active ToDos in chat with newlines."""
 
-    todos = get_todos()  # Fetch ToDos using the function
+    async with get_db() as db:
+        todos = await get_todos(db=db)
 
     if not todos:
         await bot.send_message("✅ Aktuell sind keine offenen ToDos vorhanden!")

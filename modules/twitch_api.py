@@ -295,23 +295,25 @@ class TwitchAPI:
     async def handle_follow(self, data: dict):
         """Handle follow event, store user data, and save event."""
         username = data.event.user_name
-        user_id = int(data.event.user_id)  # Ensure ID is stored as an integer
+        user_id = int(data.event.user_id)
 
         logger.info(f"📢 New follow: {username}")
 
-        # Store viewer data
-        save_viewer(
-            twitch_id=user_id,
-            login=data.event.user_login,
-            display_name=username,
-            follower_date=datetime.datetime.now(datetime.timezone.utc)
-        )
+        async with get_db() as db:
+            # Store viewer data
+            await save_viewer(
+                twitch_id=user_id,
+                login=data.event.user_login,
+                display_name=username,
+                follower_date=datetime.datetime.now(datetime.timezone.utc),
+                db=db
+            )
 
-        # Save event
-        save_event("follow", user_id, "")
+            # Save event
+            await save_event("follow", user_id, "", db)
 
-        if not self.test_mode:
-            save_overlay_data("last_follower", username)
+            if not self.test_mode:
+                await save_overlay_data("last_follower", username, db)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
@@ -322,19 +324,21 @@ class TwitchAPI:
         user_id = int(data.event.user_id)
         logger.info(f"🎉 New subscription: {username}")
 
-        # Store viewer data
-        save_viewer(
-            twitch_id=user_id,
-            login=data.event.user_login,
-            display_name=username,
-            subscriber_date=datetime.datetime.now(datetime.timezone.utc)
-        )
+        async with get_db() as db:
+            # Store viewer data
+            await save_viewer(
+                twitch_id=user_id,
+                login=data.event.user_login,
+                display_name=username,
+                subscriber_date=datetime.datetime.now(datetime.timezone.utc),
+                db=db
+            )
 
-        # Save event
-        save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
+            # Save event
+            await save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}", db)
 
-        if not self.test_mode:
-            save_overlay_data("last_subscriber", username)
+            if not self.test_mode:
+                await save_overlay_data("last_subscriber", username, db)
 
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
 
@@ -408,45 +412,39 @@ class TwitchAPI:
 
         logger.info(f"🔄 Received Channel Point Redemption Event: {data}")
 
-        # Extract event attributes
         username = data.event.user_name
-        user_id = data.event.user_id
+        user_id = int(data.event.user_id)
         reward_title = data.event.reward.title
-        user_input = data.event.user_input  # Might be empty if not required
-        redeem_id = data.event.id # ID of the single redeem
-        reward_id = data.event.reward.id # Custom reward ID
+        user_input = data.event.user_input
+        redeem_id = data.event.id
+        reward_id = data.event.reward.id
 
         logger.info(f"🎟️ {username} redeemed {reward_title} | Input: {user_input}")
 
-        # Save the event
-        save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
-
         broadcast = True
 
-        if reward_title == "Chatogram":
-            await self.event_queue.put({
-                "command": "print",
-                "user_id": user_id,
-                "user": username,
-                "message": user_input,
-                "redeem_id": redeem_id,
-                "reward_id": data.event.reward.id
-            })
-            broadcast = False
-        elif reward_title == "ToDo":
-            try:
-                todo = save_todo(user_input, user_id)
-                if todo:
-                    logger.info(todo)
-                    await broadcast_message({ "todo": { "action": "create", "id": todo.get("id"), "text": todo.get("text"), "username": todo.get("username") }})
-                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
-                else:
-                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
-                broadcast = False
-            except:
-                logger.error("Todo Error")
+        async with get_db() as db:
+            await save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}", db)
 
-        # Broadcast message to overlay/admin panel
+            if reward_title == "ToDo":
+                try:
+                    todo = await save_todo(user_input, user_id, db)
+                    if todo:
+                        await broadcast_message({
+                            "todo": {
+                                "action": "create",
+                                "id": todo.get("id"),
+                                "text": todo.get("text"),
+                                "username": todo.get("username")
+                            }
+                        })
+                        await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+                    else:
+                        await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
+                    broadcast = False
+                except Exception as e:
+                    logger.error(f"Todo Error: {e}")
+
         if broadcast:
             await broadcast_message({
                 "alert": {

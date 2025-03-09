@@ -27,7 +27,6 @@ async def update_viewer(user_id: int, request: Request, db: Session = Depends(ge
 
         # Update viewer in DB
         save_viewer(
-            db=db,
             twitch_id=user_id,
             login=user_info["login"],
             display_name=user_info["display_name"],

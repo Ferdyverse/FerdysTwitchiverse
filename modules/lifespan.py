@@ -4,20 +4,20 @@ from contextlib import asynccontextmanager
 import config
 import os
 from database.session import init_db
+
+from modules.apscheduler import start_scheduler, shutdown_scheduler
+from modules.heat_api import HeatAPIClient
+from modules.obs_api import OBSController
+from modules.printer_manager import PrinterManager
+from modules.queues.alert_processor import process_alert_queue
+from modules.queues.event_processor import process_event_queue
+from modules.queues.function_registry import register_function
+from modules.queues.manager import event_queue, alert_queue
+from modules.sequence_runner import load_sequences
+from modules.sequence_runner import reload_sequences
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
-from modules.obs_api import OBSController
-from modules.heat_api import HeatAPIClient
-from modules.printer_manager import PrinterManager
-from modules.sequence_runner import load_sequences
-from modules.queues.manager import event_queue, alert_queue
-from modules.queues.function_registry import register_function
-from modules.apscheduler import start_scheduler, shutdown_scheduler
-from modules.queues.event_processor import process_event_queue
-from modules.queues.alert_processor import process_alert_queue
-
 from routes.overlay import send_to_overlay
-from modules.sequence_runner import reload_sequences
 from routes.print import print_data
 
 logger = logging.getLogger("uvicorn.error.lifespan")
@@ -41,7 +41,7 @@ async def lifespan(app):
 
     try:
 
-        init_db()
+        await init_db()
 
         # Init Queues
         app.state.event_queue = event_queue

@@ -14,67 +14,70 @@ def process_scheduled_job_sync(job_id: int, app):
     asyncio.run(process_scheduled_job(job_id, app))
 
 async def process_scheduled_job(job_id: int, app):
-    """Processes a single scheduled job without reloading from DB."""
+    """Processes a single scheduled job asynchronously."""
 
-    db = next(get_db())
-    job = get_scheduled_job_by_id(job_id, db)
-    twitch_chat = app.state.twitch_chat
-    logger.info(f"Starting job {job}")
+    async with get_db() as db:
+        job = await get_scheduled_job_by_id(job_id, db)
+        twitch_chat = app.state.twitch_chat
+        logger.info(f"Starting job {job}")
 
-    # When the job failed
-    if not job:
-        logger.warning(f"⚠️ Job {job_id} not found, skipping.")
-        return  # Job was deleted or invalid
+        # When the job failed
+        if not job:
+            logger.warning(f"⚠️ Job {job_id} not found, skipping.")
+            return  # Job was deleted or invalid
 
-    # Send a chat message
-    if job.job_type == "twitch_message":
-        message_text = job.payload.get("text")
-        message_category = job.payload.get("category")
+        # Send a chat message
+        if job.job_type == "twitch_message":
+            message_text = job.payload.get("text")
+            message_category = job.payload.get("category")
 
-        logger.info(f"text: {message_text}, category: {message_category}")
+            logger.info(f"text: {message_text}, category: {message_category}")
 
-        if message_text is None and message_category:
-            logger.info(f"Searching for messages in {message_category}")
-            # If message is empty, pick one from the pool
-            pool_messages = db.query(ScheduledMessagePool).filter(
-                ScheduledMessagePool.category == message_category,
-                ScheduledMessagePool.enabled == True
-            ).all()
+            if message_text is None and message_category:
+                logger.info(f"Searching for messages in {message_category}")
 
-            if pool_messages:
-                message_text = random.choice(pool_messages).message
-            else:
-                logger.warning(f"⚠️ No messages found in pool for category '{message_category}', skipping.")
+                # If message is empty, pick one from the pool
+                result = await db.execute(
+                    select(ScheduledMessagePool.message).filter(
+                        ScheduledMessagePool.category == message_category,
+                        ScheduledMessagePool.enabled == True
+                    )
+                )
+                pool_messages = result.scalars().all()
 
-            logger.info(f"Found Message so send: {message_text}")
+                if pool_messages:
+                    message_text = random.choice(pool_messages)
+                else:
+                    logger.warning(f"⚠️ No messages found in pool for category '{message_category}', skipping.")
 
-        if message_text:
-            await twitch_chat.send_message(message_text)
-            logger.info(f"✅ Sent scheduled message: {message_text}")
+                logger.info(f"Found Message to send: {message_text}")
 
-    # Run a sequence
-    elif job.job_type == "sequence":
-        job_data = job.payload
-        sequence = job_data.get("sequence")
-        logger.info(f"Execute sequence: {sequence}")
-        await execute_sequence(sequence, app.state.event_queue)
+            if message_text:
+                await twitch_chat.send_message(message_text)
+                logger.info(f"✅ Sent scheduled message: {message_text}")
 
-    # Send something to the overlay
-    elif job.job_type == "overlay_event":
-        event_data = job.payload
-        await broadcast_message(event_data)
-        logger.info(f"✅ Triggered overlay event: {event_data}")
+        # Run a sequence
+        elif job.job_type == "sequence":
+            job_data = job.payload
+            sequence = job_data.get("sequence")
+            logger.info(f"Execute sequence: {sequence}")
+            await execute_sequence(sequence, app.state.event_queue)
 
-    # Date -> Currently not used
-    elif job.job_type == "date":
-        logger.info(f"🔔 Running one-time scheduled job {job.event_id}")
-        job.active = False  # Mark as completed
+        # Send something to the overlay
+        elif job.job_type == "overlay_event":
+            event_data = job.payload
+            await broadcast_message(event_data)
+            logger.info(f"✅ Triggered overlay event: {event_data}")
 
-    # Cron -> Also not used
-    elif job.job_type == "cron":
-        logger.info(f"🔔 Running cron job {job.event_id}")
+        # Date -> Currently not used
+        elif job.job_type == "date":
+            logger.info(f"🔔 Running one-time scheduled job {job.event_id}")
+            job.active = False  # Mark as completed
+            await db.commit()
 
-    else:
-        logger.warning(f"⚠️ Unknown job type: {job.job_type}, skipping.")
+        # Cron -> Also not used
+        elif job.job_type == "cron":
+            logger.info(f"🔔 Running cron job {job.event_id}")
 
-    db.close()
+        else:
+            logger.warning(f"⚠️ Unknown job type: {job.job_type}, skipping.")

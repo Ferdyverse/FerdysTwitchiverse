@@ -50,16 +50,12 @@ async def execute_sequence_step(step, event_queue, context: dict):
     step_data = resolve_variables(step_data, context)
 
     try:
-        # Get the global event queue from app state
-
-        # Handle delays
         if step_type == "sleep":
             delay_time = step_data if isinstance(step_data, (int, float)) else 1
             logger.info(f"⏳ Waiting {delay_time} seconds...")
             await asyncio.sleep(delay_time)
             return True
 
-        # Handle if-else conditions
         if step_type == "if":
             condition_name = step_data.get("condition")
             then_steps = step_data.get("then", [])
@@ -70,33 +66,29 @@ async def execute_sequence_step(step, event_queue, context: dict):
                 for then_step in then_steps:
                     success = await execute_sequence_step(then_step, event_queue, context)
                     if not success:
-                        return False  # Stop if a step fails
-            else:  # ❌ Condition failed
+                        return False
+            else:
                 logger.info(f"❌ Condition '{condition_name}' is FALSE, executing ELSE block.")
                 for else_step in else_steps:
                     success = await execute_sequence_step(else_step, event_queue, context)
                     if not success:
-                        return False  # Stop if a step fails
-            return True  # Continue sequence execution
+                        return False
+            return True
 
-        # Handle function calls via event queue (Fail sequence if function fails)
         if step_type == "call_function":
             function_name = step_data.get("name")
             parameters = step_data.get("parameters", {})
 
-            # Send function execution request to the event queue
             task = {"function": function_name, "data": parameters}
             await event_queue.put(task)
             logger.info(f"🔄 Queued function '{function_name}' with parameters: {parameters}")
 
-            # Check if function succeeds
             success = await wait_for_task_success(task, event_queue)
             if not success:
                 logger.error(f"❌ Function '{function_name}' failed, stopping sequence.")
                 return False
             return True
 
-        # Handle setting conditions
         if step_type == "set_condition":
             condition_name = step_data.get("name")
             condition_value = step_data.get("value", True)
@@ -117,20 +109,20 @@ async def execute_sequence_step(step, event_queue, context: dict):
             todo = {"todo": {"action": action, "id": todo_id}}
 
             if action == "remove":
-                complete_todo(int(todo_id))
+                async with get_db() as db:
+                    await complete_todo(int(todo_id), db)
 
             await broadcast_message(todo)
             logger.info(f"✅ Trigger ToDo: {todo}")
             return True
 
-        # Handle overlay events
         await broadcast_message({"overlay_event": {"action": step_type, "data": step_data}})
         logger.info(f"✅ Executed overlay action: {step_type} with data: {step_data}")
-        return True  # ✅ Step successful
+        return True
 
     except Exception as e:
         logger.error(f"❌ Error executing step '{step_type}': {e}")
-        return False  # ❌ Stop execution if an error occurs
+        return False
 
 async def wait_for_task_success(task, event_queue):
     """ Wait for a task to complete and return whether it succeeded. """
