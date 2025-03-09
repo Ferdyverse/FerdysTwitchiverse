@@ -448,7 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Update Viewer
     window.updateViewer = async () => {
         if (!selectedUser) return;
-        const response = await fetch(`/admin/twitch/update-viewer/${selectedUser}`, {
+        const response = await fetch(`/admin/viewers/update/${selectedUser}`, {
             method: "POST",
         });
 
