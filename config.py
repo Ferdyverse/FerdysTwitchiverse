@@ -18,7 +18,6 @@ def getenv_int(var_name: str, default: int = 0) -> int:
         return default
 
 DISABLE_HEAT_API = getenv_bool("DISABLE_HEAT_API")
-DISABLE_FIREBOT = getenv_bool("DISABLE_FIREBOT")
 DISABLE_PRINTER = getenv_bool("DISABLE_PRINTER")
 DISABLE_TWITCH = getenv_bool("DISABLE_TWITCH")
 DISABLE_OBS = getenv_bool("DISABLE_OBS")
@@ -76,9 +75,6 @@ OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
 SPOTIFY_CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET=os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI="http://localhost:8000/spotify/auth"
-
-# FIREBOT
-FIREBOT_API_URL = "http://localhost:7472/api/v1"
 
 # Additional settings
 TOKEN_FILE = "storage/twitch_tokens.json"

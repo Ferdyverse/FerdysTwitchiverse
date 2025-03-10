@@ -1,7 +1,3 @@
-Here’s an updated **README.md** based on the latest details about your project:
-
----
-
 # **Ferdy’s Twitchiverse**
 
 **Ferdy’s Twitchiverse** is a **FastAPI-based** application that **integrates Twitch interactions** with a **real-time overlay system** and **custom event automation**. The system allows **dynamic overlays, interactive chat features, scheduled events, CouchDB-powered data storage, and full control over Twitch-based interactions**.
