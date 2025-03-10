@@ -3,7 +3,6 @@ import inspect
 import logging
 from twitchAPI.type import CustomRewardRedemptionStatus
 
-from database.session import get_db
 from database.crud.events import save_event
 from modules.websocket_handler import broadcast_message
 from modules.sequence_runner import execute_sequence
@@ -26,7 +25,6 @@ async def process_event_queue(app):
     obs = app.state.obs
     event_queue = app.state.event_queue
 
-    db = next(get_db())
     try:
         while True:
             task = await event_queue.get()
@@ -61,10 +59,10 @@ async def process_event_queue(app):
 
                     except TypeError as e:
                         logger.error(f"❌ Function execution failed: {e}")
-                        save_event("error", None, f"Failed function: {function_name}, Error: {e}", db)
+                        save_event("error", None, f"Failed function: {function_name}, Error: {e}")
                 else:
                     logger.warning(f"⚠️ Function '{function_name}' not found or not callable!")
-                    save_event("error", None, f"Function not found: {function_name}", db)
+                    save_event("error", None, f"Function not found: {function_name}")
 
             # Process Twitch message printing
             if "command" in task:
@@ -145,7 +143,7 @@ async def process_event_queue(app):
                         })
                         await execute_sequence("reset_star", event_queue)
                         await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
-                        save_event("heat_click", user, "Hat aufgeräumt!", db=db)
+                        save_event("heat_click", user, "Hat aufgeräumt!")
 
                 except Exception as e:
                     logger.error(f"❌ Error processing heatmap click: {e}")
@@ -169,7 +167,4 @@ async def process_event_queue(app):
 
             event_queue.task_done()
     except Exception as e:
-        print(f"❌ Error in Event Queue Processor: {e}")
-
-    finally:
-        db.close()
+        logger.error(f"❌ Error in Event Queue Processor: {e}")

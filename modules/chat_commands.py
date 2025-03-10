@@ -3,9 +3,9 @@ import json
 import os
 import config
 from fastapi.responses import HTMLResponse
-from database.crud.todos import get_todos, save_todo
-from routes.hub import show_hub
 from modules.websocket_handler import broadcast_message
+from database.crud.todos import save_todo, get_todos
+from routes.hub import show_hub
 
 logger = logging.getLogger("uvicorn.error.chat_commands")
 
@@ -30,28 +30,8 @@ def save_command_responses():
     with open(COMMAND_RESPONSES_FILE, "w", encoding="utf-8") as f:
         json.dump(COMMAND_RESPONSES, f, indent=4)
 
-def check_access_rights(event, level: str):
-    """Checks if the user has the required permissions based on their role (without using badges)."""
-
-    user_id = int(event._parsed["tags"].get("user-id", 0))  # Get user ID
-    channel_id = int(config.TWITCH_CHANNEL_ID)  # Broadcaster's ID from config
-
-    is_broadcaster = user_id == channel_id  # Compare user ID with broadcaster ID
-    is_mod = event._parsed["tags"].get("mod") == "1"  # Check if user is a mod
-    is_vip = event._parsed["tags"].get("vip") == "1"  # Check if user is a VIP (if available)
-
-    if level == "mod":
-        return is_broadcaster or is_mod
-    elif level == "vip":
-        return is_broadcaster or is_mod or is_vip
-    elif level == "broadcaster":
-        return is_broadcaster
-    else:
-        return False  # Default: No access
-
-
 async def handle_command(bot, command_name: str, params: str, event):
-    """Handles both function-based commands and key-value responses, with alias support."""
+    """Handles function-based commands and key-value responses with alias support."""
 
     command_name = ALIASES.get(command_name, command_name)
 
@@ -68,92 +48,34 @@ async def handle_command(bot, command_name: str, params: str, event):
         await handler_function(bot, params, event)
     else:
         logger.warning(f"⚠️ Unknown command: !{command_name} (no handler found)")
-        # await bot.send_message(f"❌ Unknown command: !{command_name}")
-
 
 # ─── Command Handlers ───────────────────────────────────────────────
 
-async def command_commands(bot, params: str, event):
-    """Handles the !commands command by whispering all available commands in a readable format."""
-
-    # Get function-based commands
-    function_commands = set(COMMANDS.keys())
-
-    # Get JSON-based commands and their aliases
-    json_commands = set(COMMAND_RESPONSES.keys())
-    alias_commands = set(ALIASES.keys())
-
-    # Combine all commands and sort
-    all_commands = sorted(function_commands | json_commands | alias_commands)
-
-    # Format list with newlines
-    command_list = "\n".join([f"• {cmd}" for cmd in all_commands])
-
-    # Prepare the message
-    message = f"📜 Verfügbare Commands:\n{command_list}"
-
-    try:
-        await bot.send_message(message)
-        logger.info(f"📩 Sent formatted command list to {event.user.name}")
-    except Exception as e:
-        logger.error(f"❌ Failed to send whisper: {e}")
-        await bot.send_message(f"@{event.user.display_name}, Ich konnte dir leider keine Nachricht senden!")
-
-COMMANDS["commands"] = command_commands
-
-async def command_addresponse(bot, params: str, event):
-    """Handles the !addresponse command, restricted to moderators & broadcaster."""
-
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, du besitzt nicht die notwendigen Rechte um Commands hinzuzufügen!")
-        logger.warning(f"⚠️ Unauthorized attempt: {event.user.display_name} tried to add a command.")
-        return
-
-    try:
-        command_name, response_text = params.split(" ", 1)
-        command_name = command_name.lower()
-
-        if command_name in COMMANDS:
-            await bot.send_message(f"❌ Cannot override existing command function: !{command_name}")
-            return
-
-        COMMAND_RESPONSES[command_name] = response_text
-        save_command_responses()
-        await bot.send_message(f"✅ Command !{command_name} added.")
-
-    except ValueError:
-        await bot.send_message("❌ Usage: !addresponse <command> <response>")
-COMMANDS["addresponse"] = command_addresponse
-
-async def command_print(bot, params: str, event):
-    """Handles the !print command."""
-    await bot.send_message(f"🖨️ {event.user.display_name} says: {params}")
-COMMANDS["print"] = command_print
-
 async def command_todo(bot, params: str, event):
     """Handles the !todo command."""
-    if not check_access_rights(event, "mod"):
-        await bot.send_message(f"⛔ @{event.user.display_name}, benutze die Kanalpunkte um ToDos hinzuzufügen")
-        logger.warning(f"⚠️ Unauthorized attempt: {event.user.display_name} tried to add a todo.")
+    if not params:
+        await bot.send_message(f"❌ @{event.user.display_name}, bitte gib eine ToDo-Beschreibung an!")
         return
-    if params != "":
-        save_todo(params, event.user.id)
-        await bot.send_message(f"✅ TODO added: {params}")
+
+    result = save_todo(params, event.user.id, event.user.display_name)
+
+    if result:
+        await bot.send_message(f"✅ ToDo hinzugefügt: {params} (ID: {result})")
     else:
-        await bot.send_message("Error: Got no argument to add as todo")
+        await bot.send_message("❌ Fehler beim Speichern des ToDos!")
+
 COMMANDS["todo"] = command_todo
 
 async def command_todos(bot, params: str, event):
-    """Handles the !todos command to list all active ToDos in chat with newlines."""
+    """Handles the !todos command to list all active ToDos in chat."""
 
-    todos = get_todos()  # Fetch ToDos using the function
+    todos = get_todos(status="pending")  # Fetch only pending ToDos
 
     if not todos:
         await bot.send_message("✅ Aktuell sind keine offenen ToDos vorhanden!")
         return
 
-    # Format ToDos with viewer info
-    todo_list = [f"#{todo['id']}: {todo['text']} (by {todo['username']})" for todo in todos]
+    todo_list = [f"#{todo['_id']} - {todo['text']} (by {todo['username']})" for todo in todos]
 
     # Send in chunks (Twitch chat limit: ~500 chars per message)
     message = "📝 **Aktuelle ToDos:**\n\n" + "\n\n".join(todo_list)
@@ -174,24 +96,5 @@ async def command_todos(bot, params: str, event):
             await bot.send_message(chunk)
     else:
         await bot.send_message(message)
+
 COMMANDS["todos"] = command_todos
-
-async def command_hub(bot, params: str, event):
-    """Handles the !hub command and filters text through show_hub."""
-
-    if not params:
-        await bot.send_message(f"⚠️ @{event.user.display_name}, bitte gib einen Text für den Hub an!")
-        return
-
-    hub_response = show_hub(params)  # Holt die HTMLResponse
-
-    if isinstance(hub_response, HTMLResponse):
-        hub_html = hub_response.body.decode("utf-8")  # Extrahiere den HTML-Code
-    else:
-        hub_html = str(hub_response)  # Falls kein HTMLResponse, konvertiere zu String
-
-    await broadcast_message({"html": {"content": hub_html, "lifetime": 100000}})
-
-    logger.info(f"✅ !hub processed: {params} -> {hub_html}")
-
-COMMANDS["hub"] = command_hub

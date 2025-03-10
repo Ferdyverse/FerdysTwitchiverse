@@ -3,7 +3,6 @@ import asyncio
 from contextlib import asynccontextmanager
 import config
 import os
-from database.session import init_db
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
 from modules.obs_api import OBSController
@@ -40,8 +39,6 @@ async def lifespan(app):
         twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, twitch_api=twitch_api)
 
     try:
-
-        init_db()
 
         # Init Queues
         app.state.event_queue = event_queue

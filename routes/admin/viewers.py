@@ -1,18 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.crud.viewers import save_viewer
 from modules.websocket_handler import broadcast_message
+from database.crud.viewers import save_viewer
 import logging
 
 logger = logging.getLogger("uvicorn.error.viewers")
 
 router = APIRouter(prefix="/viewers", tags=["Viewers"])
 
+
 @router.post("/update/{user_id}")
-async def update_viewer(user_id: int, request: Request, db: Session = Depends(get_db)):
-    """Fetch latest user info and update the viewer database."""
+async def update_viewer(user_id: int, request: Request):
+    """Fetch latest user info and update the viewer database (CouchDB)."""
 
     twitch_api = request.app.state.twitch_api
 
@@ -25,30 +24,29 @@ async def update_viewer(user_id: int, request: Request, db: Session = Depends(ge
         if not user_info:
             raise HTTPException(status_code=404, detail="User not found in Twitch API")
 
-        # Update viewer in DB
+        # Update viewer in CouchDB
         save_viewer(
-            db=db,
             twitch_id=user_id,
             login=user_info["login"],
             display_name=user_info["display_name"],
             account_type=user_info["type"],
             broadcaster_type=user_info["broadcaster_type"],
             profile_image_url=user_info["profile_image_url"],
-            account_age="",
-            follower_date=None,
-            subscriber_date=None,
             color=user_info.get("color"),
             badges=",".join(user_info.get("badges", []))
         )
 
         # Broadcast update
-        await broadcast_message({"admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}})
+        await broadcast_message({
+            "admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}
+        })
 
         return {"status": "success", "message": "Viewer information updated"}
 
     except Exception as e:
         logger.error(f"❌ Failed to update viewer: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to update viewer: {str(e)}")
+
 
 @router.get("/count", response_class=HTMLResponse)
 async def get_viewer_count(request: Request):

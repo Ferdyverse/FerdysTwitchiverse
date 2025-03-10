@@ -17,13 +17,13 @@
 
             <!-- Edit Button -->
             <button class="no-drag bg-yellow-500 hover:bg-yellow-400 text-black px-2 py-1 text-sm rounded ml-2"
-                onclick="openButtonModal(true, {{ button.id }}, '{{ button.label }}', '{{ button.action }}', JSON.stringify({{ button.data | safe }}), {{ button.prompt | lower }})">
+                onclick="openButtonModal(true, '{{ button.id }}', '{{ button.label }}', '{{ button.action }}', JSON.stringify({{ button.data | safe }}), {{ button.prompt | lower }})">
                 ✏️
             </button>
 
             <!-- Delete Button -->
             <button class="no-drag bg-red-500 hover:bg-red-400 text-white px-2 py-1 text-sm rounded ml-2"
-                onclick="confirmDelete({{ button.id }})">
+                onclick="confirmDelete('{{ button.id }}')">
                 🗑️
             </button>
         </div>

@@ -7,3 +7,15 @@ services:
       - .env
     environment:
       - DISABLE_OBS=true
+
+  couchdb:
+    image: couchdb:3.3
+    container_name: couchdb
+    restart: always
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - ./storage/couchdb_data:/opt/couchdb/data

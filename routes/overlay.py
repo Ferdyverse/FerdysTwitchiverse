@@ -1,17 +1,15 @@
-from fastapi import APIRouter, Request, Depends, Body, HTTPException
+from fastapi import APIRouter, Request, Body, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
 import logging
 
 from modules.schemas import OverlayMessage
 from modules import event_handlers
 from modules.websocket_handler import broadcast_message
-from database.session import get_db
-from database.crud.overlay import get_overlay_data
 from modules.sequence_runner import execute_sequence, reload_sequences, load_sequences
 from modules.heat_api import add_clickable_object, remove_clickable_object, get_clickable_objects
-from database.crud.events import save_event  # Importing save_event
+from database.crud.overlay import get_overlay_data, save_overlay_data
+from database.crud.events import save_event
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/overlay", tags=["Overlay"])
@@ -69,16 +67,26 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
 
 ### Fetch Overlay Data ###
 @router.get("/data", summary="Fetch overlay data")
-async def fetch_overlay_data(db: Session = Depends(get_db)):
-    """Retrieves the last follower and subscriber from the database."""
+async def fetch_overlay_data():
+    """Retrieves the last follower and subscriber from CouchDB."""
     return {
-        "last_follower": get_overlay_data("last_follower", db) or "None",
-        "last_subscriber": get_overlay_data("last_subscriber", db) or "None",
-        "goal_text": get_overlay_data("goal_text", db) or "None",
-        "goal_current": get_overlay_data("goal_current", db) or "None",
-        "goal_target": get_overlay_data("goal_target", db) or "None"
+        "last_follower": get_overlay_data("last_follower") or "None",
+        "last_subscriber": get_overlay_data("last_subscriber") or "None",
+        "goal_text": get_overlay_data("goal_text") or "None",
+        "goal_current": get_overlay_data("goal_current") or "None",
+        "goal_target": get_overlay_data("goal_target") or "None"
     }
 
+@router.post("/data")
+async def set_overlay_data(request: Request):
+    """Set overlay data"""
+    try:
+        body = await request.json()
+        key = body.get("key")
+        value = body.get("value")
+        save_overlay_data(key, value)
+    except Exception as e:
+        logger.exception(f"❌ Error set overlay-data: {e}")
 
 ### Trigger Overlay Actions ###
 @router.post("/trigger/")

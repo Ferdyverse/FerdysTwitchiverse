@@ -1,9 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.crud.viewers import save_viewer
-from modules.websocket_handler import broadcast_message
+
 import logging
 
 logger = logging.getLogger("uvicorn.error.stream")

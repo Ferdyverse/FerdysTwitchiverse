@@ -5,11 +5,6 @@ from fastapi import Depends
 from twitchAPI.type import CustomRewardRedemptionStatus
 from sqlalchemy.orm import Session
 
-from database.session import get_db
-from database.crud.events import save_event
-from modules.websocket_handler import broadcast_message
-from modules.sequence_runner import execute_sequence
-from modules.queues.function_registry import get_function
 import config
 
 logger = logging.getLogger("uvicorn.error.alert_queue_processor")

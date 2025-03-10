@@ -1,41 +1,59 @@
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.base import Planet
+from modules.couchdb_client import couchdb_client
 import datetime
+import uuid
+import logging
 
-def get_planets(db: Session = Depends(get_db)):
-    """Retrieve all planets."""
+logger = logging.getLogger("uvicorn.error.planets")
+
+def get_planets():
+    """Retrieve all planets from the correct CouchDB database."""
     try:
-        return db.query(Planet).order_by(Planet.date.desc()).all()
+        db = couchdb_client.get_db("planets")
+
+        # Fetch all documents where type == "planet"
+        planets = [db[doc] for doc in db if db[doc].get("type") == "planet"]
+
+        # Sort by date (newest first)
+        planets.sort(key=lambda x: x["date"], reverse=True)
+
+        return planets
     except Exception as e:
-        print(f"❌ Failed to retrieve planets: {e}")
+        logger.error(f"❌ Failed to retrieve planets: {e}")
         return []
 
-def save_planet(raider_name: str, raid_size: int, angle: float, distance: float, db: Session = Depends(get_db)):
-    """Save a planet record."""
+def save_planet(raider_name: str, raid_size: int, angle: float, distance: float):
+    """Save a planet record to the correct CouchDB database."""
     try:
-        planet = Planet(
-            raider_name=raider_name,
-            raid_size=raid_size,
-            angle=angle,
-            distance=distance,
-            date=datetime.datetime.utcnow()
-        )
-        db.add(planet)
-        db.commit()
-        db.refresh(planet)
+        db = couchdb_client.get_db("planets")
+
+        planet = {
+            "_id": str(uuid.uuid4()),  # Unique identifier for CouchDB
+            "type": "planet",
+            "raider_name": raider_name,
+            "raid_size": raid_size,
+            "angle": angle,
+            "distance": distance,
+            "date": datetime.datetime.utcnow().isoformat()  # Store as ISO timestamp
+        }
+
+        db.save(planet)
         return planet
     except Exception as e:
-        print(f"❌ Error saving planet: {e}")
-        db.rollback()
+        logger.error(f"❌ Error saving planet: {e}")
         return None
 
-def clear_planets(db: Session = Depends(get_db)):
-    """Delete all planets."""
+def clear_planets():
+    """Delete all planets from the correct CouchDB database."""
     try:
-        db.query(Planet).delete()
-        db.commit()
+        db = couchdb_client.get_db("planets")
+
+        # Fetch all planet documents
+        planet_docs = [doc for doc in db if db[doc].get("type") == "planet"]
+
+        # Delete all found planet documents
+        for doc_id in planet_docs:
+            db.delete(db[doc_id])
+
+        logger.info("✅ Cleared all planets from CouchDB.")
     except Exception as e:
-        print(f"❌ Failed to clear planets: {e}")
-        db.rollback()
+        logger.error(f"❌ Failed to clear planets: {e}")
