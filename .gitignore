@@ -178,3 +178,4 @@ data.db
 
 twitch_tokens.json
 commands.md
+storage/couchdb_data

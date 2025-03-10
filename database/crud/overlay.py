@@ -1,29 +1,39 @@
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.base import OverlayData
+from modules.couchdb_client import couchdb_client
+import logging
 
-def save_overlay_data(key: str, value: str, db: Session = Depends(get_db)):
-    """Save or update overlay data."""
+logger = logging.getLogger("uvicorn.error.overlay")
+
+def save_overlay_data(key: str, value: str):
+    """Save or update overlay data in CouchDB."""
     try:
-        overlay_data = db.query(OverlayData).filter_by(key=key).first()
-        if overlay_data:
-            overlay_data.value = value
+        db = couchdb_client.get_db("overlay")
+
+        # Check if key already exists
+        existing_doc_id = next((doc for doc in db if db[doc].get("type") == "overlay" and db[doc].get("key") == key), None)
+
+        if existing_doc_id:
+            doc = db[existing_doc_id]
+            doc["value"] = value
+            db.save(doc)
         else:
-            overlay_data = OverlayData(key=key, value=value)
-            db.add(overlay_data)
-        db.commit()
-        return overlay_data
+            doc = {"_id": f"overlay_{key}", "type": "overlay", "key": key, "value": value}
+            db.save(doc)
+
+        return doc
     except Exception as e:
-        print(f"❌ Error saving overlay data: {e}")
-        db.rollback()
+        logger.error(f"❌ Error saving overlay data: {e}")
         return None
 
-def get_overlay_data(key: str, db: Session = Depends(get_db)):
-    """Retrieve overlay data."""
+
+def get_overlay_data(key: str):
+    """Retrieve overlay data from CouchDB."""
     try:
-        overlay_data = db.query(OverlayData).filter_by(key=key).first()
-        return overlay_data.value if overlay_data else None
+        db = couchdb_client.get_db("overlay")
+
+        # Find the document matching the given key
+        overlay_data = next((db[doc] for doc in db if db[doc].get("type") == "overlay" and db[doc].get("key") == key), None)
+
+        return overlay_data["value"] if overlay_data else None
     except Exception as e:
-        print(f"❌ Failed to retrieve overlay data: {e}")
+        logger.error(f"❌ Failed to retrieve overlay data: {e}")
         return None
