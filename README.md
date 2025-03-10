@@ -1,40 +1,42 @@
-# Ferdy’s Twitchiverse
+Here’s an updated **README.md** based on the latest details about your project:
 
-**Ferdy’s Twitchiverse** is a **FastAPI-based** application that bridges Twitch interactions with your local network setup. It’s a **Twitchy pocket universe** designed for **real-time engagement**, supporting **dynamic overlays, automated printing**, and **custom event handling** to enhance your stream.
+---
+
+# **Ferdy’s Twitchiverse**
+
+**Ferdy’s Twitchiverse** is a **FastAPI-based** application that **integrates Twitch interactions** with a **real-time overlay system** and **custom event automation**. The system allows **dynamic overlays, interactive chat features, scheduled events, CouchDB-powered data storage, and full control over Twitch-based interactions**.
 
 ---
 
 ⚠️ **Work in Progress**
-This project is evolving rapidly, and due to the time I’m investing in development, the documentation might be out of date. I will update it once the core features are finalized.
+This project is evolving rapidly. Some documentation might be out of date until the core features are finalized.
 
 ---
 
-## 🚀 Features
+## 🚀 **Features**
 
-- **🖨️ Print System** – Print headlines, messages, and images on a **thermal printer** (ESC/POS).
-- **🎬 Dynamic Overlays** – Modify OBS overlays **in real-time** with alerts, animations, and custom events.
-- **📡 WebSocket Integration** – Enables **live communication** between Twitch events and the frontend.
-- **🔧 Automated Printer Handling** – Automatically reconnects when the printer goes offline.
-- **📜 API Documentation** – Interactive API testing via **Swagger UI**.
-- **🛠️ Modular & Scalable** – Clean, structured codebase designed for **expandability**.
-
----
-
-## 📌 Requirements
-
-- **Python** 3.8+
-- A **compatible ESC/POS thermal printer**
-- Installed libraries: `fastapi`, `uvicorn`, `escpos`, `PIL` (Pillow), `requests`
-- **System dependency:**
-  Install `libcups2-dev` (required for printer handling)
-  _Debian/Ubuntu:_
-  ```bash
-  sudo apt install libcups2-dev
-  ```
+- **📡 WebSocket Integration** – Real-time communication between Twitch events, overlays, and the admin panel.
+- **🎬 Dynamic Overlays** – Customizable overlays for OBS/Web, supporting alerts, animations, and interactive elements.
+- **📜 Chat System** – Displays **Twitch chat messages** in the admin panel, including emoji support and moderation tools.
+- **🛠️ CouchDB Storage** – Uses **CouchDB** for fast, document-based data storage (viewers, events, to-dos, buttons, sequences).
+- **🕹️ Admin Panel** – Web-based dashboard for controlling overlays, executing sequences, and managing events.
+- **🔧 Automated Event Handling** – Supports **custom sequences** triggered by chat, events, or scheduled jobs.
+- **📅 Scheduled Messages** – Custom message pools and automatic scheduled event handling.
+- **🖱️ Interactive Elements** – Supports **clickable objects** for interactive stream events.
+- **📊 OBS WebSocket API** – Allows control over **OBS sources, scenes, and visibility** directly from the admin panel.
 
 ---
 
-## 📥 Installation
+## 📌 **Requirements**
+
+- **Python 3.10+**
+- **Docker** (recommended for running CouchDB)
+- Installed libraries: `fastapi`, `uvicorn`, `couchdb`, `asyncio`, `htmx`, `websockets`
+- **CouchDB** (Required for data storage)
+
+---
+
+## 📥 **Installation**
 
 ### 1️⃣ Clone the Repository
 
@@ -53,34 +55,26 @@ source env/bin/activate  # Windows: .\env\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Configure the Application
+### 3️⃣ Start CouchDB (Recommended via Docker)
 
-Modify the `config.py` file with your settings:
-
-```python
-# config.py
-APP_HOST = "0.0.0.0"
-APP_PORT = 8000
-APP_LOG_LEVEL = "debug"
-
-PRINTER_VENDOR_ID = 0x04b8  # Example: Epson
-PRINTER_PRODUCT_ID = 0x0e15
-PRINTER_IN_EP = 0x82
-PRINTER_OUT_EP = 0x01
-PRINTER_PROFILE = "default"
+```bash
+docker run -d --name couchdb -p 5984:5984 -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb
 ```
+
+Or install CouchDB manually and access the **Fauxton Interface** via:
+🔗 `http://127.0.0.1:5984/_utils/`
 
 ---
 
-## ▶ Running the Application
+## ▶ **Running the Application**
 
-### 🛠 Development Mode (Auto-Reload)
+### 🛠 **Development Mode (Auto-Reload)**
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 🚀 Production Mode
+### 🚀 **Production Mode**
 
 ```bash
 python main.py
@@ -88,40 +82,66 @@ python main.py
 
 ---
 
-## Twitch CLI
+## **Twitch API Configuration**
+To use Twitch-based features, you need to set up OAuth authentication.
 
+1. Register your application in the **Twitch Developer Console**:
+   🔗 [https://dev.twitch.tv/console](https://dev.twitch.tv/console)
+2. Get your **Client ID** and **Client Secret**.
+3. Configure `config.py` and create a `.env`-file:
+
+```python
+# .env
+COUCHDB_USER=admin
+COUCHDB_PASSWORD=password
+
+TWITCH_CLIENT_ID=1
+TWITCH_CLIENT_SECRET=1
+
+SPOTIFY_CLIENT_ID=1
+SPOTIFY_CLIENT_SECRET=1
 ```
-twitch-cli mock-api start
 
+4. Run **Twitch CLI** to simulate events:
+
+```bash
+twitch-cli mock-api start
 twitch-cli event websocket start -p 8081
 ```
 
 ---
 
-## 🔗 API Endpoints
+## 🔗 **API Endpoints**
 
 Once the app is running, open your browser and visit:
 
 📜 **Swagger Docs:**
 ➡ **`http://localhost:8000/docs`** – Interactive API testing
+
 🛠 **Redoc Docs:**
 ➡ **`http://localhost:8000/redoc`** – Alternative API reference
 
 ---
 
-## 📂 Project Structure
+## 📂 **Project Structure**
 
 ```
 .
 ├── main.py                     # Application entry point
 ├── modules/
 │   ├── twitch_api.py           # Handles Twitch API interactions
-│   ├── printer_manager.py      # Manages thermal printer
+│   ├── websocket_handler.py    # Manages WebSocket connections
 │   ├── obs_api.py              # OBS WebSocket integration
-│   ├── db_manager.py           # Database management
-│   ├── schemas.py              # API request/response models
+│   ├── couchdb_client.py       # Handles CouchDB interactions
+│   ├── sequence_runner.py      # Executes event sequences
+│   ├── event_queue_processor.py# Manages event queue
+├── database/
+│   ├── crud/                   # CRUD operations for CouchDB
+│   ├── session.py              # Database connection setup
 ├── templates/
-│   └── overlay.html            # HTML for browser-based overlays
+│   ├── overlay.html            # Main overlay HTML
+│   ├── admin_panel.html        # Admin panel UI
+│   └── includes/               # Partial HTML templates
 ├── static/
 │   ├── css/                    # Stylesheets
 │   ├── js/                     # JavaScript files
@@ -132,24 +152,59 @@ Once the app is running, open your browser and visit:
 
 ---
 
-## 🎭 Contributing
+## **🛠 Key Features in Detail**
+
+### 🎬 **Overlay System**
+- Web-based overlay using WebSockets.
+- Supports **alerts, animations, and OBS scene switching**.
+- Can be controlled via the **admin panel** or Twitch chat commands.
+
+### 🛠️ **Admin Panel**
+- HTMX-based admin panel for:
+  - Sending events to the overlay.
+  - Managing custom sequences.
+  - Triggering Twitch interactions.
+
+### 📜 **Database & Storage (CouchDB)**
+- Stores:
+  - Viewer data
+  - Chat history
+  - Scheduled messages
+  - Overlay configurations
+  - Admin buttons & controls
+  - Event logs
+
+### 📡 **WebSocket-Based Communication**
+- **Real-time chat events** (e.g., when a viewer sends a message).
+- **Click event handling** for stream interactions.
+- **Twitch event notifications** (e.g., new followers, raids, etc.).
+
+### 📅 **Scheduled Events**
+- Supports **interval-based events, cron jobs, and Twitch-triggered sequences**.
+- Uses **CouchDB for persistence**.
+
+### 🔧 **OBS WebSocket Control**
+- Directly interacts with **OBS WebSocket API**.
+- Can **switch scenes, enable/disable sources, and trigger animations**.
+
+---
+
+## 🎭 **Contributing**
 
 Want to improve **Ferdy’s Twitchiverse**? Contributions are **highly welcome!**
-You can:
 ✅ Report issues
 ✅ Suggest new features
 ✅ Submit pull requests
 
 ---
 
-## 📜 License
+## 📜 **License**
 
 **Ferdy’s Twitchiverse** is released under the **MIT License**. See the `LICENSE` file for details.
 
 ---
 
-### 🏗️ Third-Party Dependencies
-
+### 🏗 **Third-Party Dependencies**
 This project uses several third-party libraries, each licensed under its respective terms. Refer to their documentation for additional licensing information.
 
 ---
