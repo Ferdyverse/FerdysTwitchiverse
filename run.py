@@ -12,6 +12,7 @@ def startup():
     parser.add_argument("--disable-printer", action="store_true", help="Disable the Printer module")
     parser.add_argument("--disable-twitch", action="store_true", help="Disable the Twitch module")
     parser.add_argument("--disable-obs", action="store_true", help="Disable the OBS module")
+    parser.add_argument("--disable-spotify", action="store_true", help="Disable the Spotify module")
     parser.add_argument("--enable-mock-api", action="store_true", help="Enable Twitch Mock API")
     args = parser.parse_args()
 
@@ -20,6 +21,7 @@ def startup():
     os.environ["DISABLE_PRINTER"] = "true" if args.disable_printer else "false"
     os.environ["DISABLE_TWITCH"] = "true" if args.disable_twitch else "false"
     os.environ["DISABLE_OBS"] = "true" if args.disable_obs else "false"
+    os.environ["DISABLE_SPOTIFY"] = "true" if args.disable_spotify else "false"
     os.environ["ENABLE_MOCK_API"] = "true" if args.enable_mock_api else "false"
 
     print("🚀 Starting Ferdyverse API with:")
@@ -28,6 +30,7 @@ def startup():
     print(f"   - Printer Module: {'DISABLED' if args.disable_printer else 'ENABLED'}")
     print(f"   - Twitch Module: {'DISABLED' if args.disable_twitch else 'ENABLED'}")
     print(f"   - OBS Module: {'DISABLED' if args.disable_obs else 'ENABLED'}")
+    print(f"   - Spotify Module: {'DISABLED' if args.disable_spotify else 'ENABLED'}")
     print(f"   - Twitch Mock API: {'ENABLED' if args.enable_mock_api else 'DISABLED'}")
     print("===============================================")
 

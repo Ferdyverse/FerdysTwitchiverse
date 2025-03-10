@@ -1,82 +1,126 @@
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.base import ScheduledMessagePool
-import datetime
 import random
 import logging
+from modules.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.scheduled_messages")
 
-def get_random_message_from_category(db: Session = Depends(get_db), category: str = None):
-    """Retrieve a random message from a specific category."""
+
+def get_random_message_from_category(category: str):
+    """Retrieve a random message from a specific category in CouchDB."""
     try:
-        messages = db.query(ScheduledMessagePool.message).filter(ScheduledMessagePool.category == category).all()
-        return random.choice(messages)[0] if messages else None
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        messages = [
+            db[doc] for doc in db
+            if db[doc].get("type") == "scheduled_message" and db[doc].get("category") == category
+        ]
+
+        return random.choice(messages)["message"] if messages else None
     except Exception as e:
         logger.error(f"❌ Failed to retrieve random message: {e}")
         return None
 
-def add_message_to_pool(db: Session = Depends(get_db), category: str = None, message: str = None):
-    """Add a message to the scheduled message pool."""
+
+def add_message_to_pool(category: str, message: str):
+    """Add a message to the scheduled message pool in CouchDB."""
     try:
-        new_message = ScheduledMessagePool(category=category, message=message)
-        db.add(new_message)
-        db.commit()
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        new_message = {
+            "_id": f"message_{random.randint(10000, 99999)}",
+            "type": "scheduled_message",
+            "category": category,
+            "message": message
+        }
+
+        db.save(new_message)
         return {"success": True}
     except Exception as e:
         logger.error(f"❌ Failed to add message to pool: {e}")
         return {"error": "Database error"}
 
-def delete_message_from_pool(db: Session = Depends(get_db), message_id: int = None):
-    """Remove a message from the pool by ID."""
+
+def delete_message_from_pool(message_id: str):
+    """Remove a message from the pool by ID in CouchDB."""
     try:
-        deleted = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).delete()
-        db.commit()
-        return {"success": deleted > 0}
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        if message_id in db:
+            db.delete(db[message_id])
+            return {"success": True}
+
+        return {"error": "Message not found"}
     except Exception as e:
         logger.error(f"❌ Failed to delete message from pool: {e}")
         return {"error": "Database error"}
 
-def get_messages_from_pool(db: Session = Depends(get_db), category: str = None):
-    """Retrieve all messages from a specific category."""
+
+def get_messages_from_pool(category: str):
+    """Retrieve all messages from a specific category in CouchDB."""
     try:
-        return db.query(ScheduledMessagePool.id, ScheduledMessagePool.message).filter(ScheduledMessagePool.category == category).all()
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        return [
+            {"id": doc, "message": db[doc]["message"]}
+            for doc in db if db[doc].get("type") == "scheduled_message" and db[doc].get("category") == category
+        ]
     except Exception as e:
         logger.error(f"❌ Failed to retrieve messages from pool: {e}")
         return []
 
-def get_categories(db: Session = Depends(get_db)):
-    """Retrieve a list of all unique categories from ScheduledMessagePool."""
+
+def get_categories():
+    """Retrieve a list of all unique categories from ScheduledMessagePool in CouchDB."""
     try:
-        categories = db.query(ScheduledMessagePool.category).distinct().all()
-        return [category[0] for category in categories]  # Convert tuples to a list of strings
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        categories = set(
+            db[doc]["category"] for doc in db if db[doc].get("type") == "scheduled_message"
+        )
+
+        return list(categories)
     except Exception as e:
         logger.error(f"❌ Failed to retrieve categories: {e}")
         return []
 
-def update_pool_message(message_id: int = None, new_category: str = None, new_message: str = None, db: Session = Depends(get_db)):
-    """Update an existing message in the message pool, including category."""
+
+def update_pool_message(message_id: str, new_category: str = None, new_message: str = None):
+    """Update an existing message in the CouchDB message pool, including category."""
     try:
-        pool_message = db.query(ScheduledMessagePool).filter(ScheduledMessagePool.id == message_id).first()
-        if not pool_message:
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        if message_id not in db:
             return False
 
-        if new_category is not None:
-            pool_message.category = new_category
-        pool_message.message = new_message
+        pool_message = db[message_id]
 
-        db.commit()
+        if new_category:
+            pool_message["category"] = new_category
+        if new_message:
+            pool_message["message"] = new_message
+
+        db.save(pool_message)
         return True
     except Exception as e:
         logger.error(f"❌ Failed to update pool message: {e}")
         return False
 
-def get_scheduled_message_pool(db: Session = Depends(get_db)):
-    """Retrieve all messages from the scheduled message pool."""
+
+def get_scheduled_message_pool():
+    """Retrieve all messages from the scheduled message pool in CouchDB."""
     try:
-        messages = db.query(ScheduledMessagePool.id, ScheduledMessagePool.category, ScheduledMessagePool.message).all()
-        return [dict(msg._mapping) for msg in messages]
+        db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
+
+        messages = [
+            {
+                "id": doc,
+                "category": db[doc]["category"],
+                "message": db[doc]["message"]
+            }
+            for doc in db if db[doc].get("type") == "scheduled_message"
+        ]
+
+        return messages
     except Exception as e:
         logger.error(f"❌ Failed to retrieve message pool: {e}")
         return []

@@ -62,18 +62,23 @@ async def handle_alert(alert):
     """Handles Twitch alerts like follows, subs, and raids."""
     try:
         if alert.type == "follower":
-            save_overlay_data("last_follower", alert.user)
-            logger.info(f"📌 Saved last follower: {alert.user}")
+            success = save_overlay_data("last_follower", alert.user)
+            if success:
+                logger.info(f"📌 Saved last follower: {alert.user}")
+
         elif alert.type == "subscriber":
-            save_overlay_data("last_subscriber", alert.user)
-            logger.info(f"📌 Saved last subscriber: {alert.user}")
+            success = save_overlay_data("last_subscriber", alert.user)
+            if success:
+                logger.info(f"📌 Saved last subscriber: {alert.user}")
+
         elif alert.type == "raid":
             user = alert.user
             size = alert.size or 0
             angle = random.uniform(0, 2 * math.pi)
             distance = random.uniform(200, 700)
-            save_planet(user, size, angle, distance)
-            logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
+            success = save_planet(user, size, angle, distance)
+            if success:
+                logger.info(f"🪐 Planet created for Raider {user}: Size={size}")
 
         return {"status": "success", "message": "Alert processed"}
     except Exception as e:

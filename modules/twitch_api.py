@@ -10,8 +10,7 @@ from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.type import CustomRewardRedemptionStatus
 
-from database.base import Viewer
-from database.session import get_db
+from modules.couchdb_client import couchdb_client
 from database.crud.overlay import save_overlay_data
 from database.crud.todos import save_todo
 from database.crud.events import save_event
@@ -300,7 +299,7 @@ class TwitchAPI:
         logger.info(f"📢 New follow: {username}")
 
         # Store viewer data
-        save_viewer(
+        await save_viewer(
             twitch_id=user_id,
             login=data.event.user_login,
             display_name=username,
@@ -308,22 +307,22 @@ class TwitchAPI:
         )
 
         # Save event
-        save_event("follow", user_id, "")
+        await save_event("follow", user_id, "")
 
         if not self.test_mode:
-            save_overlay_data("last_follower", username)
+            await save_overlay_data("last_follower", username)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
 
     async def handle_subscribe(self, data: dict):
-        """Handle subscription event, save it, and broadcast it"""
+        """Handle subscription event, save it, and broadcast it."""
         username = data.event.user_name
         user_id = int(data.event.user_id)
         logger.info(f"🎉 New subscription: {username}")
 
         # Store viewer data
-        save_viewer(
+        await save_viewer(
             twitch_id=user_id,
             login=data.event.user_login,
             display_name=username,
@@ -331,22 +330,24 @@ class TwitchAPI:
         )
 
         # Save event
-        save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
+        await save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
 
         if not self.test_mode:
-            save_overlay_data("last_subscriber", username)
+            await save_overlay_data("last_subscriber", username)
 
+        # Broadcast event
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
 
+
     async def handle_gift_sub(self, data: dict):
-        """Handle gift subscription event, save it, and broadcast it"""
+        """Handle gift subscription event, save it, and broadcast it."""
         username = data.event.user_name
         user_id = int(data.event.user_id)
         recipient_count = data.event.total
         logger.info(f"🎁 {username} gifted {recipient_count} subs!")
 
         if not data.event.is_anonymous:
-            save_viewer(
+            await save_viewer(
                 twitch_id=user_id,
                 login=data.event.user_login,
                 display_name=username
@@ -354,9 +355,10 @@ class TwitchAPI:
         else:
             username = "Anonym"
 
-        save_event("gift_sub", username, f"Gifted {recipient_count} subs")
+        await save_event("gift_sub", user_id, f"Gifted {recipient_count} subs")
 
         await broadcast_message({"alert": {"type": "gift_sub", "user": username, "size": recipient_count}})
+
 
     async def handle_sub_message(self, data: dict):
         """Handle subscription messages (e.g., resubs with a custom message)."""
@@ -383,25 +385,27 @@ class TwitchAPI:
         await save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
 
         if not self.test_mode:
-            save_overlay_data("last_subscriber", username)
+            await save_overlay_data("last_subscriber", username)
+
 
     async def handle_raid(self, data: dict):
         """Handle raid event, save it, and broadcast it"""
         username = data.event.from_broadcaster_user_name
-        user_id = data.event.from_broadcaster_user_id
+        user_id = int(data.event.from_broadcaster_user_id)
         viewer_count = data.event.viewers
 
         logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
 
-        save_viewer(
-                twitch_id=user_id,
-                login=data.event.from_broadcaster_user_login,
-                display_name=username
-            )
+        await save_viewer(
+            twitch_id=user_id,
+            login=data.event.from_broadcaster_user_login,
+            display_name=username
+        )
 
-        save_event("raid", user_id, f"Raid with {viewer_count} viewers")
+        await save_event("raid", user_id, f"Raid with {viewer_count} viewers")
 
         await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
+
 
     async def handle_channel_point_redeem(self, data):
         """Handle channel point redemptions, save them, and broadcast them"""
@@ -410,16 +414,16 @@ class TwitchAPI:
 
         # Extract event attributes
         username = data.event.user_name
-        user_id = data.event.user_id
+        user_id = int(data.event.user_id)
         reward_title = data.event.reward.title
         user_input = data.event.user_input  # Might be empty if not required
-        redeem_id = data.event.id # ID of the single redeem
-        reward_id = data.event.reward.id # Custom reward ID
+        redeem_id = data.event.id  # ID of the single redeem
+        reward_id = data.event.reward.id  # Custom reward ID
 
         logger.info(f"🎟️ {username} redeemed {reward_title} | Input: {user_input}")
 
         # Save the event
-        save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
+        await save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
 
         broadcast = True
 
@@ -430,21 +434,33 @@ class TwitchAPI:
                 "user": username,
                 "message": user_input,
                 "redeem_id": redeem_id,
-                "reward_id": data.event.reward.id
+                "reward_id": reward_id
             })
             broadcast = False
+
         elif reward_title == "ToDo":
             try:
-                todo = save_todo(user_input, user_id)
+                todo = await save_todo(user_input, user_id)
                 if todo:
                     logger.info(todo)
-                    await broadcast_message({ "todo": { "action": "create", "id": todo.get("id"), "text": todo.get("text"), "username": todo.get("username") }})
-                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+                    await broadcast_message({
+                        "todo": {
+                            "action": "create",
+                            "id": todo.get("id"),
+                            "text": todo.get("text"),
+                            "username": todo.get("username")
+                        }
+                    })
+                    await self.twitch.update_redemption_status(
+                        config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED
+                    )
                 else:
-                    await self.twitch.update_redemption_status(config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
+                    await self.twitch.update_redemption_status(
+                        config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED
+                    )
                 broadcast = False
-            except:
-                logger.error("Todo Error")
+            except Exception as e:
+                logger.error(f"❌ Todo Error: {e}")
 
         # Broadcast message to overlay/admin panel
         if broadcast:
@@ -481,44 +497,51 @@ class TwitchAPI:
         """Handle ban event"""
         moderator = data.event.moderator_user_name
         target = data.event.user_name
-        target_id = data.event.user_id
+        target_id = int(data.event.user_id)
         reason = data.event.reason
+
         logger.info(f"🚨 {moderator} banned {target}!")
 
-        save_event("ban", int(data.event.user_id), f"Banned by {moderator} for {reason}")
+        await save_event("ban", target_id, f"Banned by {moderator} for {reason}")
 
     async def handle_timeout(self, data: dict):
         """Handle timeout (temporary ban)"""
         moderator = data.event.moderator_user_name
         target = data.event.user_name
+        target_id = int(data.event.user_id)
         duration = data.event.duration
+
         logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
 
-        save_event("timeout", int(data.event.user_id), f"Timed out for {duration}s by {moderator}")
+        await save_event("timeout", target_id, f"Timed out for {duration}s by {moderator}")
 
     async def handle_automod_action(self, data: dict):
-        """Handle moderator actions (deleting messages, enabling slow mode, etc.)"""
+        """Handle AutoMod actions (message hold, potential flags)."""
         logger.info(vars(data.event))
-        logger.info(f"🔧 There is a automod message")
+        logger.info(f"🔧 Automod flagged a message!")
 
-        save_event("mod_action", None, f"Automod message waiting!")
+        await save_event("mod_action", None, "Automod flagged a message!")
 
     async def handle_mod_action(self, data: dict):
-        """Handle moderator actions (deleting messages, enabling slow mode, etc.)"""
+        """Handle moderator actions (deleting messages, enabling slow mode, etc.)."""
         moderator = data.event.moderator_user_name
         action = data.event.action
+
         logger.info(f"🔧 {moderator} performed mod action: {action}")
 
-        save_event("mod_action", None, f"{moderator} performed: {action}")
+        await save_event("mod_action", None, f"{moderator} performed: {action}")
 
     async def handle_deleted_message(self, data: dict):
         """Handle deleted messages"""
         logger.info(vars(data.event))
         target = data.event.target_user_name
+        target_id = int(data.event.target_user_id)
+
         logger.info(f"🗑️ Message deleted from {target}")
 
-        save_event("message_deleted", int(data.event.target_user_id), f"Message deleted")
+        await save_event("message_deleted", target_id, "Message deleted")
         await broadcast_message({"alert": {"type": "message_deleted", "user": target}})
+
 
     async def handle_ad_break(self, data: dict):
         """Handle upcoming ad break notifications from Twitch and save as an event."""
@@ -542,7 +565,7 @@ class TwitchAPI:
             logger.error(f"❌ Error sending message as Streamer: {e}")
 
     async def get_user_info(self, username: str = None, user_id: str = None):
-        """Retrieve Twitch user info, including color & badges, and store it in the database"""
+        """Retrieve Twitch user info, including color & badges, and store it in CouchDB."""
 
         if self.test_mode:
             return self._mock_get_user_info(username)
@@ -565,12 +588,13 @@ class TwitchAPI:
             if users:
                 user = users[0]
 
-                db = next(get_db())
+                # Get CouchDB instance
+                db = couchdb_client.get_db("viewers")
 
-                # Check if user is already in the database
-                existing_viewer = db.query(Viewer).filter(Viewer.twitch_id == int(user.id)).first()
-                user_color = existing_viewer.color if existing_viewer else None
-                user_badges = existing_viewer.badges.split(",") if existing_viewer and existing_viewer.badges else []
+                # Fetch existing viewer data (if available)
+                existing_viewer = db.get(str(user.id))
+                user_color = existing_viewer.get("color") if existing_viewer else None
+                user_badges = existing_viewer.get("badges", "").split(",") if existing_viewer else []
 
                 # Fetch color & badges only if missing
                 if not user_color:
@@ -578,20 +602,27 @@ class TwitchAPI:
                     if chat_data:
                         user_color = chat_data.get("color", user_color)
 
-                # Save viewer data to database
-                save_viewer(
-                    twitch_id=int(user.id),
-                    login=user.login,
-                    display_name=user.display_name,
-                    account_type=user.type,
-                    broadcaster_type=user.broadcaster_type,
-                    profile_image_url=user.profile_image_url,
-                    account_age="",
-                    follower_date=None,
-                    subscriber_date=None,
-                    color=user_color,
-                    badges=",".join(user_badges) if user_badges else None
-                )
+                # Ensure no missing values in the document
+                viewer_data = {
+                    "_id": str(user.id),
+                    "login": user.login,
+                    "display_name": user.display_name,
+                    "account_type": user.type or "",
+                    "broadcaster_type": user.broadcaster_type or "",
+                    "profile_image_url": user.profile_image_url or "",
+                    "account_age": existing_viewer.get("account_age", ""),
+                    "follower_date": existing_viewer.get("follower_date", None),
+                    "subscriber_date": existing_viewer.get("subscriber_date", None),
+                    "color": user_color,
+                    "badges": ",".join(user_badges) if user_badges else None
+                }
+
+                # Save or update viewer data in CouchDB
+                if existing_viewer:
+                    viewer_data["_rev"] = existing_viewer["_rev"]  # Preserve document revision for updates
+                    db.save(viewer_data)
+                else:
+                    db[viewer_data["_id"]] = viewer_data  # Create new document
 
                 return {
                     "id": user.id,
@@ -703,27 +734,50 @@ class TwitchAPI:
         return await self.twitch.delete_chat_message(config.TWITCH_CHANNEL_ID, config.TWITCH_CHANNEL_ID, message_id)
 
     async def get_ad_schedule(self):
-        """ Get the current AD Schedule"""
-        ads = await self.twitch.get_ad_schedule(config.TWITCH_CHANNEL_ID)
-        snooze_count = ads.snooze_count  # Number of available snoozes
-        snooze_refresh = ads.snooze_refresh_at  # When snoozes refresh
-        next_ad_time = ads.next_ad_at  # When the next ad will play
-        duration = ads.duration  # Duration of the next ad (in seconds)
-        last_ad = ads.last_ad_at  # Last played ad timestamp (can be None)
-        preroll_free_time = ads.preroll_free_time  # Time left without preroll ads (in seconds)
+        """Get the current AD schedule and store the event using the CRUD function."""
+        try:
+            ads = await self.twitch.get_ad_schedule(config.TWITCH_CHANNEL_ID)
 
-        utc_next_ad_time = next_ad_time.replace(tzinfo=pytz.utc)  # Ensure UTC
-        local_next_ad_timestamp = int(utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE).timestamp())
-        local_next_ad_time = utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE)
-        current_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+            # Extract relevant ad data
+            snooze_count = ads.snooze_count  # Number of available snoozes
+            snooze_refresh = ads.snooze_refresh_at  # When snoozes refresh
+            next_ad_time = ads.next_ad_at  # When the next ad will play
+            duration = ads.duration  # Duration of the next ad (in seconds)
+            last_ad = ads.last_ad_at  # Last played ad timestamp (can be None)
+            preroll_free_time = ads.preroll_free_time  # Time left without preroll ads (in seconds)
 
-        formated_time = local_next_ad_time.strftime("%H:%M:%S")
+            # Ensure timestamps are in UTC and convert to local timezone
+            utc_next_ad_time = next_ad_time.replace(tzinfo=pytz.utc)
+            local_next_ad_time = utc_next_ad_time.astimezone(config.LOCAL_TIMEZONE)
+            local_next_ad_timestamp = int(local_next_ad_time.timestamp())
+            current_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
-        if ( local_next_ad_timestamp - current_timestamp ) < 1 :
-            return { "unknown" }
+            # Format ad time for logs
+            formatted_time = local_next_ad_time.strftime("%H:%M:%S")
 
-        save_event("ad_break", None, f"Ad break starts at {formated_time} for {duration} seconds")
+            # If next ad is already in the past, return "unknown"
+            if (local_next_ad_timestamp - current_timestamp) < 1:
+                return {"status": "unknown"}
 
-        await broadcast_message({ "admin_alert": { "type": "ad_break", "duration": duration, "start_time": local_next_ad_timestamp}})
+            save_event(
+                event_type="ad_break",
+                viewer_id=None,
+                message=f"Ad break starts at {formatted_time} for {duration} seconds"
+            )
 
-        return { "duration": duration, "start_time": local_next_ad_time }
+            # Send alert to admin panel
+            await broadcast_message({
+                "admin_alert": {
+                    "type": "ad_break",
+                    "duration": duration,
+                    "start_time": local_next_ad_timestamp
+                }
+            })
+
+            logger.info(f"📢 Ad break scheduled at {formatted_time} for {duration} seconds")
+
+            return {"duration": duration, "start_time": local_next_ad_time}
+
+        except Exception as e:
+            logger.error(f"❌ Error retrieving ad schedule: {e}")
+            return {"status": "error", "message": str(e)}

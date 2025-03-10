@@ -9,15 +9,18 @@ import config
 logger = logging.getLogger("uvicorn.error.spotify")
 
 
-# Initialize Spotipy with OAuth
-auth_manager = SpotifyOAuth(
-    client_id=config.SPOTIFY_CLIENT_ID,
-    client_secret=config.SPOTIFY_CLIENT_SECRET,
-    redirect_uri=config.SPOTIFY_REDIRECT_URI,
-    scope="user-read-currently-playing user-read-playback-state user-modify-playback-state"
-)
+if config.DISABLE_SPOTIFY:
+    spotify = None
+else:
+    # Initialize Spotipy with OAuth
+    auth_manager = SpotifyOAuth(
+        client_id=config.SPOTIFY_CLIENT_ID,
+        client_secret=config.SPOTIFY_CLIENT_SECRET,
+        redirect_uri=config.SPOTIFY_REDIRECT_URI,
+        scope="user-read-currently-playing user-read-playback-state user-modify-playback-state"
+    )
 
-spotify = spotipy.Spotify(auth_manager=auth_manager)
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 def get_auth_url():
     """Returns Spotify login URL"""

@@ -1,39 +1,54 @@
-from sqlalchemy.orm import Session, aliased
-from fastapi import Depends
-from sqlalchemy import case
-from database.session import get_db
-from database.base import Event, Viewer
 import datetime
+import logging
+from modules.couchdb_client import couchdb_client
 
-def save_event(event_type: str, viewer_id: int = None, message: str = "", db: Session = Depends(get_db)):
-    """Save an event."""
+logger = logging.getLogger("uvicorn.error.events")
+
+def save_event(event_type: str, viewer_id: str = None, message: str = ""):
+    """Save an event in CouchDB."""
     try:
-        event = Event(event_type=event_type, viewer_id=viewer_id, message=message, timestamp=datetime.datetime.utcnow())
-        db.add(event)
-        db.commit()
-        db.refresh(event)
+        db = couchdb_client.get_db("events")
+        event = {
+            "_id": f"event_{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}",
+            "type": "event",
+            "event_type": event_type,
+            "viewer_id": viewer_id,
+            "message": message,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        db.save(event)
         return event
     except Exception as e:
-        print(f"❌ Error saving event: {e}")
-        db.rollback()
+        logger.error(f"❌ Error saving event: {e}")
         return None
 
-def get_recent_events(limit: int = 50, db: Session = Depends(get_db)):
-    """Retrieve the last `limit` events."""
-    # Ensure we fetch ALL events, even if viewer_id is NULL
-    events = db.query(
-        Event.id,
-        Event.message,
-        Event.event_type,
-        Event.timestamp,
-        case(
-            (Viewer.display_name.isnot(None), Viewer.display_name),  # If viewer exists, use display_name
-            else_="Unknown"  # Otherwise, return "Unknown"
-        ).label("username"),
-        Viewer.profile_image_url.label("avatar"),
-        Viewer.color.label("user_color"),
-        Viewer.badges.label("badges"),
-        Event.viewer_id.label("twitch_id")
-    ).outerjoin(Viewer, Event.viewer_id == Viewer.twitch_id).order_by(Event.timestamp.desc()).limit(limit).all()
 
-    return events
+def get_recent_events(limit: int = 50):
+    """Retrieve the last `limit` events from CouchDB."""
+    try:
+        db = couchdb_client.get_db("events")
+        viewer_db = couchdb_client.get_db("viewers")
+
+        events = []
+
+        # Sort documents by timestamp and limit results
+        for doc_id in sorted(db, key=lambda x: db[x]["timestamp"], reverse=True)[:limit]:
+            doc = db[doc_id]
+            if doc.get("type") == "event":
+                user = viewer_db.get(doc["viewer_id"], {}) if doc.get("viewer_id") else {}
+
+                events.append({
+                    "event_id": doc["_id"],
+                    "message": doc.get("message", ""),
+                    "event_type": doc["event_type"],
+                    "timestamp": doc["timestamp"],
+                    "username": user.get("display_name", "Unknown"),
+                    "avatar": user.get("profile_image_url", ""),
+                    "user_color": user.get("color", "#FFFFFF"),
+                    "badges": user.get("badges", ""),
+                    "twitch_id": doc.get("viewer_id")
+                })
+        return events
+    except Exception as e:
+        logger.error(f"❌ Failed to retrieve events: {e}")
+        return []

@@ -14,8 +14,6 @@ from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
 from modules.chat_commands import handle_command
 
-from database.base import Viewer
-from database.session import get_db
 from database.crud.viewers import save_viewer, update_viewer_stats
 from database.crud.chat import save_chat_message
 
@@ -130,7 +128,7 @@ class TwitchChatBot:
 
     async def on_message(self, event: EventData):
         """
-        Handle incoming chat messages, store in the database,
+        Handle incoming chat messages, store in CouchDB,
         and send them to both the overlay and admin panel.
         """
 
@@ -140,7 +138,6 @@ class TwitchChatBot:
 
         logger.debug(f"DEBUG: Event Emotes: {json.dumps(event.emotes, indent=2)}")
 
-        db = next(get_db())
         username = event.user.display_name
         twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
         message = replace_emotes(html.escape(event.text), event.emotes)
@@ -150,52 +147,23 @@ class TwitchChatBot:
         is_reply = event.reply_parent_user_id is not None  # Check if message is a reply
         is_first = event.first
 
-        # Check if user exists in DB first
-        existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
 
-        global BADGES
-        user_badges = []
-        badge_data = event.user.badges or {}  # Ensure it's a dictionary
-        for badge_set, badge_version in badge_data.items():
-            badge_key = f"{badge_set}/{badge_version}"
-            if badge_key in BADGES["global"]:
-                user_badges.append(BADGES["global"][badge_key])
-            elif badge_key in BADGES["channel"]:
-                user_badges.append(BADGES["channel"][badge_key])
-            else:
-                logger.warning(f"⚠️ Unknown badge: {badge_key}")
+        user_info = await self.twitch_api.get_user_info(user_id=twitch_id)
 
-        if not existing_user:
-            # User not found in DB → Fetch from Twitch API
-            user_info = await self.twitch_api.get_user_info(user_id=twitch_id)
 
-            if user_info:
-                save_viewer(
-                    twitch_id=twitch_id,
-                    login=user_info["login"],
-                    display_name=user_info["display_name"],
-                    account_type=user_info["type"],
-                    broadcaster_type=user_info["broadcaster_type"],
-                    profile_image_url=user_info["profile_image_url"],
-                    account_age="",
-                    follower_date=None,
-                    subscriber_date=None,
-                    color=user_info.get("color"),
-                    badges=",".join(user_badges)
-                )
-                user_color = user_info.get("color")
-                avatar_url = user_info["profile_image_url"]
-            else:
-                user_color = None
-                avatar_url = "/static/images/default_avatar.png"
-        else:
+        user_color = user_info.get("color") if user_info else None
+        avatar_url = user_info.get("profile_image_url") if user_info else "/static/images/default_avatar.png"
+        user_badges = user_info.get("badges", "").split(",") if user_info else []
+
+
+        if not user_info:
             save_viewer(
                 twitch_id=twitch_id,
+                login=event.user.login,
+                display_name=username,
+                color=user_color,
                 badges=",".join(user_badges)
             )
-            # User is in DB, use stored data
-            user_color = existing_user.color
-            avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
 
         # Detect and handle !commands
         if message.startswith("!"):
@@ -205,33 +173,31 @@ class TwitchChatBot:
 
             await handle_command(self, command_name, command_params, event)
 
-        # Save chat message in the database
+
         save_chat_message(twitch_id, message, message_id, stream_id)
 
-        # Update viewer stats (both per stream and overall)
+
         update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
 
-        # Prepare message for overlay
+
         ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
         chat_message = {
             "id": ov_message_id,
             "user": username,
             "message": message,
-            "timestamp": int(time.time()) + 19,  # Message disappears after 19s
+            "timestamp": int(time.time()) + 19,
             "color": user_color,
             "badges": user_badges,
             "avatar": avatar_url
         }
 
-        # Append message & remove oldest if more than 5 messages
+
         self.recent_messages.append(chat_message)
         if len(self.recent_messages) > 5:
             self.recent_messages.pop(0)
 
-        # Send updated chat messages to overlay
         await broadcast_message({"chat": self.recent_messages})
 
-        # Send chat update to admin panel (single latest message)
         admin_chat_message = {
             "admin_chat": {
                 "username": username,
@@ -245,10 +211,7 @@ class TwitchChatBot:
         }
         await broadcast_message(admin_chat_message)
 
-        # Schedule message removal after 19s
         asyncio.create_task(self.remove_message_after_delay(message_id, 19))
-
-        db.close()
 
     async def send_message(self, message):
         """Send a chat message as the bot."""
