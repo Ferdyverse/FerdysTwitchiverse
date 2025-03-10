@@ -299,7 +299,7 @@ class TwitchAPI:
         logger.info(f"📢 New follow: {username}")
 
         # Store viewer data
-        await save_viewer(
+        save_viewer(
             twitch_id=user_id,
             login=data.event.user_login,
             display_name=username,
@@ -307,10 +307,10 @@ class TwitchAPI:
         )
 
         # Save event
-        await save_event("follow", user_id, "")
+        save_event("follow", user_id, "")
 
         if not self.test_mode:
-            await save_overlay_data("last_follower", username)
+            save_overlay_data("last_follower", username)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
@@ -330,10 +330,10 @@ class TwitchAPI:
         )
 
         # Save event
-        await save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
+        save_event("subscription", user_id, f"Tier: {data.event.tier}\n\nGift: {data.event.is_gift}")
 
         if not self.test_mode:
-            await save_overlay_data("last_subscriber", username)
+            save_overlay_data("last_subscriber", username)
 
         # Broadcast event
         await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
@@ -355,7 +355,7 @@ class TwitchAPI:
         else:
             username = "Anonym"
 
-        await save_event("gift_sub", user_id, f"Gifted {recipient_count} subs")
+        save_event("gift_sub", user_id, f"Gifted {recipient_count} subs")
 
         await broadcast_message({"alert": {"type": "gift_sub", "user": username, "size": recipient_count}})
 
@@ -382,10 +382,10 @@ class TwitchAPI:
         })
 
         # Save subscription event in database
-        await save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
+        save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
 
         if not self.test_mode:
-            await save_overlay_data("last_subscriber", username)
+            save_overlay_data("last_subscriber", username)
 
 
     async def handle_raid(self, data: dict):
@@ -396,13 +396,13 @@ class TwitchAPI:
 
         logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
 
-        await save_viewer(
+        save_viewer(
             twitch_id=user_id,
             login=data.event.from_broadcaster_user_login,
             display_name=username
         )
 
-        await save_event("raid", user_id, f"Raid with {viewer_count} viewers")
+        save_event("raid", user_id, f"Raid with {viewer_count} viewers")
 
         await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
 
@@ -423,7 +423,7 @@ class TwitchAPI:
         logger.info(f"🎟️ {username} redeemed {reward_title} | Input: {user_input}")
 
         # Save the event
-        await save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
+        save_event("channel_point_redeem", user_id, f"{reward_title}: {user_input}")
 
         broadcast = True
 
@@ -440,7 +440,7 @@ class TwitchAPI:
 
         elif reward_title == "ToDo":
             try:
-                todo = await save_todo(user_input, user_id)
+                todo = save_todo(user_input, user_id)
                 if todo:
                     logger.info(todo)
                     await broadcast_message({
@@ -491,7 +491,7 @@ class TwitchAPI:
         })
 
         # Save the cheer event in the database
-        await save_event("cheer", int(data.event.user_id), f"{username} cheered {bits} bits. Message: {message}")
+        save_event("cheer", int(data.event.user_id), f"{username} cheered {bits} bits. Message: {message}")
 
     async def handle_ban(self, data: dict):
         """Handle ban event"""
@@ -502,7 +502,7 @@ class TwitchAPI:
 
         logger.info(f"🚨 {moderator} banned {target}!")
 
-        await save_event("ban", target_id, f"Banned by {moderator} for {reason}")
+        save_event("ban", target_id, f"Banned by {moderator} for {reason}")
 
     async def handle_timeout(self, data: dict):
         """Handle timeout (temporary ban)"""
@@ -513,14 +513,14 @@ class TwitchAPI:
 
         logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
 
-        await save_event("timeout", target_id, f"Timed out for {duration}s by {moderator}")
+        save_event("timeout", target_id, f"Timed out for {duration}s by {moderator}")
 
     async def handle_automod_action(self, data: dict):
         """Handle AutoMod actions (message hold, potential flags)."""
         logger.info(vars(data.event))
         logger.info(f"🔧 Automod flagged a message!")
 
-        await save_event("mod_action", None, "Automod flagged a message!")
+        save_event("mod_action", None, "Automod flagged a message!")
 
     async def handle_mod_action(self, data: dict):
         """Handle moderator actions (deleting messages, enabling slow mode, etc.)."""
@@ -529,7 +529,7 @@ class TwitchAPI:
 
         logger.info(f"🔧 {moderator} performed mod action: {action}")
 
-        await save_event("mod_action", None, f"{moderator} performed: {action}")
+        save_event("mod_action", None, f"{moderator} performed: {action}")
 
     async def handle_deleted_message(self, data: dict):
         """Handle deleted messages"""
@@ -539,7 +539,7 @@ class TwitchAPI:
 
         logger.info(f"🗑️ Message deleted from {target}")
 
-        await save_event("message_deleted", target_id, "Message deleted")
+        save_event("message_deleted", target_id, "Message deleted")
         await broadcast_message({"alert": {"type": "message_deleted", "user": target}})
 
 
