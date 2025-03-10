@@ -3,10 +3,14 @@ from fastapi.responses import HTMLResponse
 import random
 import pytz
 import config
+import datetime
+import logging
 
 from database.crud.chat import get_recent_chat_messages
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
+
+logger = logging.getLogger("uvicorn.error.routes.chat")
 
 # Define the desired local timezone (Change if needed)
 FALLBACK_COLORS = [
@@ -33,8 +37,19 @@ async def get_chat_messages():
         # Convert timestamp to local timezone
         utc_time = msg.get("timestamp")
         if utc_time:
-            utc_time = pytz.utc.localize(utc_time)  # Ensure UTC
-            local_time = utc_time.astimezone(config.LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
+            try:
+                # Convert string to datetime (if necessary)
+                if isinstance(utc_time, str):
+                    utc_time = datetime.datetime.fromisoformat(utc_time)
+
+                # Ensure timezone is UTC before converting
+                if utc_time.tzinfo is None:
+                    utc_time = pytz.utc.localize(utc_time)
+
+                local_time = utc_time.astimezone(config.LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
+            except Exception as e:
+                logger.error(f"❌ Failed to process timestamp {utc_time}: {e}")
+                local_time = "??:??"
         else:
             local_time = "??:??"
 

@@ -20,28 +20,44 @@ def get_viewer(twitch_id: int):
         return None
 
 
-def save_viewer(twitch_id: int, login: str, display_name: str, profile_image_url: str):
-    """Save or update a viewer in CouchDB."""
+def save_viewer(
+    twitch_id: int,
+    login: str = None,
+    display_name: str = None,
+    profile_image_url: str = None,
+    color: str = None,
+    badges: list = None
+):
+    """Save or update a viewer in CouchDB, updating only non-empty fields."""
     try:
         db = couchdb_client.get_db("viewers")
-        doc_id = f"viewer_{twitch_id}"
+        doc_id = str(twitch_id)  # Ensure doc_id is a string
 
-        viewer = db.get(doc_id, {})
+        # Fetch existing viewer data
+        existing_viewer = db.get(doc_id)
 
-        viewer.update({
+        # Prepare update data (keep old values if new ones are empty)
+        updated_viewer = {
             "_id": doc_id,
             "type": "viewer",
             "twitch_id": twitch_id,
-            "login": login,
-            "display_name": display_name,
-            "profile_image_url": profile_image_url,
-            "total_chat_messages": viewer.get("total_chat_messages", 0),
-            "total_used_emotes": viewer.get("total_used_emotes", 0),
-            "total_replies": viewer.get("total_replies", 0)
-        })
+            "login": login or existing_viewer.get("login", ""),
+            "display_name": display_name or existing_viewer.get("display_name", ""),
+            "profile_image_url": profile_image_url or existing_viewer.get("profile_image_url", ""),
+            "color": color or existing_viewer.get("color", ""),
+            "badges": ",".join(badges) if badges else existing_viewer.get("badges", ""),
+            "total_chat_messages": existing_viewer.get("total_chat_messages", 0),
+            "total_used_emotes": existing_viewer.get("total_used_emotes", 0),
+            "total_replies": existing_viewer.get("total_replies", 0),
+        }
 
-        db.save(viewer)
-        return viewer
+        # Include `_rev` for updating existing documents
+        if existing_viewer:
+            updated_viewer["_rev"] = existing_viewer["_rev"]
+
+        db.save(updated_viewer)
+        return updated_viewer
+
     except Exception as e:
         logger.error(f"❌ Error saving viewer: {e}")
         return None

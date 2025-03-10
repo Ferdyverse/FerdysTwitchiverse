@@ -32,7 +32,7 @@ def scheduled_jobs(request: Request):
 
 
 @router.post("/jobs/add", response_model=dict)
-def create_or_update_scheduled_job(
+async def create_or_update_scheduled_job(
     request: Request,
     data: dict = Body(...)
 ):
@@ -52,7 +52,7 @@ def create_or_update_scheduled_job(
         success = add_scheduled_job(job_type, interval_seconds, cron_expression, payload)
 
     # Reload jobs in APScheduler to apply changes
-    load_scheduled_jobs(request.app)
+    await load_scheduled_jobs(request.app)
 
     return {"success": success}
 

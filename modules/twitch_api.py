@@ -593,8 +593,18 @@ class TwitchAPI:
 
                 # Fetch existing viewer data (if available)
                 existing_viewer = db.get(str(user.id))
-                user_color = existing_viewer.get("color") if existing_viewer else None
-                user_badges = existing_viewer.get("badges", "").split(",") if existing_viewer else []
+                logger.info(f"Existing User: {existing_viewer}")
+
+                user_color = None
+                user_badges = []
+
+                # Check if viewer exists before accessing fields
+                if existing_viewer is not None:
+                    user_color = existing_viewer.get("color", None)
+                    user_badges = existing_viewer.get("badges", "")
+                    if not isinstance(user_badges, str):
+                        user_badges = ""
+                    user_badges = user_badges.split(",")
 
                 # Fetch color & badges only if missing
                 if not user_color:
@@ -610,9 +620,9 @@ class TwitchAPI:
                     "account_type": user.type or "",
                     "broadcaster_type": user.broadcaster_type or "",
                     "profile_image_url": user.profile_image_url or "",
-                    "account_age": existing_viewer.get("account_age", ""),
-                    "follower_date": existing_viewer.get("follower_date", None),
-                    "subscriber_date": existing_viewer.get("subscriber_date", None),
+                    "account_age": existing_viewer.get("account_age", "") if existing_viewer else "",
+                    "follower_date": existing_viewer.get("follower_date", None) if existing_viewer else None,
+                    "subscriber_date": existing_viewer.get("subscriber_date", None) if existing_viewer else None,
                     "color": user_color,
                     "badges": ",".join(user_badges) if user_badges else None
                 }
@@ -622,7 +632,7 @@ class TwitchAPI:
                     viewer_data["_rev"] = existing_viewer["_rev"]  # Preserve document revision for updates
                     db.save(viewer_data)
                 else:
-                    db[viewer_data["_id"]] = viewer_data  # Create new document
+                    db[viewer_data["_id"]] = viewer_data  # Create new documentt
 
                 return {
                     "id": user.id,
