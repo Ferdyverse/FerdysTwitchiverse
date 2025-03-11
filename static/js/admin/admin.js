@@ -528,6 +528,8 @@ async function submitScheduledJob(event) {
 
     const endpoint = jobId ? `/admin/scheduled/jobs/edit/${jobId}` : `/admin/scheduled/jobs/add`;
 
+    console.log(endpoint)
+
     const response = await fetch(endpoint, {
         method: jobId ? "POST" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -537,7 +539,6 @@ async function submitScheduledJob(event) {
     const result = await response.json();
 
     if (result.success) {
-        closeGenericModal('scheduled-jobs-modal');
         resetScheduledJobForm();
         reloadScheduledJobs();
     } else {
@@ -638,7 +639,7 @@ function addScheduledMessage() {
   document.getElementById("scheduled-message-id").value = "";
   document.getElementById("scheduled-message-text").value = "";
   document.getElementById("scheduled-message-interval").value = "";
-
+  resetScheduledJobForm();
   openGenericModal("scheduled-messages-modal");
 }
 
@@ -660,6 +661,7 @@ function editScheduledMessage(id, message, interval, category = "") {
   document.getElementById("scheduled-message-category").value = category; // Default to "" if empty
   openGenericModal("scheduled-messages-modal");
 }
+
 function editPoolMessage(id, message, category) {
   resetMessagePoolForm();
 
@@ -679,8 +681,8 @@ function editPoolMessage(id, message, category) {
 
 // Open Modals and Reset Forms
 function openScheduledMessagesModal() {
-  resetScheduledMessagesForm();
-  openGenericModal("scheduled-messages-modal");
+  resetScheduledJobForm();
+  openGenericModal("scheduled-jobs-modal");
 }
 
 function openMessagePoolModal() {
@@ -690,8 +692,8 @@ function openMessagePoolModal() {
 
 // ❌ Close Modals and Reset Forms
 function closeScheduledMessagesModal() {
-  resetScheduledMessagesForm();
-  closeGenericModal("scheduled-messages-modal");
+  resetScheduledJobForm();
+  closeGenericModal("scheduled-jobs-modal");
 }
 
 function closeMessagePoolModal() {

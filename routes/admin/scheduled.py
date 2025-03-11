@@ -68,7 +68,7 @@ def get_scheduled_job(job_id: str):
 
 
 @router.post("/jobs/edit/{job_id}")
-def edit_scheduled_job(
+async def edit_scheduled_job(
     request: Request,
     job_id: str,
     data: dict = Body(...)
@@ -85,7 +85,7 @@ def edit_scheduled_job(
     success = update_scheduled_job(job_id, job_type, interval_seconds, cron_expression, payload)
 
     # Reload jobs in APScheduler to apply changes
-    load_scheduled_jobs(request.app)
+    await load_scheduled_jobs(request.app)
 
     return {"success": success}
 

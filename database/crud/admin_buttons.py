@@ -84,8 +84,9 @@ def reorder_admin_buttons(updated_buttons: list):
     """Update the order of admin buttons in CouchDB."""
     try:
         db = couchdb_client.get_db("admin_buttons")
+        logger.info(updated_buttons)
         for button_data in updated_buttons:
-            button = db.get(button_data["_id"])
+            button = db.get(button_data["id"])
             if button:
                 button["position"] = button_data["position"]
                 db.save(button)

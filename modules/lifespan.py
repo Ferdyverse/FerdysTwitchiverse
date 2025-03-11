@@ -11,7 +11,7 @@ from modules.printer_manager import PrinterManager
 from modules.sequence_runner import load_sequences
 from modules.queues.manager import event_queue, alert_queue
 from modules.queues.function_registry import register_function
-from modules.apscheduler import start_scheduler, shutdown_scheduler
+from modules.apscheduler import start_scheduler, shutdown_scheduler, load_scheduled_jobs
 from modules.queues.event_processor import process_event_queue
 from modules.queues.alert_processor import process_alert_queue
 
@@ -73,6 +73,7 @@ async def lifespan(app):
             if not use_mock_api:
                 register_function("twitch_chat.send_message", twitch_chat.send_message)
                 start_scheduler(app)
+                await load_scheduled_jobs(app)
         else:
             logger.info("🚫 Twitch API is disabled.")
             app.state.twitch_api = None

@@ -42,7 +42,6 @@ async def todos_page(status: str = None):
     for todo in todos:
         rows += f"""
         <tr class="border-b border-gray-700">
-            <td class="px-4 py-2">{todo.get("id")}</td>
             <td class="px-4 py-2">{todo.get("text")}</td>
             <td class="px-4 py-2">{todo.get("status").capitalize()}</td>
             <td class="px-4 py-2">{todo.get("username", "Unknown")}</td>

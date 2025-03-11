@@ -508,6 +508,8 @@ canvas {
     left: 50px;
     font-size: 15px;
     background-color: rgba(238, 221, 125, 0.6);
+    overflow: hidden;
+    width: 200px;
 }
 
 .hub {

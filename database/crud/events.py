@@ -35,13 +35,20 @@ def get_recent_events(limit: int = 50):
         for doc_id in sorted(db, key=lambda x: db[x]["timestamp"], reverse=True)[:limit]:
             doc = db[doc_id]
             if doc.get("type") == "event":
-                user = viewer_db.get(doc["viewer_id"], {}) if doc.get("viewer_id") else {}
+                viewer_id = str(doc.get("viewer_id")) if doc.get("viewer_id") else None
+                user = viewer_db.get(viewer_id, {}) if viewer_id else {}
+
+                timestamp_str = doc.get("timestamp", "")
+                try:
+                    timestamp = datetime.datetime.fromisoformat(timestamp_str) if timestamp_str else None
+                except ValueError:
+                    timestamp = None
 
                 events.append({
                     "event_id": doc["_id"],
                     "message": doc.get("message", ""),
                     "event_type": doc["event_type"],
-                    "timestamp": doc["timestamp"],
+                    "timestamp": timestamp,
                     "username": user.get("display_name", "Unknown"),
                     "avatar": user.get("profile_image_url", ""),
                     "user_color": user.get("color", "#FFFFFF"),

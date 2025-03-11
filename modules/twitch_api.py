@@ -440,7 +440,7 @@ class TwitchAPI:
 
         elif reward_title == "ToDo":
             try:
-                todo = save_todo(user_input, user_id)
+                todo = save_todo(user_input, user_id, username)
                 if todo:
                     logger.info(todo)
                     await broadcast_message({

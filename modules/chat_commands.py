@@ -54,6 +54,8 @@ async def handle_command(bot, command_name: str, params: str, event):
 
     command_name = ALIASES.get(command_name, command_name)
 
+    logger.info(command_name)
+
     if command_name in COMMAND_RESPONSES:
         response = COMMAND_RESPONSES[command_name]["response"]
         await bot.send_message(f"@{event.user.display_name} {response}")
@@ -135,8 +137,10 @@ async def command_todo(bot, params: str, event):
 
     result = save_todo(params, event.user.id, event.user.display_name)
 
+    await broadcast_message({"todo": { "action": "create", "id": result.get("_id"), "text": result.get("text"), "username": result.get("username") }})
+
     if result:
-        await bot.send_message(f"✅ ToDo hinzugefügt: {params} (ID: {result})")
+        await bot.send_message(f"✅ ToDo hinzugefügt: {params}")
     else:
         await bot.send_message("❌ Fehler beim Speichern des ToDos!")
 COMMANDS["todo"] = command_todo
@@ -150,7 +154,7 @@ async def command_todos(bot, params: str, event):
         await bot.send_message("✅ Aktuell sind keine offenen ToDos vorhanden!")
         return
 
-    todo_list = [f"#{todo['_id']} - {todo['text']} (by {todo['username']})" for todo in todos]
+    todo_list = [f"- {todo['text']} (by {todo['username']})" for todo in todos]
 
     # Send in chunks (Twitch chat limit: ~500 chars per message)
     message = "📝 **Aktuelle ToDos:**\n\n" + "\n\n".join(todo_list)

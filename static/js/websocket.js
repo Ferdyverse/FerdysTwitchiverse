@@ -40,6 +40,8 @@ function connectWebSocket() {
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
+    console.log(data);
+
     if (data.alert) {
       handleAlert(data.alert);
     } else if (data.message) {
@@ -131,6 +133,7 @@ function connectWebSocket() {
 
   // 📌 ToDo Handling
   function handleTodo(todo) {
+    console.log(todo);
     switch (todo.action) {
       case "create":
         createTodo(todo.id, todo.text, todo.username);
