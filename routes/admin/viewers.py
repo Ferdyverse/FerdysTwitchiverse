@@ -24,18 +24,6 @@ async def update_viewer(user_id: int, request: Request):
         if not user_info:
             raise HTTPException(status_code=404, detail="User not found in Twitch API")
 
-        # Update viewer in CouchDB
-        save_viewer(
-            twitch_id=user_id,
-            login=user_info["login"],
-            display_name=user_info["display_name"],
-            account_type=user_info["type"],
-            broadcaster_type=user_info["broadcaster_type"],
-            profile_image_url=user_info["profile_image_url"],
-            color=user_info.get("color"),
-            badges=",".join(user_info.get("badges", []))
-        )
-
         # Broadcast update
         await broadcast_message({
             "admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}
