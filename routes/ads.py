@@ -12,4 +12,4 @@ async def get_events(request: Request):
 
     twitch_api = request.app.state.twitch_api
 
-    return await twitch_api.get_ad_schedule()
+    return await twitch_api.ads.get_ad_schedule()

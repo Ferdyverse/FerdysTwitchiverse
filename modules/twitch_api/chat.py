@@ -1,5 +1,4 @@
 import logging
-from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
@@ -10,3 +9,6 @@ class TwitchChat:
             logger.info(f"✅ Streamer sent message: {message}")
         except Exception as e:
             logger.error(f"❌ Error sending message as Streamer: {e}")
+
+    async def delete_message(self, twitch, channel_id, message_id):
+        return await twitch.delete_chat_message(channel_id, channel_id, message_id)

@@ -104,7 +104,7 @@ async def send_chat_message(request: Request,
         if sender == "bot":
             await twitch_chat.send_message(message)
         elif sender == "streamer":
-            await twitch_api.send_message_as_streamer(message)
+            await twitch_api.chat.send_message_as_streamer(message)
         return Response("", media_type="text/html")
 
     except Exception as e:

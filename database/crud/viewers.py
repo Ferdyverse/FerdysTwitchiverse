@@ -26,7 +26,9 @@ def save_viewer(
     display_name: str = None,
     profile_image_url: str = None,
     color: str = None,
-    badges: list = None
+    badges: list = None,
+    follower_date: datetime = None,
+    subscriber_date: datetime = None
 ):
     """Save or update a viewer in CouchDB, updating only non-empty fields."""
     try:
@@ -46,6 +48,8 @@ def save_viewer(
             "profile_image_url": profile_image_url or existing_viewer.get("profile_image_url", ""),
             "color": color or existing_viewer.get("color", ""),
             "badges": ",".join(badges) if badges else existing_viewer.get("badges", ""),
+            "follower_date": follower_date or existing_viewer.get("follower_date", None),
+            "subscriber_date": subscriber_date or existing_viewer.get("subscriber_date", None),
             "total_chat_messages": existing_viewer.get("total_chat_messages", 0),
             "total_used_emotes": existing_viewer.get("total_used_emotes", 0),
             "total_replies": existing_viewer.get("total_replies", 0),

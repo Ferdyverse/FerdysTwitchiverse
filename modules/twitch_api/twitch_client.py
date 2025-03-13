@@ -1,12 +1,13 @@
 import logging
+from twitchAPI.type import AuthScope
+import config
 from modules.twitch_api import (
     TwitchAuth,
     TwitchEventSub,
     TwitchChat,
     TwitchUsers,
-    TwitchRewards,
-    TwitchModeration,
-    TwitchAds
+    TwitchAds,
+    TwitchRewards
 )
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
@@ -74,11 +75,13 @@ class TwitchAPI:
         self.client_secret = client_secret
         self.test_mode = test_mode
         self.event_queue = None
-        self.twitch = None
         self.auth = TwitchAuth(client_id, client_secret, self.get_scopes(), test_mode)
-        self.eventsub = TwitchEventSub(self.auth.twitch)
+        self.twitch = self.auth.twitch
+        self.rewards = TwitchRewards()
+        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=test_mode, rewards=self.rewards)
+        self.ads = TwitchAds()
         self.chat = TwitchChat()
-        self.users = TwitchUsers()
+        self.users = TwitchUsers(self.twitch, self.test_mode)
         self.is_running = False
 
     def get_scopes(self):
@@ -99,3 +102,44 @@ class TwitchAPI:
 
         await self.eventsub.start_eventsub()
         self.is_running = True
+
+    async def get_stream_info(self):
+        """Fetch current Twitch stream details (viewer count, title, etc.)."""
+        try:
+            user_id = config.TWITCH_CHANNEL_ID  # Use channel ID from config
+            stream_generator = self.twitch.get_streams(user_id=[user_id])  # This is an async generator
+
+            async for stream_data in stream_generator:  # Iterate over the async generator
+                if stream_data:
+                    return stream_data  # First stream object
+
+            return None  # If no stream data is found
+        except Exception as e:
+            logger.error(f"❌ Error fetching stream info: {e}")
+            return None
+        
+    async def stop(self):
+        """Stops the Twitch API and EventSub WebSocket."""
+        if self.is_running:
+            logger.info("🛑 Stopping Twitch API and EventSub WebSocket...")
+
+            # Stop EventSub WebSocket
+            if hasattr(self, "eventsub") and self.eventsub:
+                try:
+                    await self.eventsub.stop()
+                    logger.info("✅ EventSub WebSocket stopped.")
+                except Exception as e:
+                    logger.error(f"❌ Error stopping EventSub WebSocket: {e}")
+
+            # Close Twitch API connection
+            try:
+                if self.twitch:
+                    await self.twitch.close()
+                    logger.info("✅ Twitch API connection closed.")
+            except Exception as e:
+                logger.error(f"❌ Error closing Twitch API connection: {e}")
+
+            self.is_running = False
+            logger.info("🛑 Twitch API stopped.")
+        else:
+            logger.info("⚠️ Twitch API was not running.")

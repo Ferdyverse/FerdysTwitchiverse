@@ -1,26 +1,171 @@
 import logging
+import aiohttp
 from modules.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
 class TwitchUsers:
-    async def get_user_info(self, twitch, username=None, user_id=None):
+    def __init__(self, twitch, test_mode):
+        self.twitch = twitch
+        self.test_mode = test_mode
+
+    async def get_user_info(self, username: str = None, user_id: str = None):
+        """Retrieve Twitch user info, including color & badges, and store it in CouchDB."""
+
+        if self.test_mode:
+            return self._mock_get_user_info(username)
+
+        if not self.twitch:
+            raise Exception("❌ Twitch API not initialized.")
+
         if not username and not user_id:
             logger.error("❌ get_user_info() called without a username or user_id!")
             return None
 
-        params = {}
-        if username:
-            params["logins"] = [username]
-        if user_id:
-            params["user_ids"] = [user_id]
+        try:
+            params = {}
+            if username:
+                params["logins"] = [username]
+            if user_id:
+                params["user_ids"] = [user_id]
 
-        users = [user async for user in twitch.get_users(**params)]
-        if users:
-            user = users[0]
+            users = [user async for user in self.twitch.get_users(**params)]
+            if users:
+                user = users[0]
+
+                # Get CouchDB instance
+                db = couchdb_client.get_db("viewers")
+
+                # Fetch existing viewer data (if available)
+                existing_viewer = db.get(str(user.id))
+                logger.info(f"Existing User: {existing_viewer}")
+
+                user_color = None
+                user_badges = []
+
+                # Check if viewer exists before accessing fields
+                if existing_viewer is not None:
+                    user_color = existing_viewer.get("color", None)
+                    user_badges = existing_viewer.get("badges", "")
+                    if not isinstance(user_badges, str):
+                        user_badges = ""
+                    user_badges = user_badges.split(",")
+
+                # Fetch color & badges only if missing
+                if not user_color:
+                    chat_data = await self.get_chat_metadata(user.id)
+                    if chat_data:
+                        user_color = chat_data.get("color", user_color)
+
+                # Ensure no missing values in the document
+                viewer_data = {
+                    "_id": str(user.id),
+                    "login": user.login,
+                    "display_name": user.display_name,
+                    "account_type": user.type or "",
+                    "broadcaster_type": user.broadcaster_type or "",
+                    "profile_image_url": user.profile_image_url or "",
+                    "account_age": existing_viewer.get("account_age", "") if existing_viewer else "",
+                    "follower_date": existing_viewer.get("follower_date", None) if existing_viewer else None,
+                    "subscriber_date": existing_viewer.get("subscriber_date", None) if existing_viewer else None,
+                    "color": user_color,
+                    "badges": ",".join(user_badges) if user_badges else None
+                }
+
+                # Save or update viewer data in CouchDB
+                if existing_viewer:
+                    viewer_data["_rev"] = existing_viewer["_rev"]  # Preserve document revision for updates
+                    db.save(viewer_data)
+                else:
+                    db[viewer_data["_id"]] = viewer_data  # Create new document
+
+                return {
+                    "id": user.id,
+                    "login": user.login,
+                    "display_name": user.display_name,
+                    "type": user.type,
+                    "broadcaster_type": user.broadcaster_type,
+                    "profile_image_url": user.profile_image_url,
+                    "color": user_color,
+                    "badges": user_badges
+                }
+
+            logger.warning(f"⚠️ No user found for {username or user_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
+            return None
+
+    def _mock_get_user_info(self, username: str):
+        """Mock user info for Twitch CLI API."""
+        return {
+            "id": "123456",
+            "login": username,
+            "display_name": username.capitalize(),
+            "profile_image_url": f"https://mock.twitch.tv/{username}.png",
+        }
+
+    async def fetch_badge_data(self):
+        """Retrieve Twitch Global & Channel Badges and store in a dictionary."""
+        badges = {"global": {}, "channel": {}}
+
+        async with aiohttp.ClientSession() as session:
+            headers = self.auth_headers  # Ensure your headers contain a valid token
+
+            # Fetch Global Badges
+            async with session.get("https://api.twitch.tv/helix/chat/badges/global", headers=headers) as response:
+                if response.status == 200:
+                    badge_data = await response.json()
+                    for badge in badge_data.get("data", []):
+                        for version in badge["versions"]:
+                            badges["global"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+
+            # Fetch Channel Badges
+            async with session.get(f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}", headers=headers) as response:
+                if response.status == 200:
+                    badge_data = await response.json()
+                    for badge in badge_data.get("data", []):
+                        for version in badge["versions"]:
+                            badges["channel"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+
+        logger.info(f"✅ Loaded {len(badges['global'])} global badges & {len(badges['channel'])} channel badges")
+        return badges
+
+    async def initialize_badges(self):
+        """Load badge data on startup."""
+        global BADGES
+        BADGES = await self.fetch_badge_data()
+
+    async def get_chat_metadata(self, user_id: str):
+        """Retrieve Twitch user chat color and badges using the Helix API."""
+        try:
+            if not self.auth_headers:
+                logger.error("❌ get_chat_metadata() called without authentication!")
+                return {"color": "#9147FF", "badges": []}  # Use default color if missing auth
+
+            user_color = None
+
+            async with aiohttp.ClientSession() as session:
+                # Fetch user chat color
+                async with session.get(
+                    f"https://api.twitch.tv/helix/chat/color?user_id={user_id}",
+                    headers=self.auth_headers
+                ) as response:
+                    if response.status == 200:
+                        color_data = await response.json()
+                        if color_data.get("data"):
+                            user_color = color_data["data"][0].get("color")
+                    else:
+                        logger.warning(f"⚠️ Failed to fetch user color: {await response.text()}")
+
+                # Set default color if empty
+                user_color = user_color or "#9147FF"  # Twitch default purple
+
             return {
-                "id": user.id,
-                "login": user.login,
-                "display_name": user.display_name,
+                "color": user_color
             }
-        return None
+
+        except Exception as e:
+            logger.error(f"❌ Error fetching chat metadata: {e}")
+            return {"color": "#9147FF", "badges": []}  # Return safe defaults

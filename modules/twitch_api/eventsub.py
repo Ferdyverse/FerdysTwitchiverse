@@ -4,6 +4,7 @@ from twitchAPI.helper import first
 from modules.websocket_handler import broadcast_message
 from database.crud.events import save_event
 from database.crud.viewers import save_viewer
+from database.crud.overlay import save_overlay_data
 import datetime
 import config
 
@@ -11,10 +12,11 @@ logger = logging.getLogger("uvicorn.error.twitch_api")
 
 
 class TwitchEventSub:
-    def __init__(self, twitch, test_mode=False):
+    def __init__(self, twitch, rewards, test_mode=False):
         """Initialize the Twitch EventSub handler."""
         self.twitch = twitch
         self.test_mode = test_mode
+        self.rewards = rewards
         self.eventsub = None
         self.mock_commands = []  # Stores mock event commands for testing
 
@@ -41,7 +43,7 @@ class TwitchEventSub:
                 "channel.subscription.message": (broadcaster_id, self.handle_sub_message),
                 "channel.cheer": (broadcaster_id, self.handle_cheer),
                 "channel.raid": (self.handle_raid, broadcaster_id, None),
-                "channel.channel_points_custom_reward_redemption.add": (broadcaster_id, self.handle_channel_point_redeem),
+                "channel.channel_points_custom_reward_redemption.add": (broadcaster_id, self.rewards.handle_channel_point_redeem),
                 "channel.ban": (broadcaster_id, self.handle_ban),
                 "channel.unban": (broadcaster_id, self.handle_mod_action),
                 "channel.moderator.add": (broadcaster_id, self.handle_mod_action),
@@ -173,6 +175,24 @@ class TwitchEventSub:
         if not self.test_mode:
             save_overlay_data("last_subscriber", username)
 
+    async def handle_raid(self, data: dict):
+        """Handle raid event, save it, and broadcast it"""
+        username = data.event.from_broadcaster_user_name
+        user_id = int(data.event.from_broadcaster_user_id)
+        viewer_count = data.event.viewers
+
+        logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
+
+        save_viewer(
+            twitch_id=user_id,
+            login=data.event.from_broadcaster_user_login,
+            display_name=username
+        )
+
+        save_event("raid", user_id, f"Raid with {viewer_count} viewers")
+
+        await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
+
     async def handle_cheer(self, data: dict):
         """Handle Bit cheers."""
         username = data.event.user_name
@@ -183,12 +203,26 @@ class TwitchEventSub:
         await broadcast_message({"alert": {"type": "cheer", "user": username, "bits": bits}})
 
     async def handle_ban(self, data: dict):
-        """Handle bans."""
+        """Handle ban event"""
         moderator = data.event.moderator_user_name
         target = data.event.user_name
+        target_id = int(data.event.user_id)
+        reason = data.event.reason
+
         logger.info(f"🚨 {moderator} banned {target}!")
 
-        save_event("ban", int(data.event.user_id), f"Banned by {moderator}")
+        save_event("ban", target_id, f"Banned by {moderator} for {reason}")
+
+    async def handle_timeout(self, data: dict):
+        """Handle timeout (temporary ban)"""
+        moderator = data.event.moderator_user_name
+        target = data.event.user_name
+        target_id = int(data.event.user_id)
+        duration = data.event.duration
+
+        logger.info(f"⏳ {moderator} timed out {target} for {duration} seconds.")
+
+        save_event("timeout", target_id, f"Timed out for {duration}s by {moderator}")
 
     async def handle_mod_action(self, data: dict):
         """Handle moderator actions."""
@@ -205,3 +239,21 @@ class TwitchEventSub:
 
         save_event("ad_break", None, f"Ad break scheduled for {ad_length} seconds")
         await broadcast_message({"admin_alert": {"type": "ad_break", "duration": ad_length}})
+
+    async def handle_automod_action(self, data: dict):
+        """Handle AutoMod actions (message hold, potential flags)."""
+        logger.info(vars(data.event))
+        logger.info(f"🔧 Automod flagged a message!")
+
+        save_event("mod_action", None, "Automod flagged a message!")
+
+    async def handle_deleted_message(self, data: dict):
+        """Handle deleted messages"""
+        logger.info(vars(data.event))
+        target = data.event.target_user_name
+        target_id = int(data.event.target_user_id)
+
+        logger.info(f"🗑️ Message deleted from {target}")
+
+        save_event("message_deleted", target_id, "Message deleted")
+        await broadcast_message({"alert": {"type": "message_deleted", "user": target}})

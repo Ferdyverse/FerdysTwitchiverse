@@ -14,7 +14,7 @@ async def update_viewer(user_id: int, request: Request):
         return "<span class='text-red-500'>N/A</span>"
 
     try:
-        user_info = await twitch_api.get_user_info(user_id=user_id)
+        user_info = await twitch_api.users.get_user_info(user_id=user_id)
         if not user_info:
             raise HTTPException(status_code=404, detail="User not found")
 
