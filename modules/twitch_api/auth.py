@@ -1,4 +1,5 @@
 import logging
+import config
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator, CodeFlow
 from modules.misc import save_tokens, load_tokens
@@ -31,7 +32,7 @@ class TwitchAuth:
                 return False
 
         try:
-            logger.info("🔄 Checking stored tokens before authentication...")
+            logger.info("🔄 API: Checking stored tokens before authentication...")
             tokens = load_tokens("api")
             if tokens:
                 self.token = tokens["access_token"]
@@ -46,6 +47,7 @@ class TwitchAuth:
                 await self.run_codeflow()
 
             try:
+                logger.info("Starting user auth...")
                 await self.twitch.set_user_authentication(self.token, self.scopes, self.refresh_token)
             except Exception as e:
                 logger.warning(f"⚠️ Failed to authenticate with twitch! {e}")

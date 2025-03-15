@@ -43,13 +43,13 @@ class TwitchEventSub:
                 "channel.subscription.message": (broadcaster_id, self.handle_sub_message),
                 "channel.cheer": (broadcaster_id, self.handle_cheer),
                 "channel.raid": (self.handle_raid, broadcaster_id, None),
-                "channel.channel_points_custom_reward_redemption.add": (broadcaster_id, self.rewards.handle_channel_point_redeem),
+                "channel.points.custom.reward.redemption.add": (broadcaster_id, self.rewards.handle_channel_point_redeem),
                 "channel.ban": (broadcaster_id, self.handle_ban),
                 "channel.unban": (broadcaster_id, self.handle_mod_action),
                 "channel.moderator.add": (broadcaster_id, self.handle_mod_action),
                 "channel.moderator.remove": (broadcaster_id, self.handle_mod_action),
                 "channel.moderate": (broadcaster_id, broadcaster_id, self.handle_mod_action),
-                "channel.ad_break.begin": (broadcaster_id, self.handle_ad_break),
+                "channel.ad.break.begin": (broadcaster_id, self.handle_ad_break),
             }
 
             # Events that are only available in real mode (not in mock testing)
@@ -79,6 +79,7 @@ class TwitchEventSub:
     async def _subscribe_event(self, event_name, *params):
         """Helper method to subscribe to an event and register a mock command if applicable."""
         try:
+            logger.info(f"Subscribing to event: listen_{event_name.replace('.', '_')}")
             event_id = await getattr(self.eventsub, f"listen_{event_name.replace('.', '_')}")(*params)
 
             if self.test_mode:

@@ -19,7 +19,7 @@ async def update_viewer(user_id: int, request: Request):
         return {"status": "error", "message": "Twitch API not initialized"}
 
     try:
-        user_info = await twitch_api.get_user_info(user_id=user_id)
+        user_info = await twitch_api.users.get_user_info(user_id=user_id)
 
         if not user_info:
             raise HTTPException(status_code=404, detail="User not found in Twitch API")

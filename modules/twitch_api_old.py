@@ -10,71 +10,17 @@ from twitchAPI.helper import first
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.type import CustomRewardRedemptionStatus
 
-from modules.couchdb_client import couchdb_client
-from database.crud.overlay import save_overlay_data
-from database.crud.todos import save_todo
-from database.crud.events import save_event
-from database.crud.viewers import save_viewer
-
-from modules.misc import save_tokens, load_tokens
-from modules.websocket_handler import broadcast_message
-
 logger = logging.getLogger("uvicorn.error.twitch_api")
 
 REAL_SCOPES = [
-    AuthScope.ANALYTICS_READ_EXTENSION,
-    AuthScope.ANALYTICS_READ_GAMES,
-    AuthScope.BITS_READ,
-    AuthScope.CHANNEL_MANAGE_BROADCAST,
-    AuthScope.CHANNEL_MANAGE_REDEMPTIONS,
-    AuthScope.CHANNEL_MODERATE,
     AuthScope.CHANNEL_READ_ADS,
     AuthScope.CHANNEL_READ_REDEMPTIONS,
     AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
-    AuthScope.CHAT_EDIT,
     AuthScope.CHAT_READ,
-    AuthScope.CLIPS_EDIT,
-    AuthScope.MODERATION_READ,
-    AuthScope.MODERATOR_MANAGE_ANNOUNCEMENTS,
-    AuthScope.MODERATOR_MANAGE_AUTOMOD,
-    AuthScope.MODERATOR_MANAGE_BANNED_USERS,
-    AuthScope.MODERATOR_MANAGE_BLOCKED_TERMS,
-    AuthScope.MODERATOR_MANAGE_CHAT_MESSAGES,
-    AuthScope.MODERATOR_MANAGE_CHAT_SETTINGS,
-    AuthScope.MODERATOR_MANAGE_SHOUTOUTS,
-    AuthScope.MODERATOR_MANAGE_UNBAN_REQUESTS,
-    AuthScope.MODERATOR_MANAGE_WARNINGS,
-    AuthScope.MODERATOR_READ_CHATTERS,
-    AuthScope.MODERATOR_READ_FOLLOWERS,
-    AuthScope.MODERATOR_READ_MODERATORS,
-    AuthScope.MODERATOR_READ_VIPS,
-    AuthScope.USER_EDIT_BROADCAST,
-    AuthScope.USER_MANAGE_BLOCKED_USERS,
-    AuthScope.USER_READ_BLOCKED_USERS,
     AuthScope.USER_READ_CHAT,
     AuthScope.USER_READ_EMAIL,
     AuthScope.USER_READ_FOLLOWS,
     AuthScope.USER_WRITE_CHAT,
-    AuthScope.WHISPERS_EDIT,
-    AuthScope.WHISPERS_READ,
-]
-
-MOCK_SCOPES = [
-    AuthScope.BITS_READ,
-    AuthScope.CHANNEL_MANAGE_POLLS,
-    AuthScope.CHANNEL_MANAGE_POLLS,
-    AuthScope.CHANNEL_MANAGE_POLLS,
-    AuthScope.CHANNEL_MANAGE_PREDICTIONS,
-    AuthScope.CHANNEL_MANAGE_REDEMPTIONS,
-    AuthScope.CHANNEL_READ_CHARITY,
-    AuthScope.CHANNEL_READ_GOALS,
-    AuthScope.CHANNEL_READ_HYPE_TRAIN,
-    AuthScope.CHANNEL_READ_HYPE_TRAIN,
-    AuthScope.CHANNEL_READ_REDEMPTIONS,
-    AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
-    AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
-    AuthScope.MODERATOR_MANAGE_SHOUTOUTS,
-    AuthScope.USER_READ_FOLLOWS,
 ]
 
 class TwitchAPI:
@@ -92,32 +38,8 @@ class TwitchAPI:
         self.scopes = MOCK_SCOPES if self.test_mode else REAL_SCOPES
         self.is_running = False
 
-        if self.test_mode:
-            logger.warning("⚠️ Running in Twitch Mock API mode!")
-            self.base_url = "http://localhost:8080/mock/"
-            self.auth_base_url = "http://localhost:8080/auth/"
-            self.websocket_url = "ws://127.0.0.1:8081/ws"
-            self.subscription_url = "http://127.0.0.1:8081/"
-        else:
-            self.base_url = "https://api.twitch.tv/helix"
-            self.auth_base_url = "https://id.twitch.tv/oauth2"
-
     async def authenticate(self):
         """Authenticate with Twitch and retrieve access tokens."""
-
-        if self.test_mode:
-            logger.info("⚠️ Using Twitch CLI Mock API, skipping real authentication.")
-            try:
-                self.twitch = await Twitch(self.client_id, self.client_secret, base_url=self.base_url, auth_base_url=self.auth_base_url)
-                self.twitch.auto_refresh_auth = False
-                auth = UserAuthenticator(self.twitch, self.scopes, auth_base_url=self.auth_base_url)
-                self.token = await auth.mock_authenticate(config.TWITCH_CHANNEL_ID)
-                await self.twitch.set_user_authentication(self.token, self.scopes)
-                logger.info("✅ Successfully authenticated with Twitch Mock API.")
-                return True
-            except Exception as e:
-                logger.error(f"❌ Mock authentication failed: {e}")
-                return False
 
         try:
             logger.info("🔄 Checking stored tokens before authentication...")
@@ -230,63 +152,15 @@ class TwitchAPI:
 
             endpoints = []
             # Subscribe to Twitch events
-            logger.info("Register follow event")
-            event_id = await self.eventsub.listen_channel_follow_v2(broadcaster_id, broadcaster_id, self.handle_follow)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.follow -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register subscribe event")
-            event_id = await self.eventsub.listen_channel_subscribe(broadcaster_id, self.handle_subscribe)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscribe -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register sub gift event")
-            event_id = await self.eventsub.listen_channel_subscription_gift(broadcaster_id, self.handle_gift_sub)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscription.gift -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register sub msg event")
             event_id = await self.eventsub.listen_channel_subscription_message(broadcaster_id, self.handle_sub_message)
             if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.subscription.message -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register cheer event")
-            event_id = await self.eventsub.listen_channel_cheer(broadcaster_id, self.handle_cheer)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.cheer -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register raid event")
-            event_id = await self.eventsub.listen_channel_raid(self.handle_raid, broadcaster_id, None)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.raid -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
             logger.info("Register points event")
             event_id = await self.eventsub.listen_channel_points_custom_reward_redemption_add(
                 broadcaster_id, self.handle_channel_point_redeem
             )
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.channel_points_custom_reward_redemption.add -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register ban event")
-            event_id = await self.eventsub.listen_channel_ban(broadcaster_id, self.handle_ban)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.ban -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register unban event")
-            event_id = await self.eventsub.listen_channel_unban(broadcaster_id, self.handle_mod_action)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.unban -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register mod add event")
-            event_id = await self.eventsub.listen_channel_moderator_add(broadcaster_id, self.handle_mod_action)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderator.add -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register mod remove event")
-            event_id = await self.eventsub.listen_channel_moderator_remove(broadcaster_id, self.handle_mod_action)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderator.remove -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-            logger.info("Register mod event")
-            event_id = await self.eventsub.listen_channel_moderate(broadcaster_id, broadcaster_id ,self.handle_mod_action)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.moderate -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
-
-            if not self.test_mode:
-                logger.info("Register automod event")
-                await self.eventsub.listen_automod_message_hold(broadcaster_id, broadcaster_id, self.handle_automod_action)
-                logger.info("Register chat clear event")
-                await self.eventsub.listen_channel_chat_clear(broadcaster_id, broadcaster_id, self.handle_mod_action)
-                logger.info("Register msg delete event")
-                await self.eventsub.listen_channel_chat_message_delete(broadcaster_id, broadcaster_id, self.handle_deleted_message)
-            logger.info("Register ad break event")
-            event_id = await self.eventsub.listen_channel_ad_break_begin(broadcaster_id, self.handle_ad_break)
-            if self.test_mode: endpoints.append(f'twitch-cli event trigger channel.ad_break.begin -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket')
 
             logger.info("✅ Successfully subscribed to EventSub WebSocket events.")
-
-            if self.test_mode:
-                with open("commands.md", "w") as cmd_file:
-                    for command in endpoints:
-                        cmd_file.write(f"{command}\n\n")
-                logger.info(f'🔧 The current commandlist can be found in the commands.md file')
 
         except Exception as e:
             logger.error(f"❌ Error initializing EventSub WebSocket: {e}")

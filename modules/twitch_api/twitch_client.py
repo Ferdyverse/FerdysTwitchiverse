@@ -76,12 +76,12 @@ class TwitchAPI:
         self.test_mode = test_mode
         self.event_queue = None
         self.auth = TwitchAuth(client_id, client_secret, self.get_scopes(), test_mode)
-        self.twitch = self.auth.twitch
+        self.twitch = None
         self.rewards = TwitchRewards()
-        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=test_mode, rewards=self.rewards)
+        self.eventsub = None
         self.ads = TwitchAds()
         self.chat = TwitchChat()
-        self.users = TwitchUsers(self.twitch, self.test_mode)
+        self.users = None
         self.is_running = False
 
     def get_scopes(self):
@@ -100,6 +100,13 @@ class TwitchAPI:
                 logger.error("❌ Failed authentication (second try), skipping Twitch API startup.")
                 return
 
+        self.twitch = self.auth.twitch
+
+        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=self.test_mode, rewards=self.rewards)
+
+        self.users = TwitchUsers(self.twitch, self.test_mode)
+        await self.users.initialize_badges()
+
         await self.eventsub.start_eventsub()
         self.is_running = True
 
@@ -117,7 +124,7 @@ class TwitchAPI:
         except Exception as e:
             logger.error(f"❌ Error fetching stream info: {e}")
             return None
-        
+
     async def stop(self):
         """Stops the Twitch API and EventSub WebSocket."""
         if self.is_running:

@@ -1,5 +1,6 @@
 import logging
 import aiohttp
+import config
 from modules.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.twitch_api")
@@ -109,6 +110,13 @@ class TwitchUsers:
     async def fetch_badge_data(self):
         """Retrieve Twitch Global & Channel Badges and store in a dictionary."""
         badges = {"global": {}, "channel": {}}
+
+        app_token = self.twitch.get_app_token()
+
+        self.auth_headers = {
+            "Authorization": f"Bearer {app_token}",
+            "Client-Id": config.TWITCH_CLIENT_ID
+        }
 
         async with aiohttp.ClientSession() as session:
             headers = self.auth_headers  # Ensure your headers contain a valid token

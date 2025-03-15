@@ -5,6 +5,7 @@ import pytz
 import config
 import datetime
 import logging
+import config
 
 from database.crud.chat import get_recent_chat_messages
 
@@ -104,7 +105,7 @@ async def send_chat_message(request: Request,
         if sender == "bot":
             await twitch_chat.send_message(message)
         elif sender == "streamer":
-            await twitch_api.chat.send_message_as_streamer(message)
+            await twitch_api.chat.send_message_as_streamer(request.app.state.twitch_api.twitch, config.TWITCH_CHANNEL_ID, message)
         return Response("", media_type="text/html")
 
     except Exception as e:

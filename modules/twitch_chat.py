@@ -47,7 +47,7 @@ class TwitchChatBot:
     async def authenticate(self):
         """Authenticate with Twitch and retrieve access tokens."""
         try:
-            logger.info("🔄 Checking stored tokens before authentication...")
+            logger.info("🔄 Bot: Checking stored tokens before authentication...")
             tokens = load_tokens("bot")
             if tokens:
                 self.token = tokens["access_token"]
@@ -108,7 +108,7 @@ class TwitchChatBot:
             self.chat.start()
 
             global BADGES
-            BADGES = await self.twitch_api.fetch_badge_data()
+            BADGES = await self.twitch_api.users.fetch_badge_data()
 
             self.is_running = True
         except Exception as e:
