@@ -5,7 +5,7 @@ from database.crud.events import save_event
 from database.crud.todos import save_todo
 from modules.websocket_handler import broadcast_message
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api_rewards")
 
 class TwitchRewards:
     async def handle_channel_point_redeem(self, data):

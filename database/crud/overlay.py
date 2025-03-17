@@ -1,4 +1,4 @@
-from modules.couchdb_client import couchdb_client
+from database.couchdb_client import couchdb_client
 import logging
 
 logger = logging.getLogger("uvicorn.error.overlay")

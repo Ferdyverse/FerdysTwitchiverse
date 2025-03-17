@@ -1,6 +1,6 @@
 import random
 import logging
-from modules.couchdb_client import couchdb_client
+from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.scheduled_messages")
 

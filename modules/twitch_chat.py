@@ -14,7 +14,7 @@ from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
 from modules.chat_commands import handle_command
 
-from modules.couchdb_client import couchdb_client
+from database.couchdb_client import couchdb_client
 from database.crud.viewers import save_viewer, update_viewer_stats
 from database.crud.chat import save_chat_message
 

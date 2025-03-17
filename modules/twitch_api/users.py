@@ -1,9 +1,9 @@
 import logging
 import aiohttp
 import config
-from modules.couchdb_client import couchdb_client
+from database.couchdb_client import couchdb_client
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api_user")
 
 class TwitchUsers:
     def __init__(self, twitch, test_mode):

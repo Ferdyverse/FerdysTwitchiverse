@@ -8,7 +8,7 @@ from database.crud.overlay import save_overlay_data
 import datetime
 import config
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api_eventsub")
 
 
 class TwitchEventSub:
@@ -133,6 +133,7 @@ class TwitchEventSub:
     async def handle_gift_sub(self, data: dict):
         """Handle gifted subscriptions."""
         username = data.event.user_name
+        user_id = int(data.event.user_id)
         recipient_count = data.event.total
         logger.info(f"🎁 {username} gifted {recipient_count} subs!")
 

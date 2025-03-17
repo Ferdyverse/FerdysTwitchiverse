@@ -4,7 +4,7 @@ from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator, CodeFlow
 from modules.misc import save_tokens, load_tokens
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api_auth")
 
 class TwitchAuth:
     def __init__(self, client_id, client_secret, scopes, test_mode):

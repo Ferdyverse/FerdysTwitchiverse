@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from modules.couchdb_client import couchdb_client
+from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.admin_buttons")
 

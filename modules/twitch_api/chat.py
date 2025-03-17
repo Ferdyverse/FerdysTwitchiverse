@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api_chat")
 
 class TwitchChat:
     async def send_message_as_streamer(self, twitch, channel_id, message):
