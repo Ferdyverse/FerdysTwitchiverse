@@ -1,0 +1,84 @@
+.alert.subscriber {
+    background: none; /* Remove solid background to show the video */
+}
+
+.alert.follower {
+    background: none; /* Remove solid background to show the video */
+}
+
+.alert.default {
+    background: none; /* Remove solid background to show the video */
+}
+
+.alert.raid {
+    background: none; /* Remove solid background to show the video */
+}
+
+.alert {
+    position: relative;
+    margin: 0 auto;
+    opacity: 0; /* Initially hidden for animation */
+    transform: translateY(-20px); /* Start slightly above */
+    overflow: hidden; /* Prevent content overflow */
+    width: 400px; /* Define the fixed width of the alert */
+    aspect-ratio: 16 / 9; /* Maintain the video aspect ratio */
+    background: transparent; /* Ensure no background covers the video */
+    border: none; /* Remove borders */
+    box-shadow: none; /* Remove shadows */
+}
+
+.alert-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ensure the video fills the container */
+    z-index: 1; /* Ensure the video is in the background */
+    pointer-events: none; /* Prevent interaction with the video */
+    opacity: 1; /* Ensure the video is fully visible */
+}
+
+.alert-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Match the full width of the alert */
+    height: 100%; /* Match the full height of the alert */
+    z-index: 2; /* Ensure content is above the video */
+    color: white;
+    text-align: center;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.7); /* Make text readable */
+    opacity: 0; /* Start hidden */
+    transition: opacity 1s ease; /* Smooth fade-in effect */
+    padding: 0 10px; /* Add padding to prevent text overflow */
+    box-sizing: border-box; /* Include padding in dimensions */
+    max-width: 400px;
+}
+
+.alert-content h1,
+.alert-content p {
+    position: absolute;
+    overflow: hidden; /* Prevent overflow */
+    white-space: nowrap; /* Prevent wrapping */
+    text-overflow: ellipsis; /* Add ellipsis for overflowing text */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%); /* Correct horizontal centering */
+    margin: 0; /* Remove default margin */
+    max-width: 100%; /* Ensure text doesn’t exceed container width */
+    font-size: 1.5rem; /* Initial font size */
+    box-sizing: border-box; /* Include padding in dimensions */
+}
+
+.alert-content h1 {
+    top: 30%; /* Position h1 vertically */
+    font-size: 1rem; /* Base font size for the title */
+    box-sizing: border-box; /* Ensure padding is included in dimensions */
+}
+
+.alert-content p {
+    bottom: 34%; /* Position p vertically */
+    font-size: 1.5rem; /* Base font size for the paragraph */
+    transition: font-size 0.3s ease; /* Smooth font resizing */
+    box-sizing: border-box; /* Ensure padding is included in dimensions */
+}

@@ -1,0 +1,16 @@
+body {
+    margin: 0;
+    font-family: 'MonaspiceRn NFM', Arial, sans-serif;
+    background: transparent;
+    color: white;
+    text-align: center;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Hide the goal box when this class is applied */
+.hidden {
+    display: none !important; /* Completely hide the element */
+}

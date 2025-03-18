@@ -1,0 +1,159 @@
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    pointer-events: none;
+    z-index: 999;
+}
+
+.channel_logo {
+    position: absolute;
+    top: 0px;
+    left: 50%;
+    transform: translate(-50%, -0%);
+    z-index: 9999;
+}
+
+.channel_logo img {
+    height: 100px;
+}
+
+/* General top bar styling */
+#top-bar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 70px; /* Adjust the height as needed */
+    display: flex; /* Flexbox layout */
+    justify-content: space-between; /* Spread sections evenly */
+    align-items: center; /* Vertically align items */
+    padding: 0 20px; /* Padding inside the bar */
+    background: #000;/* Subtle gradient */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); /* Add shadow for depth */
+    color: white;
+    z-index: 1000;
+    border-bottom: #FFD700 solid 2px;
+}
+
+/* Left Section: Follower and Subscriber */
+#left-section {
+    display: flex;
+    flex-direction: row; /* Arrange items horizontally */
+    gap: 40px; /* Space between Last Follower and Last Subscriber */
+    align-items: center; /* Vertically align items */
+    margin-left: 15px; /* Add spacing from the left edge */
+}
+
+/* Follower and Subscriber Box Styles */
+#left-section > div {
+    display: flex;
+    flex-direction: column; /* Stack the headline and text */
+    align-items: center; /* Center-align both headline and text */
+    text-align: center; /* Ensure text is centered */
+    gap: 5px; /* Space between the headline and the text */
+}
+
+#left-section strong {
+    font-size: 0.9rem; /* Headline font size */
+    color: #ffffff;
+    text-transform: uppercase;
+    display: flex; /* Flexbox for icon and text alignment */
+    align-items: center; /* Center the icon and text */
+    gap: 5px; /* Space between icon and headline */
+}
+
+#left-section span {
+    font-size: 1.1rem; /* Text font size */
+    color: #FFD700; /* Gold color for emphasis */
+    font-weight: bold; /* Make text bold */
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.8), 0 0 10px rgba(255, 215, 0, 0.5); /* Glow effect */
+}
+
+#left-section i {
+    font-size: 1.2rem; /* Icon size */
+    color: #FFD700; /* Gold color for emphasis */
+    margin-right: 5px; /* Space between icon and text */
+}
+
+/* Middle Section (Always Centered) */
+#middle-section {
+    position: absolute; /* Position it independently of left and right sections */
+    left: 50%; /* Move to the center horizontally */
+    transform: translateX(-50%); /* Adjust to center perfectly */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* Right Section */
+#right-section {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    gap: 15px; /* Space between icons and the message box */
+    margin-right: 20px; /* Add more spacing to the right edge */
+    margin-left: auto; /* Push the section to the far right */
+    flex-shrink: 0; /* Prevent shrinking when the bar resizes */
+}
+
+#dynamic-icons {
+    display: flex; /* Arrange icons horizontally */
+    align-items: center;
+    gap: 10px; /* Space between icons */
+}
+
+#dynamic-icons i {
+    font-size: 2.5rem; /* Larger size for emphasis */
+    color: #FFD700; /* Gold color for icons */
+    cursor: pointer; /* Interactive cursor */
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+#custom-message {
+    font-size: 1.5rem;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid #FFD700; /* Golden border */
+    border-radius: 10px;
+    padding: 0; /* Remove padding for better control */
+    overflow: hidden; /* Prevent overflow outside the box */
+    width: 300px; /* Fixed width for the message box */
+    display: flex; /* Align icon and text horizontally */
+    align-items: center; /* Vertically center items */
+    gap: 10px; /* Space between icon and text */
+    position: relative;
+}
+
+/* Icon container */
+.icon-container {
+    flex: 0 0 50px; /* Fixed width for the icon container */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%; /* Match the height of the message box */
+    background: #FFD700; /* Golden background for the icon */
+    z-index: 1; /* Ensure icon is always visible */
+}
+
+/* Font Awesome icon inside */
+.icon-container i {
+    color: #000000; /* Black icon for contrast */
+    font-size: 1.5rem; /* Adjust icon size */
+}
+
+/* Text container */
+.scrolling-text {
+    flex: 1; /* Take up remaining space */
+    white-space: nowrap; /* Prevent text wrapping */
+    padding: 0 10px; /* Add padding for spacing */
+    position: relative;
+    z-index: 0; /* Ensure text does not overlap the icon */
+    font-size: 1rem;
+    animation: scrollText 10s linear infinite; /* Horizontal scrolling animation */
+}

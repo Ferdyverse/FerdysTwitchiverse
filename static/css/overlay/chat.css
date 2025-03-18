@@ -1,0 +1,37 @@
+#chat-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 350px;
+    height: 250px;
+
+    background-color: rgba(0, 0, 0, 0.6); /* Transparent but visible */
+
+    color: limegreen;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 16px;
+    padding: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Messages appear at the bottom */
+    text-align: left; /* Ensures text is left-aligned */
+}
+
+/* Chat messages */
+.chat-message {
+    white-space: pre-wrap;
+    padding: 2px 0;
+}
+
+/* Blinking cursor on a new line */
+.chat-cursor {
+    display: block;
+    width: 100%;
+}
+
+.chat-cursor::after {
+    content: "█";
+    display: inline-block;
+    animation: blink 1s steps(2, start) infinite;
+}

@@ -1,0 +1,28 @@
+#goal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px; /* Space between text and progress bar */
+    text-align: center;
+}
+
+#goal-box span {
+    font-size: 1rem;
+    font-weight: bold;
+}i
+
+#goal-progress {
+    width: 200px; /* Progress bar width */
+    height: 10px; /* Progress bar height */
+    background: rgba(255, 255, 255, 0.2); /* Light background for the empty bar */
+    border-radius: 5px;
+    overflow: hidden; /* Prevent overflow on rounded edges */
+}
+
+#goal-bar {
+    width: 0; /* Dynamically updated via JavaScript */
+    height: 100%;
+    background: #FFD700; /* Gold color for the progress */
+    border-radius: 5px;
+    transition: width 0.5s ease; /* Smooth progress bar animation */
+}
