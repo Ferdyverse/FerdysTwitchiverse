@@ -1,17 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.crud.events import get_recent_events
 from fastapi.templating import Jinja2Templates
+
+from database.crud.events import get_recent_events
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/events", tags=["Events"])
 
 @router.get("/", response_class=HTMLResponse)
-async def get_events(db: Session = Depends(get_db)):
+async def get_events():
     """Retrieve the last 50 stored events and return them as HTML."""
-    events = get_recent_events(db=db)
+    events = get_recent_events()
 
     if not events:
         return "<p class='text-center text-gray-400'>No events yet...</p>"

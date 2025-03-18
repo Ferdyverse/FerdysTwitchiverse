@@ -393,6 +393,8 @@ canvas {
 	to {background-position: 0 250px;}
 }
 
+/*
+
 #chat-container {
     position: absolute;
     bottom: 20px;
@@ -400,12 +402,12 @@ canvas {
     width: 350px;
     overflow: hidden;
     display: flex;
-    flex-direction: column; /* ✅ Newest messages always added at the bottom */
+    flex-direction: column;
 }
 
 @keyframes fadeOut {
     0% { opacity: 1; }
-    100% { opacity: 0; } /* Gradual fade-out over 4s */
+    100% { opacity: 0; }
 }
 
 .chat-message {
@@ -449,7 +451,7 @@ canvas {
     font-size: 0.9rem;
     text-align: left;
     margin-top: 2px;
-}
+} */
 
 .todo-container {
     position: fixed;
@@ -508,6 +510,8 @@ canvas {
     left: 50px;
     font-size: 15px;
     background-color: rgba(238, 221, 125, 0.6);
+    overflow: hidden;
+    width: 200px;
 }
 
 .hub {
@@ -536,4 +540,48 @@ canvas {
     padding: 6px;
     border-radius: 5px;
     font-weight: bold;
+}
+
+#chat-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 350px;
+    height: 250px;
+
+    background-color: rgba(0, 0, 0, 0.6); /* Transparent but visible */
+
+    color: limegreen;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 16px;
+    padding: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Messages appear at the bottom */
+    text-align: left; /* Ensures text is left-aligned */
+}
+
+/* Chat messages */
+.chat-message {
+    white-space: pre-wrap;
+    padding: 2px 0;
+}
+
+/* Blinking cursor on a new line */
+.chat-cursor {
+    display: block;
+    width: 100%;
+}
+
+.chat-cursor::after {
+    content: "█";
+    display: inline-block;
+    animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
 }

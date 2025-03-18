@@ -1,77 +1,97 @@
 import json
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from database.session import get_db
-from database.base import AdminButton
+import logging
+import uuid
+from database.couchdb_client import couchdb_client
 
-def get_admin_buttons(db: Session = Depends(get_db)):
-    """Retrieve all admin buttons ordered by position."""
-    return db.query(AdminButton).order_by(AdminButton.position).all()
+logger = logging.getLogger("uvicorn.error.admin_buttons")
 
-def add_admin_button(label: str, action: str, data: dict, prompt: bool, db: Session = Depends(get_db)):
-    """Add a new admin button."""
+
+def get_admin_buttons():
+    """Retrieve all admin buttons ordered by position from CouchDB."""
     try:
-        button_data = json.dumps(data) if isinstance(data, dict) else "{}"
-        new_button = AdminButton(label=label, action=action, data=button_data, prompt=prompt)
+        db = couchdb_client.get_db("admin_buttons")
 
-        db.add(new_button)
-        db.commit()
-        db.refresh(new_button)
-
-        return get_admin_buttons(db)  # Return updated list of buttons
+        buttons = [
+            db[doc["id"]] for doc in db.view("_all_docs", include_docs=True)
+            if db[doc["id"]].get("type") == "admin_button"
+        ]
+        return sorted(buttons, key=lambda x: x.get("position", 0))
     except Exception as e:
-        print(f"❌ Error adding admin button: {e}")
-        db.rollback()
+        logger.error(f"❌ Failed to retrieve admin buttons: {e}")
+        return []
+
+
+def add_admin_button(label: str, action: str, data: dict, prompt: bool):
+    """Add a new admin button to CouchDB."""
+    try:
+        db = couchdb_client.get_db("admin_buttons")
+        button_id = f"admin_button_{uuid.uuid4().hex}"
+
+        button_data = {
+            "_id": button_id,
+            "type": "admin_button",
+            "label": label,
+            "action": action,
+            "data": json.dumps(data) if isinstance(data, dict) else "{}",
+            "prompt": prompt,
+            "position": len(get_admin_buttons())  # New button at the end
+        }
+
+        db.save(button_data)
+        return get_admin_buttons()  # Return updated list of buttons
+    except Exception as e:
+        logger.error(f"❌ Error adding admin button: {e}")
         return None
 
-def update_admin_button(button_id: int, label: str, action: str, data: dict, prompt: bool, db: Session = Depends(get_db)):
-    """Update an existing admin button."""
-    button = db.query(AdminButton).filter(AdminButton.id == button_id).first()
-    if not button:
+
+def update_admin_button(button_id: str, label: str, action: str, data: dict, prompt: bool):
+    """Update an existing admin button in CouchDB."""
+    try:
+        db = couchdb_client.get_db("admin_buttons")
+        button = db.get(button_id)
+
+        if not button:
+            return None  # Button not found
+
+        button.update({
+            "label": label,
+            "action": action,
+            "data": json.dumps(data) if isinstance(data, dict) else "{}",
+            "prompt": prompt
+        })
+
+        db.save(button)
+        return get_admin_buttons()  # Return updated list of buttons
+    except Exception as e:
+        logger.error(f"❌ Error updating admin button: {e}")
+        return None
+
+
+def remove_admin_button(button_id: str):
+    """Remove an admin button from CouchDB."""
+    try:
+        db = couchdb_client.get_db("admin_buttons")
+        if button_id in db:
+            db.delete(db[button_id])
+            return get_admin_buttons()  # Return updated list of buttons
         return None  # Button not found
-
-    try:
-        button_data = json.dumps(data) if isinstance(data, dict) else "{}"
-
-        button.label = label
-        button.action = action
-        button.data = button_data
-        button.prompt = prompt
-
-        db.commit()
-        db.refresh(button)
-
-        return get_admin_buttons(db)  # Return updated list of buttons
     except Exception as e:
-        print(f"❌ Error updating admin button: {e}")
-        db.rollback()
+        logger.error(f"❌ Error removing admin button: {e}")
         return None
 
-def remove_admin_button(button_id: int, db: Session = Depends(get_db)):
-    """Remove an admin button."""
-    button = db.query(AdminButton).filter(AdminButton.id == button_id).first()
-    if not button:
-        return None  # Button not found
 
+def reorder_admin_buttons(updated_buttons: list):
+    """Update the order of admin buttons in CouchDB."""
     try:
-        db.delete(button)
-        db.commit()
-        return get_admin_buttons(db)  # Return updated list of buttons
-    except Exception as e:
-        print(f"❌ Error removing admin button: {e}")
-        db.rollback()
-        return None
-
-def reorder_admin_buttons(updated_buttons: list, db: Session = Depends(get_db)):
-    """Update the order of admin buttons."""
-    try:
+        db = couchdb_client.get_db("admin_buttons")
+        logger.info(updated_buttons)
         for button_data in updated_buttons:
-            button = db.query(AdminButton).filter(AdminButton.id == button_data["id"]).first()
+            button = db.get(button_data["id"])
             if button:
-                button.position = button_data["position"]
-        db.commit()
+                button["position"] = button_data["position"]
+                db.save(button)
+
         return True
     except Exception as e:
-        print(f"❌ Error reordering admin buttons: {e}")
-        db.rollback()
+        logger.error(f"❌ Error reordering admin buttons: {e}")
         return False

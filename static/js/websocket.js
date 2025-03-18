@@ -3,6 +3,7 @@ import {
   showAlertWithGSAP,
   showSubBanner,
   startAdCountdown,
+  playTTS
 } from "./modules/alerts.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
@@ -40,6 +41,8 @@ function connectWebSocket() {
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
+    console.log(data);
+
     if (data.alert) {
       handleAlert(data.alert);
     } else if (data.message) {
@@ -61,6 +64,8 @@ function connectWebSocket() {
       handleOverlayAction(data.overlay_event.action, data.overlay_event.data);
     } else if (data.todo) {
       handleTodo(data.todo);
+    } else if (data.tts) {
+      handleTTS(data.tts);
     } else {
       console.warn("Unknown data format received:", data);
     }
@@ -131,6 +136,7 @@ function connectWebSocket() {
 
   // 📌 ToDo Handling
   function handleTodo(todo) {
+    console.log(todo);
     switch (todo.action) {
       case "create":
         createTodo(todo.id, todo.text, todo.username);
@@ -147,6 +153,12 @@ function connectWebSocket() {
       default:
         console.warn("Unknown ToDo action:", action);
     }
+  }
+
+  // TTS Handling
+  function handleTTS(tts) {
+    console.log(tts);
+    playTTS(tts.file);
   }
 
   // WebSocket connection closed

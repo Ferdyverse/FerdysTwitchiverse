@@ -14,8 +14,7 @@ from modules.misc import save_tokens, load_tokens, replace_emotes
 from modules.websocket_handler import broadcast_message
 from modules.chat_commands import handle_command
 
-from database.base import Viewer
-from database.session import get_db
+from database.couchdb_client import couchdb_client
 from database.crud.viewers import save_viewer, update_viewer_stats
 from database.crud.chat import save_chat_message
 
@@ -48,7 +47,7 @@ class TwitchChatBot:
     async def authenticate(self):
         """Authenticate with Twitch and retrieve access tokens."""
         try:
-            logger.info("🔄 Checking stored tokens before authentication...")
+            logger.info("🔄 Bot: Checking stored tokens before authentication...")
             tokens = load_tokens("bot")
             if tokens:
                 self.token = tokens["access_token"]
@@ -109,7 +108,7 @@ class TwitchChatBot:
             self.chat.start()
 
             global BADGES
-            BADGES = await self.twitch_api.fetch_badge_data()
+            BADGES = await self.twitch_api.users.fetch_badge_data()
 
             self.is_running = True
         except Exception as e:
@@ -130,19 +129,18 @@ class TwitchChatBot:
 
     async def on_message(self, event: EventData):
         """
-        Handle incoming chat messages, store in the database,
+        Handle incoming chat messages, store in CouchDB,
         and send them to both the overlay and admin panel.
         """
 
         if self.test_mode:
-            logger.info(f"💬 [MOCK] Sending message: {message}")
+            logger.info(f"💬 [MOCK] Sending message: {event.text}")
             return
 
         logger.debug(f"DEBUG: Event Emotes: {json.dumps(event.emotes, indent=2)}")
 
-        db = next(get_db())
         username = event.user.display_name
-        twitch_id = int(event.user.id)  # Ensure Twitch ID is an integer
+        twitch_id = str(event.user.id)  # Ensure Twitch ID is a string
         message = replace_emotes(html.escape(event.text), event.emotes)
         message_id = event.id
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
@@ -150,8 +148,9 @@ class TwitchChatBot:
         is_reply = event.reply_parent_user_id is not None  # Check if message is a reply
         is_first = event.first
 
-        # Check if user exists in DB first
-        existing_user = db.query(Viewer).filter(Viewer.twitch_id == twitch_id).first()
+        # Get CouchDB instances
+        chat_db = couchdb_client.get_db("chat")
+        viewers_db = couchdb_client.get_db("viewers")
 
         global BADGES
         user_badges = []
@@ -165,90 +164,97 @@ class TwitchChatBot:
             else:
                 logger.warning(f"⚠️ Unknown badge: {badge_key}")
 
-        if not existing_user:
-            # User not found in DB → Fetch from Twitch API
-            user_info = await self.twitch_api.get_user_info(user_id=twitch_id)
+        user_color = None
+        avatar_url = "/static/images/default_avatar.png"
 
-            if user_info:
+        try:
+            # Fetch existing user from CouchDB
+            existing_user = viewers_db.get(twitch_id)
+
+            if not existing_user:
+                # User not found in CouchDB → Fetch from Twitch API
+                user_info = await self.twitch_api.users.get_user_info(user_id=twitch_id)
+
+                if user_info:
+                    save_viewer(
+                        twitch_id=twitch_id,
+                        login=user_info.get("login"),
+                        display_name=user_info.get("display_name"),
+                        profile_image_url=user_info.get("profile_image_url"),
+                        color=user_info.get("color"),
+                        badges=user_badges  # Ensure it's stored as a list
+                    )
+                    user_color = user_info.get("color")
+                    avatar_url = user_info.get("profile_image_url", avatar_url)  # Provide fallback
+                else:
+                    logger.warning(f"⚠️ Failed to fetch user info for {twitch_id}")
+            else:
+                # User exists → Update badges only
                 save_viewer(
                     twitch_id=twitch_id,
-                    login=user_info["login"],
-                    display_name=user_info["display_name"],
-                    account_type=user_info["type"],
-                    broadcaster_type=user_info["broadcaster_type"],
-                    profile_image_url=user_info["profile_image_url"],
-                    account_age="",
-                    follower_date=None,
-                    subscriber_date=None,
-                    color=user_info.get("color"),
-                    badges=",".join(user_badges)
+                    badges=user_badges
                 )
-                user_color = user_info.get("color")
-                avatar_url = user_info["profile_image_url"]
-            else:
-                user_color = None
-                avatar_url = "/static/images/default_avatar.png"
-        else:
-            save_viewer(
-                twitch_id=twitch_id,
-                badges=",".join(user_badges)
-            )
-            # User is in DB, use stored data
-            user_color = existing_user.color
-            avatar_url = existing_user.profile_image_url or "/static/images/default_avatar.png"
+                user_color = existing_user.get("color", "#FFFFFF")
+                avatar_url = existing_user.get("profile_image_url", avatar_url)
 
-        # Detect and handle !commands
-        if message.startswith("!"):
-            command_parts = message[1:].split(" ", 1)
-            command_name = command_parts[0].lower()
-            command_params = command_parts[1] if len(command_parts) > 1 else ""
+            # Detect and handle !commands
+            if message.startswith("!"):
+                command_parts = message[1:].split(" ", 1)
+                command_name = command_parts[0].lower()
+                command_params = command_parts[1] if len(command_parts) > 1 else ""
 
-            await handle_command(self, command_name, command_params, event)
+                await handle_command(self, command_name, command_params, event)
 
-        # Save chat message in the database
-        save_chat_message(twitch_id, message, message_id, stream_id)
-
-        # Update viewer stats (both per stream and overall)
-        update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
-
-        # Prepare message for overlay
-        ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
-        chat_message = {
-            "id": ov_message_id,
-            "user": username,
-            "message": message,
-            "timestamp": int(time.time()) + 19,  # Message disappears after 19s
-            "color": user_color,
-            "badges": user_badges,
-            "avatar": avatar_url
-        }
-
-        # Append message & remove oldest if more than 5 messages
-        self.recent_messages.append(chat_message)
-        if len(self.recent_messages) > 5:
-            self.recent_messages.pop(0)
-
-        # Send updated chat messages to overlay
-        await broadcast_message({"chat": self.recent_messages})
-
-        # Send chat update to admin panel (single latest message)
-        admin_chat_message = {
-            "admin_chat": {
-                "username": username,
+            # Save chat message in CouchDB
+            chat_message_doc = {
+                "_id": message_id,
+                "type": "chat_message",
+                "viewer_id": twitch_id,
                 "message": message,
-                "avatar": avatar_url,
-                "badges": user_badges,
-                "color": user_color,
-                "message_id": message_id,
-                "is_first": is_first
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "stream_id": stream_id
             }
-        }
-        await broadcast_message(admin_chat_message)
+            chat_db.save(chat_message_doc)
 
-        # Schedule message removal after 19s
-        asyncio.create_task(self.remove_message_after_delay(message_id, 19))
+            # Update viewer stats in CouchDB
+            update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
 
-        db.close()
+            # Prepare message for overlay
+            if not message.startswith("!"):
+                ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
+                chat_message = {
+                    "id": ov_message_id,
+                    "user": username,
+                    "message": message,
+                    "color": user_color,
+                    "badges": user_badges,
+                    "avatar": avatar_url
+                }
+
+                # Append message & remove oldest if more than 5 messages
+                self.recent_messages.append(chat_message)
+                if len(self.recent_messages) > 20:
+                    self.recent_messages.pop(0)
+
+                # Send updated chat messages to overlay
+                await broadcast_message({"chat": self.recent_messages})
+
+            # Send chat update to admin panel (single latest message)
+            admin_chat_message = {
+                "admin_chat": {
+                    "username": username,
+                    "message": message,
+                    "avatar": avatar_url,
+                    "badges": user_badges,
+                    "color": user_color,
+                    "message_id": message_id,
+                    "is_first": is_first
+                }
+            }
+            await broadcast_message(admin_chat_message)
+
+        except Exception as e:
+            logger.error(f"❌ Error processing chat message: {e}")
 
     async def send_message(self, message):
         """Send a chat message as the bot."""

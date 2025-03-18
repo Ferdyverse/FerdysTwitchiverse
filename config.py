@@ -18,10 +18,10 @@ def getenv_int(var_name: str, default: int = 0) -> int:
         return default
 
 DISABLE_HEAT_API = getenv_bool("DISABLE_HEAT_API")
-DISABLE_FIREBOT = getenv_bool("DISABLE_FIREBOT")
 DISABLE_PRINTER = getenv_bool("DISABLE_PRINTER")
 DISABLE_TWITCH = getenv_bool("DISABLE_TWITCH")
 DISABLE_OBS = getenv_bool("DISABLE_OBS")
+DISABLE_SPOTIFY = getenv_bool("DISABLE_SPOTIFY")
 USE_MOCK_API = getenv_bool("ENABLE_MOCK_API")
 
 # App configuration
@@ -57,18 +57,26 @@ else:
 if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
     raise RuntimeError("🚨 Missing Twitch credentials! Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env")
 
+# Database
+COUCHDB_USER = os.getenv("COUCHDB_USER", "admin")
+COUCHDB_PASSWORD = os.getenv("COUCHDB_PASSWORD", "password")
+COUCHDB_HOST = "localhost"
+COUCHDB_PORT = "5984"
+COUCHDB_URL = f"http://{COUCHDB_USER}:{COUCHDB_PASSWORD}@{COUCHDB_HOST}:{COUCHDB_PORT}"
+
 # OBS
 OBS_WS_HOST = "localhost"
 OBS_WS_PORT = 4455
 OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
 
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TTS_AUDIO_PATH = "static/sounds/tts/"  # Directory for storing TTS files
+
 #Spotify
 SPOTIFY_CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET=os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI="http://localhost:8000/spotify/auth"
-
-# FIREBOT
-FIREBOT_API_URL = "http://localhost:7472/api/v1"
 
 # Additional settings
 TOKEN_FILE = "storage/twitch_tokens.json"

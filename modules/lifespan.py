@@ -3,7 +3,6 @@ import asyncio
 from contextlib import asynccontextmanager
 import config
 import os
-from database.session import init_db
 from modules.twitch_api import TwitchAPI
 from modules.twitch_chat import TwitchChatBot
 from modules.obs_api import OBSController
@@ -12,7 +11,7 @@ from modules.printer_manager import PrinterManager
 from modules.sequence_runner import load_sequences
 from modules.queues.manager import event_queue, alert_queue
 from modules.queues.function_registry import register_function
-from modules.apscheduler import start_scheduler, shutdown_scheduler
+from modules.apscheduler import start_scheduler, shutdown_scheduler, load_scheduled_jobs
 from modules.queues.event_processor import process_event_queue
 from modules.queues.alert_processor import process_alert_queue
 
@@ -40,8 +39,6 @@ async def lifespan(app):
         twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, twitch_api=twitch_api)
 
     try:
-
-        init_db()
 
         # Init Queues
         app.state.event_queue = event_queue
@@ -76,6 +73,7 @@ async def lifespan(app):
             if not use_mock_api:
                 register_function("twitch_chat.send_message", twitch_chat.send_message)
                 start_scheduler(app)
+                await load_scheduled_jobs(app)
         else:
             logger.info("🚫 Twitch API is disabled.")
             app.state.twitch_api = None

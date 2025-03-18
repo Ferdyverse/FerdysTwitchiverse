@@ -3,9 +3,10 @@ import json
 import os
 import config
 from fastapi.responses import HTMLResponse
-from database.crud.todos import get_todos, save_todo
-from routes.hub import show_hub
 from modules.websocket_handler import broadcast_message
+from database.crud.todos import save_todo, get_todos
+from modules.openai import generate_tts_audio, delete_tts_file, get_mp3_duration
+from routes.hub import show_hub
 
 logger = logging.getLogger("uvicorn.error.chat_commands")
 
@@ -49,11 +50,12 @@ def check_access_rights(event, level: str):
     else:
         return False  # Default: No access
 
-
 async def handle_command(bot, command_name: str, params: str, event):
-    """Handles both function-based commands and key-value responses, with alias support."""
+    """Handles function-based commands and key-value responses with alias support."""
 
     command_name = ALIASES.get(command_name, command_name)
+
+    logger.info(command_name)
 
     if command_name in COMMAND_RESPONSES:
         response = COMMAND_RESPONSES[command_name]["response"]
@@ -68,8 +70,6 @@ async def handle_command(bot, command_name: str, params: str, event):
         await handler_function(bot, params, event)
     else:
         logger.warning(f"⚠️ Unknown command: !{command_name} (no handler found)")
-        # await bot.send_message(f"❌ Unknown command: !{command_name}")
-
 
 # ─── Command Handlers ───────────────────────────────────────────────
 
@@ -98,7 +98,6 @@ async def command_commands(bot, params: str, event):
     except Exception as e:
         logger.error(f"❌ Failed to send whisper: {e}")
         await bot.send_message(f"@{event.user.display_name}, Ich konnte dir leider keine Nachricht senden!")
-
 COMMANDS["commands"] = command_commands
 
 async def command_addresponse(bot, params: str, event):
@@ -125,10 +124,6 @@ async def command_addresponse(bot, params: str, event):
         await bot.send_message("❌ Usage: !addresponse <command> <response>")
 COMMANDS["addresponse"] = command_addresponse
 
-async def command_print(bot, params: str, event):
-    """Handles the !print command."""
-    await bot.send_message(f"🖨️ {event.user.display_name} says: {params}")
-COMMANDS["print"] = command_print
 
 async def command_todo(bot, params: str, event):
     """Handles the !todo command."""
@@ -136,24 +131,31 @@ async def command_todo(bot, params: str, event):
         await bot.send_message(f"⛔ @{event.user.display_name}, benutze die Kanalpunkte um ToDos hinzuzufügen")
         logger.warning(f"⚠️ Unauthorized attempt: {event.user.display_name} tried to add a todo.")
         return
-    if params != "":
-        save_todo(params, event.user.id)
-        await bot.send_message(f"✅ TODO added: {params}")
+
+    if not params:
+        await bot.send_message(f"❌ @{event.user.display_name}, bitte gib eine ToDo-Beschreibung an!")
+        return
+
+    result = save_todo(params, event.user.id, event.user.display_name)
+
+    await broadcast_message({"todo": { "action": "create", "id": result.get("_id"), "text": result.get("text"), "username": result.get("username") }})
+
+    if result:
+        await bot.send_message(f"✅ ToDo hinzugefügt: {params}")
     else:
-        await bot.send_message("Error: Got no argument to add as todo")
+        await bot.send_message("❌ Fehler beim Speichern des ToDos!")
 COMMANDS["todo"] = command_todo
 
 async def command_todos(bot, params: str, event):
-    """Handles the !todos command to list all active ToDos in chat with newlines."""
+    """Handles the !todos command to list all active ToDos in chat."""
 
-    todos = get_todos()  # Fetch ToDos using the function
+    todos = get_todos(status="pending")  # Fetch only pending ToDos
 
     if not todos:
         await bot.send_message("✅ Aktuell sind keine offenen ToDos vorhanden!")
         return
 
-    # Format ToDos with viewer info
-    todo_list = [f"#{todo['id']}: {todo['text']} (by {todo['username']})" for todo in todos]
+    todo_list = [f"- {todo['text']} (by {todo['username']})" for todo in todos]
 
     # Send in chunks (Twitch chat limit: ~500 chars per message)
     message = "📝 **Aktuelle ToDos:**\n\n" + "\n\n".join(todo_list)
@@ -174,6 +176,7 @@ async def command_todos(bot, params: str, event):
             await bot.send_message(chunk)
     else:
         await bot.send_message(message)
+
 COMMANDS["todos"] = command_todos
 
 async def command_hub(bot, params: str, event):
@@ -195,3 +198,21 @@ async def command_hub(bot, params: str, event):
     logger.info(f"✅ !hub processed: {params} -> {hub_html}")
 
 COMMANDS["hub"] = command_hub
+
+
+async def command_tts(bot, params: str, event):
+    """Send TTS audio to the web overlay and delete it after playback."""
+
+    if len(params) > 200:  # Limit text length
+        await bot.send_message(f"⚠️ @{event.user.display_name} dein Text ist zu lang. Es sind maximal 200 Zeichen erlaubt!")
+        return
+
+    file_name = await generate_tts_audio(params)
+    if file_name:
+        file_path = os.path.join(config.TTS_AUDIO_PATH, file_name)
+        duration = get_mp3_duration(file_path)
+        await broadcast_message({"tts": {"file": file_name}})
+        await delete_tts_file(file_path, duration)
+    else:
+        await bot.send_message(f"⚠️ @{event.user.display_name}, leider gab es ein Problem beim Generieren deiner Nachricht!")
+COMMANDS["tts"] = command_tts
