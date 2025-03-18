@@ -447,6 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update Viewer
     window.updateViewer = async () => {
+        console.log("update me");
         if (!selectedUser) return;
         const response = await fetch(`/admin/viewers/update/${selectedUser}`, {
             method: "POST",

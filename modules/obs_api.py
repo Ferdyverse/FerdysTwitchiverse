@@ -37,6 +37,7 @@ class OBSController:
 
         result = self.client.set_scene_item_enabled(scene_id, source_name, visibility)
         logger.info(result)
+        return result
 
     async def get_current_scene(self):
         await self.initialize()
@@ -183,3 +184,7 @@ class OBSController:
         except Exception as e:
             print(f"❌ Error getting visibility for '{scene_name}' item {item_id}: {e}")
             return False
+
+    async def toggle_source(self, item_name: str):
+        state = self.set_source_visibility(source_name=item_name)
+        return state

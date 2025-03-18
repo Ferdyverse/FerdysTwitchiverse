@@ -62,14 +62,16 @@ COUCHDB_USER = os.getenv("COUCHDB_USER", "admin")
 COUCHDB_PASSWORD = os.getenv("COUCHDB_PASSWORD", "password")
 COUCHDB_HOST = "localhost"
 COUCHDB_PORT = "5984"
-
 COUCHDB_URL = f"http://{COUCHDB_USER}:{COUCHDB_PASSWORD}@{COUCHDB_HOST}:{COUCHDB_PORT}"
-
 
 # OBS
 OBS_WS_HOST = "localhost"
 OBS_WS_PORT = 4455
 OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
+
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TTS_AUDIO_PATH = "static/sounds/tts/"  # Directory for storing TTS files
 
 #Spotify
 SPOTIFY_CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")

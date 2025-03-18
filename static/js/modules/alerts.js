@@ -1,6 +1,6 @@
 // alerts.js
 export function playSoundForAlert(file) {
-  const audio = new Audio(`/static/sounds/${file}.mp3`);
+  const audio = new Audio(`/static/sounds/${file}`);
   audio.play();
 }
 
@@ -56,7 +56,7 @@ export function showAlertWithGSAP(type, user, additionalInfo) {
   const alertContent = alertElement.querySelector(".alert-content");
   const paragraph = alertContent.querySelector("p");
   adjustFontSizeToFit(paragraph);
-  playSoundForAlert(type);
+  playSoundForAlert(`${type}.mp3`);
   gsap.to(alertElement, { opacity: 1, y: 20, duration: 1 });
   setTimeout(() => {
     alertContent.style.opacity = 1;
@@ -78,7 +78,7 @@ export function showSubBanner(user) {
   subBanner.className = "box";
   overlayElement.appendChild(subBanner);
   subBanner.innerHTML = `<div class="content"><p>${user}</p></div>`;
-  playSoundForAlert("subscriber");
+  playSoundForAlert("subscriber.mp3");
   setTimeout(() => {
     subBanner.remove();
   }, 6000);
@@ -99,4 +99,8 @@ export function startAdCountdown(duration, startTime) {
       remainingTime--;
     }
   }, 1000);
+}
+
+export function playTTS(file) {
+  playSoundForAlert(`tts/${file}`);
 }

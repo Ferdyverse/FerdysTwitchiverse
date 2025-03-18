@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+import datetime
 
 import logging
 
@@ -20,9 +21,11 @@ async def get_viewer_count(request: Request):
 
         if not stream_info:
             return "<p class='text-red-500 font-bold'>🔴 Offline</p>"
-
-        if stream_info.type == "live":
-            return f"<p class='text-green-400 font-bold'>🟢 Online</p>"
+        else:
+            if stream_info.type == "live":
+                stream_duration = datetime.datetime.now(datetime.timezone.utc) - stream_info.started_at
+                stream_duration = stream_duration.total_seconds()
+                return f"<p class='text-green-400 font-bold'>🟢 Online</p><p>{stream_duration}</p>"
 
     except Exception as e:
         logger.error(f"❌ Error fetching viewer count: {e}")

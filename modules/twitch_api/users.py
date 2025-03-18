@@ -1,6 +1,7 @@
 import logging
 import aiohttp
 import config
+import datetime
 from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.twitch_api_user")
@@ -58,6 +59,12 @@ class TwitchUsers:
                     if chat_data:
                         user_color = chat_data.get("color", user_color)
 
+                follow_state = await self.get_user_follow_state(user_id=user.id)
+                if follow_state is not None:
+                    follower_date = follow_state.data[0].followed_at.isoformat()
+                else:
+                    follower_date = None
+
                 # Ensure no missing values in the document
                 viewer_data = {
                     "_id": str(user.id),
@@ -67,7 +74,7 @@ class TwitchUsers:
                     "broadcaster_type": user.broadcaster_type or "",
                     "profile_image_url": user.profile_image_url or "",
                     "account_age": existing_viewer.get("account_age", "") if existing_viewer else "",
-                    "follower_date": existing_viewer.get("follower_date", None) if existing_viewer else None,
+                    "follower_date": follower_date,
                     "subscriber_date": existing_viewer.get("subscriber_date", None) if existing_viewer else None,
                     "color": user_color,
                     "badges": ",".join(user_badges) if user_badges else None
@@ -177,3 +184,11 @@ class TwitchUsers:
         except Exception as e:
             logger.error(f"❌ Error fetching chat metadata: {e}")
             return {"color": "#9147FF", "badges": []}  # Return safe defaults
+
+
+    async def get_user_follow_state(self, user_id):
+        try:
+            user_data = await self.twitch.get_channel_followers(broadcaster_id=config.TWITCH_CHANNEL_ID, user_id=user_id)
+            return user_data
+        except Exception as e:
+            return None

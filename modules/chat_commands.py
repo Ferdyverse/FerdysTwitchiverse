@@ -5,6 +5,7 @@ import config
 from fastapi.responses import HTMLResponse
 from modules.websocket_handler import broadcast_message
 from database.crud.todos import save_todo, get_todos
+from modules.openai import generate_tts_audio, delete_tts_file, get_mp3_duration
 from routes.hub import show_hub
 
 logger = logging.getLogger("uvicorn.error.chat_commands")
@@ -197,3 +198,21 @@ async def command_hub(bot, params: str, event):
     logger.info(f"✅ !hub processed: {params} -> {hub_html}")
 
 COMMANDS["hub"] = command_hub
+
+
+async def command_tts(bot, params: str, event):
+    """Send TTS audio to the web overlay and delete it after playback."""
+
+    if len(params) > 200:  # Limit text length
+        await bot.send_message(f"⚠️ @{event.user.display_name} dein Text ist zu lang. Es sind maximal 200 Zeichen erlaubt!")
+        return
+
+    file_name = await generate_tts_audio(params)
+    if file_name:
+        file_path = os.path.join(config.TTS_AUDIO_PATH, file_name)
+        duration = get_mp3_duration(file_path)
+        await broadcast_message({"tts": {"file": file_name}})
+        await delete_tts_file(file_path, duration)
+    else:
+        await bot.send_message(f"⚠️ @{event.user.display_name}, leider gab es ein Problem beim Generieren deiner Nachricht!")
+COMMANDS["tts"] = command_tts

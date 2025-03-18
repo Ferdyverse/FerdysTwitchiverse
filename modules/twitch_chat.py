@@ -173,7 +173,7 @@ class TwitchChatBot:
 
             if not existing_user:
                 # User not found in CouchDB → Fetch from Twitch API
-                user_info = await self.twitch_api.get_user_info(user_id=twitch_id)
+                user_info = await self.twitch_api.users.get_user_info(user_id=twitch_id)
 
                 if user_info:
                     save_viewer(
@@ -220,24 +220,24 @@ class TwitchChatBot:
             update_viewer_stats(twitch_id, stream_id, message, emotes_used, is_reply)
 
             # Prepare message for overlay
-            ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
-            chat_message = {
-                "id": ov_message_id,
-                "user": username,
-                "message": message,
-                "timestamp": int(time.time()) + 19,  # Message disappears after 19s
-                "color": user_color,
-                "badges": user_badges,
-                "avatar": avatar_url
-            }
+            if not message.startswith("!"):
+                ov_message_id = f"{username}_{int(time.time())}"  # Unique ID
+                chat_message = {
+                    "id": ov_message_id,
+                    "user": username,
+                    "message": message,
+                    "color": user_color,
+                    "badges": user_badges,
+                    "avatar": avatar_url
+                }
 
-            # Append message & remove oldest if more than 5 messages
-            self.recent_messages.append(chat_message)
-            if len(self.recent_messages) > 5:
-                self.recent_messages.pop(0)
+                # Append message & remove oldest if more than 5 messages
+                self.recent_messages.append(chat_message)
+                if len(self.recent_messages) > 20:
+                    self.recent_messages.pop(0)
 
-            # Send updated chat messages to overlay
-            await broadcast_message({"chat": self.recent_messages})
+                # Send updated chat messages to overlay
+                await broadcast_message({"chat": self.recent_messages})
 
             # Send chat update to admin panel (single latest message)
             admin_chat_message = {
@@ -252,9 +252,6 @@ class TwitchChatBot:
                 }
             }
             await broadcast_message(admin_chat_message)
-
-            # Schedule message removal after 19s
-            asyncio.create_task(self.remove_message_after_delay(message_id, 19))
 
         except Exception as e:
             logger.error(f"❌ Error processing chat message: {e}")
