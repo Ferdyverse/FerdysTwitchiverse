@@ -102,10 +102,10 @@ class TwitchAPI:
 
         self.twitch = self.auth.twitch
 
-        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=self.test_mode, rewards=self.rewards)
-
         self.users = TwitchUsers(self.twitch, self.test_mode)
         await self.users.initialize_badges()
+
+        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=self.test_mode, rewards=self.rewards, users=self.users)
 
         await self.eventsub.start_eventsub()
         self.is_running = True

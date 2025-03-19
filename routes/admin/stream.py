@@ -24,8 +24,10 @@ async def get_viewer_count(request: Request):
         else:
             if stream_info.type == "live":
                 stream_duration = datetime.datetime.now(datetime.timezone.utc) - stream_info.started_at
-                stream_duration = stream_duration.total_seconds()
-                return f"<p class='text-green-400 font-bold'>🟢 Online</p><p>{stream_duration}</p>"
+                stream_duration = str(datetime.timedelta(seconds=int(stream_duration.total_seconds())))
+                formatted_duration = ":".join(stream_duration.split(":")[:2])  # Keep only HH:MM
+
+                return f"<p class='text-green-400 font-bold'>🟢 Online</p><p>{formatted_duration}</p>"
 
     except Exception as e:
         logger.error(f"❌ Error fetching viewer count: {e}")

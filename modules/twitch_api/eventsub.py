@@ -12,11 +12,12 @@ logger = logging.getLogger("uvicorn.error.twitch_api_eventsub")
 
 
 class TwitchEventSub:
-    def __init__(self, twitch, rewards, test_mode=False):
+    def __init__(self, twitch, rewards, users, test_mode=False):
         """Initialize the Twitch EventSub handler."""
         self.twitch = twitch
         self.test_mode = test_mode
         self.rewards = rewards
+        self.users = users
         self.eventsub = None
         self.mock_commands = []  # Stores mock event commands for testing
 
@@ -107,8 +108,8 @@ class TwitchEventSub:
         user_id = int(data.event.user_id)
         logger.info(f"📢 New follow: {username}")
 
-        save_viewer(twitch_id=user_id, login=data.event.user_login, display_name=username,
-                    follower_date=datetime.datetime.now(datetime.timezone.utc))
+        await self.users.get_user_info(user_id=user_id)
+
         save_event("follow", user_id, "")
 
         await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
@@ -118,6 +119,8 @@ class TwitchEventSub:
         username = data.event.user_name
         user_id = int(data.event.user_id)
         logger.info(f"🎉 New subscription: {username}")
+
+        await self.users.get_user_info(user_id=user_id)
 
         await save_viewer(
             twitch_id=user_id,
@@ -158,6 +161,8 @@ class TwitchEventSub:
         sub_tier = data.event.tier
         message = data.event.message.text if data.event.message else ""
 
+        await self.users.get_user_info(user_id=user_id)
+
         logger.info(f"🎉 {username} resubscribed at {sub_tier} for {cumulative_months} months! Message: {message}")
 
         # Broadcast to overlay
@@ -185,11 +190,7 @@ class TwitchEventSub:
 
         logger.info(f"🚀 Incoming raid from {username} with {viewer_count} viewers!")
 
-        save_viewer(
-            twitch_id=user_id,
-            login=data.event.from_broadcaster_user_login,
-            display_name=username
-        )
+        await self.users.get_user_info(user_id=user_id)
 
         save_event("raid", user_id, f"Raid with {viewer_count} viewers")
 
