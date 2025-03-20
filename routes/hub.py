@@ -10,6 +10,9 @@ logger = logging.getLogger("uvicorn.error.hub")
 REGEX = [
     r"^(((\W|[pP])(.|r)(r|.)n)|(p.n.{2}|[^cC]r.n))",
     r"\w*(?:vulva|vagina|pimmel|penis|pensi|fotze|arsch|p*rn|schwanz|titten|\(*.\))\w*",
+    r"\w*(?:hure|nutte|ficken|fick|wichser|blasen|bumsen|bitch|cunt|dildo|anus|scheide)\w*",
+    r"\w*(?:ejakulat|sperma|nackt|brüste|milf|bdsm|fetisch|gangbang|deepthroat)\w*",
+    r"\w*(?:porno|erotik|sextape|sex|dominatrix|bondage|squirt|nippel|masturbation)\w*",
 ]
 
 
