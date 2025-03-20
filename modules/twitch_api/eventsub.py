@@ -27,7 +27,7 @@ class TwitchEventSub:
             self.eventsub = EventSubWebsocket(
                 self.twitch,
                 connection_url="ws://127.0.0.1:8081/ws" if self.test_mode else None,
-                subscription_url="http://127.0.0.1:8081/" if self.test_mode else None
+                subscription_url="http://127.0.0.1:8081/" if self.test_mode else None,
             )
             self.eventsub.start()
 
@@ -38,31 +38,60 @@ class TwitchEventSub:
 
             # Events supported in both real and mock environments
             mock_supported_events = {
-                "channel.follow.v2": (broadcaster_id, broadcaster_id, self.handle_follow),
+                "channel.follow.v2": (
+                    broadcaster_id,
+                    broadcaster_id,
+                    self.handle_follow,
+                ),
                 "channel.subscribe": (broadcaster_id, self.handle_subscribe),
                 "channel.subscription.gift": (broadcaster_id, self.handle_gift_sub),
-                "channel.subscription.message": (broadcaster_id, self.handle_sub_message),
+                "channel.subscription.message": (
+                    broadcaster_id,
+                    self.handle_sub_message,
+                ),
                 "channel.cheer": (broadcaster_id, self.handle_cheer),
                 "channel.raid": (self.handle_raid, broadcaster_id, None),
-                "channel.points.custom.reward.redemption.add": (broadcaster_id, self.rewards.handle_channel_point_redeem),
+                "channel.points.custom.reward.redemption.add": (
+                    broadcaster_id,
+                    self.rewards.handle_channel_point_redeem,
+                ),
                 "channel.ban": (broadcaster_id, self.handle_ban),
                 "channel.unban": (broadcaster_id, self.handle_mod_action),
                 "channel.moderator.add": (broadcaster_id, self.handle_mod_action),
                 "channel.moderator.remove": (broadcaster_id, self.handle_mod_action),
-                "channel.moderate": (broadcaster_id, broadcaster_id, self.handle_mod_action),
+                "channel.moderate": (
+                    broadcaster_id,
+                    broadcaster_id,
+                    self.handle_mod_action,
+                ),
                 "channel.ad.break.begin": (broadcaster_id, self.handle_ad_break),
             }
 
             # Events that are only available in real mode (not in mock testing)
             no_mock_events = {
-                "automod.message_hold": (broadcaster_id, broadcaster_id, self.handle_automod_action),
-                "channel.chat_clear": (broadcaster_id, broadcaster_id, self.handle_mod_action),
-                "channel.chat_message_delete": (broadcaster_id, broadcaster_id, self.handle_deleted_message),
+                "automod.message_hold": (
+                    broadcaster_id,
+                    broadcaster_id,
+                    self.handle_automod_action,
+                ),
+                "channel.chat_clear": (
+                    broadcaster_id,
+                    broadcaster_id,
+                    self.handle_mod_action,
+                ),
+                "channel.chat_message_delete": (
+                    broadcaster_id,
+                    broadcaster_id,
+                    self.handle_deleted_message,
+                ),
             }
 
             # Subscribe to all events in real mode
             if not self.test_mode:
-                for event, params in {**mock_supported_events, **no_mock_events}.items():
+                for event, params in {
+                    **mock_supported_events,
+                    **no_mock_events,
+                }.items():
                     await self._subscribe_event(event, *params)
 
             # Subscribe only to mock-supported events in test mode
@@ -81,7 +110,9 @@ class TwitchEventSub:
         """Helper method to subscribe to an event and register a mock command if applicable."""
         try:
             logger.info(f"Subscribing to event: listen_{event_name.replace('.', '_')}")
-            event_id = await getattr(self.eventsub, f"listen_{event_name.replace('.', '_')}")(*params)
+            event_id = await getattr(
+                self.eventsub, f"listen_{event_name.replace('.', '_')}"
+            )(*params)
 
             if self.test_mode:
                 mock_command = f"twitch-cli event trigger {event_name} -t {config.TWITCH_CHANNEL_ID} -u {event_id} -T websocket"
@@ -99,7 +130,9 @@ class TwitchEventSub:
         with open("commands.md", "w") as cmd_file:
             for command in self.mock_commands:
                 cmd_file.write(f"{command}\n\n")
-        logger.info("📄 The current command list for Mock API can be found in commands.md.")
+        logger.info(
+            "📄 The current command list for Mock API can be found in commands.md."
+        )
 
     # 🟢 EVENT HANDLERS 🟢
     async def handle_follow(self, data: dict):
@@ -112,7 +145,9 @@ class TwitchEventSub:
 
         save_event("follow", user_id, "")
 
-        await broadcast_message({"alert": {"type": "follower", "user": username, "size": 1}})
+        await broadcast_message(
+            {"alert": {"type": "follower", "user": username, "size": 1}}
+        )
 
     async def handle_subscribe(self, data: dict):
         """Handle new subscriptions."""
@@ -126,12 +161,14 @@ class TwitchEventSub:
             twitch_id=user_id,
             login=data.event.user_login,
             display_name=username,
-            subscriber_date=datetime.datetime.now(datetime.timezone.utc)
+            subscriber_date=datetime.datetime.now(datetime.timezone.utc),
         )
 
         save_event("subscription", user_id, f"Tier: {data.event.tier}")
 
-        await broadcast_message({"alert": {"type": "subscriber", "user": username, "size": 1}})
+        await broadcast_message(
+            {"alert": {"type": "subscriber", "user": username, "size": 1}}
+        )
 
     async def handle_gift_sub(self, data: dict):
         """Handle gifted subscriptions."""
@@ -142,16 +179,18 @@ class TwitchEventSub:
 
         if not data.event.is_anonymous:
             await save_viewer(
-                twitch_id=user_id,
-                login=data.event.user_login,
-                display_name=username
+                twitch_id=user_id, login=data.event.user_login, display_name=username
             )
         else:
             username = "Anonym"
 
-        save_event("gift_sub", int(data.event.user_id), f"Gifted {recipient_count} subs")
+        save_event(
+            "gift_sub", int(data.event.user_id), f"Gifted {recipient_count} subs"
+        )
 
-        await broadcast_message({"alert": {"type": "gift_sub", "user": username, "size": recipient_count}})
+        await broadcast_message(
+            {"alert": {"type": "gift_sub", "user": username, "size": recipient_count}}
+        )
 
     async def handle_sub_message(self, data: dict):
         """Handle subscription messages (e.g., resubs with a custom message)."""
@@ -163,21 +202,29 @@ class TwitchEventSub:
 
         await self.users.get_user_info(user_id=user_id)
 
-        logger.info(f"🎉 {username} resubscribed at {sub_tier} for {cumulative_months} months! Message: {message}")
+        logger.info(
+            f"🎉 {username} resubscribed at {sub_tier} for {cumulative_months} months! Message: {message}"
+        )
 
         # Broadcast to overlay
-        await broadcast_message({
-            "alert": {
-                "type": "subscription_message",
-                "user": username,
-                "tier": sub_tier,
-                "months": cumulative_months,
-                "message": message
+        await broadcast_message(
+            {
+                "alert": {
+                    "type": "subscription_message",
+                    "user": username,
+                    "tier": sub_tier,
+                    "months": cumulative_months,
+                    "message": message,
+                }
             }
-        })
+        )
 
         # Save subscription event in database
-        save_event("subscription_message", user_id, f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}")
+        save_event(
+            "subscription_message",
+            user_id,
+            f"{username} resubbed (Tier: {sub_tier}) for {cumulative_months} months. Message: {message}",
+        )
 
         if not self.test_mode:
             save_overlay_data("last_subscriber", username)
@@ -194,7 +241,9 @@ class TwitchEventSub:
 
         save_event("raid", user_id, f"Raid with {viewer_count} viewers")
 
-        await broadcast_message({"alert": {"type": "raid", "user": username, "size": viewer_count}})
+        await broadcast_message(
+            {"alert": {"type": "raid", "user": username, "size": viewer_count}}
+        )
 
     async def handle_cheer(self, data: dict):
         """Handle Bit cheers."""
@@ -203,7 +252,9 @@ class TwitchEventSub:
         logger.info(f"💎 {username} cheered {bits} bits!")
 
         save_event("cheer", int(data.event.user_id), f"{username} cheered {bits} bits.")
-        await broadcast_message({"alert": {"type": "cheer", "user": username, "bits": bits}})
+        await broadcast_message(
+            {"alert": {"type": "cheer", "user": username, "bits": bits}}
+        )
 
     async def handle_ban(self, data: dict):
         """Handle ban event"""
@@ -241,7 +292,9 @@ class TwitchEventSub:
         logger.info(f"📢 Upcoming ad break! Duration: {ad_length}s")
 
         save_event("ad_break", None, f"Ad break scheduled for {ad_length} seconds")
-        await broadcast_message({"admin_alert": {"type": "ad_break", "duration": ad_length}})
+        await broadcast_message(
+            {"admin_alert": {"type": "ad_break", "duration": ad_length}}
+        )
 
     async def handle_automod_action(self, data: dict):
         """Handle AutoMod actions (message hold, potential flags)."""

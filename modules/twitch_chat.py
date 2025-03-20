@@ -28,8 +28,16 @@ scopes = [
     AuthScope.USER_WRITE_CHAT,
 ]
 
+
 class TwitchChatBot:
-    def __init__(self, client_id: str, client_secret: str, twitch_channel: str, twitch_api: TwitchAPI, test_mode=False):
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        twitch_channel: str,
+        twitch_api: TwitchAPI,
+        test_mode=False,
+    ):
         """Initialize Twitch Chat Bot."""
         self.client_id = client_id
         self.client_secret = client_secret
@@ -57,17 +65,23 @@ class TwitchChatBot:
             self.twitch = await Twitch(self.client_id, self.client_secret)
 
             if not self.token or not self.refresh_token:
-                logger.warning("⚠️ No valid stored tokens found. Running full authentication...")
+                logger.warning(
+                    "⚠️ No valid stored tokens found. Running full authentication..."
+                )
                 code_flow = CodeFlow(self.twitch, scopes)
                 code, url = await code_flow.get_code()
-                logger.info(f"📢 Open the following URL to authenticate with twitch (Bot): {url}")
+                logger.info(
+                    f"📢 Open the following URL to authenticate with twitch (Bot): {url}"
+                )
                 token, refresh = await code_flow.wait_for_auth_complete()
                 self.token = token
                 self.refresh_token = refresh
                 save_tokens("bot", self.token, self.refresh_token)
 
             try:
-                await self.twitch.set_user_authentication(self.token, scopes, self.refresh_token)
+                await self.twitch.set_user_authentication(
+                    self.token, scopes, self.refresh_token
+                )
             except:
                 logger.warning("⚠️ Failed to authenticate with twitch!")
                 return False
@@ -182,18 +196,17 @@ class TwitchChatBot:
                         display_name=user_info.get("display_name"),
                         profile_image_url=user_info.get("profile_image_url"),
                         color=user_info.get("color"),
-                        badges=user_badges  # Ensure it's stored as a list
+                        badges=user_badges,  # Ensure it's stored as a list
                     )
                     user_color = user_info.get("color")
-                    avatar_url = user_info.get("profile_image_url", avatar_url)  # Provide fallback
+                    avatar_url = user_info.get(
+                        "profile_image_url", avatar_url
+                    )  # Provide fallback
                 else:
                     logger.warning(f"⚠️ Failed to fetch user info for {twitch_id}")
             else:
                 # User exists → Update badges only
-                save_viewer(
-                    twitch_id=twitch_id,
-                    badges=user_badges
-                )
+                save_viewer(twitch_id=twitch_id, badges=user_badges)
                 user_color = existing_user.get("color", "#FFFFFF")
                 avatar_url = existing_user.get("profile_image_url", avatar_url)
 
@@ -212,7 +225,7 @@ class TwitchChatBot:
                 "viewer_id": twitch_id,
                 "message": message,
                 "timestamp": datetime.datetime.utcnow().isoformat(),
-                "stream_id": stream_id
+                "stream_id": stream_id,
             }
             chat_db.save(chat_message_doc)
 
@@ -228,7 +241,7 @@ class TwitchChatBot:
                     "message": message,
                     "color": user_color,
                     "badges": user_badges,
-                    "avatar": avatar_url
+                    "avatar": avatar_url,
                 }
 
                 # Append message & remove oldest if more than 5 messages
@@ -248,7 +261,7 @@ class TwitchChatBot:
                     "badges": user_badges,
                     "color": user_color,
                     "message_id": message_id,
-                    "is_first": is_first
+                    "is_first": is_first,
                 }
             }
             await broadcast_message(admin_chat_message)
@@ -276,7 +289,9 @@ class TwitchChatBot:
     async def remove_message_after_delay(self, message_id, delay):
         """Remove message from list after a delay."""
         await asyncio.sleep(delay)
-        self.recent_messages = [msg for msg in self.recent_messages if msg["id"] != message_id]
+        self.recent_messages = [
+            msg for msg in self.recent_messages if msg["id"] != message_id
+        ]
         await broadcast_message({"chat": self.recent_messages})
 
     async def user_join(self, event: EventData):

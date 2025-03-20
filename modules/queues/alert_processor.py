@@ -11,8 +11,9 @@ logger = logging.getLogger("uvicorn.error.alert_queue_processor")
 
 worker_count = 0  # Track how many times this function is started
 
+
 async def process_alert_queue(app):
-    """ Continuously processes events from the queue """
+    """Continuously processes events from the queue"""
 
     global worker_count
     worker_count += 1

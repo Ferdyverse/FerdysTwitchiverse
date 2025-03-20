@@ -15,8 +15,15 @@ logger = logging.getLogger("uvicorn.error.routes.chat")
 
 # Define the desired local timezone (Change if needed)
 FALLBACK_COLORS = [
-    "#FF4500", "#32CD32", "#1E90FF", "#FFD700", "#FF69B4", "#8A2BE2", "#00CED1"
+    "#FF4500",
+    "#32CD32",
+    "#1E90FF",
+    "#FFD700",
+    "#FF69B4",
+    "#8A2BE2",
+    "#00CED1",
 ]
+
 
 @router.get("/", response_class=HTMLResponse)
 async def get_chat_messages():
@@ -47,7 +54,9 @@ async def get_chat_messages():
                 if utc_time.tzinfo is None:
                     utc_time = pytz.utc.localize(utc_time)
 
-                local_time = utc_time.astimezone(config.LOCAL_TIMEZONE).strftime("%H:%M")  # Convert to HH:MM
+                local_time = utc_time.astimezone(config.LOCAL_TIMEZONE).strftime(
+                    "%H:%M"
+                )  # Convert to HH:MM
             except Exception as e:
                 logger.error(f"❌ Failed to process timestamp {utc_time}: {e}")
                 local_time = "??:??"
@@ -59,7 +68,12 @@ async def get_chat_messages():
         badges = msg.get("badges", "")
         if badges:
             badge_list = badges.split(",")  # Convert stored CSV to list
-            badge_html = "".join([f'<img src="{badge}" class="chat-badge" alt="badge">' for badge in badge_list])
+            badge_html = "".join(
+                [
+                    f'<img src="{badge}" class="chat-badge" alt="badge">'
+                    for badge in badge_list
+                ]
+            )
 
         important = "!ping" in msg.get("message", "").strip().lower()
 
@@ -86,10 +100,10 @@ async def get_chat_messages():
 
     return HTMLResponse(content=chat_html)
 
+
 @router.post("/send/")
-async def send_chat_message(request: Request,
-    message: str = Form(...),
-    sender: str = Form("streamer")
+async def send_chat_message(
+    request: Request, message: str = Form(...), sender: str = Form("streamer")
 ):
     """
     Send a chat message from the admin panel as either the Bot or the Streamer.
@@ -105,7 +119,9 @@ async def send_chat_message(request: Request,
         if sender == "bot":
             await twitch_chat.send_message(message)
         elif sender == "streamer":
-            await twitch_api.chat.send_message_as_streamer(request.app.state.twitch_api.twitch, config.TWITCH_CHANNEL_ID, message)
+            await twitch_api.chat.send_message_as_streamer(
+                request.app.state.twitch_api.twitch, config.TWITCH_CHANNEL_ID, message
+            )
         return Response("", media_type="text/html")
 
     except Exception as e:

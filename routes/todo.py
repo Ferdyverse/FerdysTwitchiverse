@@ -7,31 +7,40 @@ router = APIRouter(prefix="/todo", tags=["ToDos"])
 
 logger = logging.getLogger("uvicorn.error.todo")
 
+
 @router.post("/")
 def create_todo(text: str, twitch_id: int):
     """Create a new ToDo linked to a Twitch user."""
     return save_todo(text=text, twitch_id=twitch_id)
+
 
 @router.get("/")
 def read_todos():
     """Retrieve all ToDos."""
     return get_todos()
 
+
 @router.get("/status/{filter}")
 def read_todos_filtered(filter: str):
     """Retrieve ToDos based on status (pending/completed)."""
     return get_todos(status=filter) if filter else get_todos()
+
 
 @router.put("/{todo_id}")
 def update_todo_status(todo_id: str):
     """Mark a ToDo as completed."""
     return complete_todo(todo_id=todo_id)
 
+
 @router.delete("/{todo_id}")
 def delete_todo(todo_id: str):
     """Delete a ToDo by ID."""
-    from database.crud.todos import remove_todo  # Falls remove_todo() fehlt, implementieren
+    from database.crud.todos import (
+        remove_todo,
+    )  # Falls remove_todo() fehlt, implementieren
+
     return remove_todo(todo_id)
+
 
 @router.get("/todos", response_class=HTMLResponse)
 async def todos_page(status: str = None):

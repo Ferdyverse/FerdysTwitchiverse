@@ -7,6 +7,7 @@ from modules.websocket_handler import broadcast_message
 
 logger = logging.getLogger("uvicorn.error.twitch_api_rewards")
 
+
 class TwitchRewards:
     async def handle_channel_point_redeem(self, data):
         """Handle channel point redemptions, save them, and broadcast them"""
@@ -29,14 +30,16 @@ class TwitchRewards:
         broadcast = True
 
         if reward_title == "Chatogram":
-            await self.event_queue.put({
-                "command": "print",
-                "user_id": user_id,
-                "user": username,
-                "message": user_input,
-                "redeem_id": redeem_id,
-                "reward_id": reward_id
-            })
+            await self.event_queue.put(
+                {
+                    "command": "print",
+                    "user_id": user_id,
+                    "user": username,
+                    "message": user_input,
+                    "redeem_id": redeem_id,
+                    "reward_id": reward_id,
+                }
+            )
             broadcast = False
 
         elif reward_title == "ToDo":
@@ -44,20 +47,28 @@ class TwitchRewards:
                 todo = save_todo(user_input, user_id, username)
                 if todo:
                     logger.info(todo)
-                    await broadcast_message({
-                        "todo": {
-                            "action": "create",
-                            "id": todo.get("id"),
-                            "text": todo.get("text"),
-                            "username": todo.get("username")
+                    await broadcast_message(
+                        {
+                            "todo": {
+                                "action": "create",
+                                "id": todo.get("id"),
+                                "text": todo.get("text"),
+                                "username": todo.get("username"),
+                            }
                         }
-                    })
+                    )
                     await self.twitch.update_redemption_status(
-                        config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED
+                        config.TWITCH_CHANNEL_ID,
+                        reward_id,
+                        redeem_id,
+                        CustomRewardRedemptionStatus.FULFILLED,
                     )
                 else:
                     await self.twitch.update_redemption_status(
-                        config.TWITCH_CHANNEL_ID, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED
+                        config.TWITCH_CHANNEL_ID,
+                        reward_id,
+                        redeem_id,
+                        CustomRewardRedemptionStatus.CANCELED,
                     )
                 broadcast = False
             except Exception as e:
@@ -65,10 +76,12 @@ class TwitchRewards:
 
         # Broadcast message to overlay/admin panel
         if broadcast:
-            await broadcast_message({
-                "alert": {
-                    "type": "redemption",
-                    "user": username,
-                    "message": f"{reward_title}: {user_input}"
+            await broadcast_message(
+                {
+                    "alert": {
+                        "type": "redemption",
+                        "user": username,
+                        "message": f"{reward_title}: {user_input}",
+                    }
                 }
-            })
+            )

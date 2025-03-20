@@ -9,6 +9,7 @@ from typing import List, Optional
 
 logger = logging.getLogger("uvicorn.error.printer")
 
+
 class PrinterManager:
     def __init__(self):
         self.printer = None
@@ -24,7 +25,7 @@ class PrinterManager:
                 timeout=0,
                 in_ep=config.PRINTER_IN_EP,
                 out_ep=config.PRINTER_OUT_EP,
-                profile=config.PRINTER_PROFILE
+                profile=config.PRINTER_PROFILE,
             )
             logger.info("🖨️ Printer module initialized successfully!")
         except Exception as e:
@@ -99,7 +100,9 @@ class PrinterManager:
                 self.printer.text(f"{element.text}\n\n")
                 return True
             elif element.type == "headline_2":
-                self.printer.set(align="center", bold=True, double_height=False, double_width=True)
+                self.printer.set(
+                    align="center", bold=True, double_height=False, double_width=True
+                )
                 self.printer.text(f"{element.text}\n\n")
                 return True
             elif element.type == "image":
@@ -111,7 +114,7 @@ class PrinterManager:
                         high_density_vertical=True,
                         impl="bitImageColumn",
                         fragment_height=960,
-                        center=True
+                        center=True,
                     )
                     return True
             elif element.type == "message":
@@ -124,7 +127,7 @@ class PrinterManager:
             logger.error(f"Error printing element: {e}")
             raise
 
-    def cut_paper(self, partial: bool=False):
+    def cut_paper(self, partial: bool = False):
         """
         Cut the paper.
         """

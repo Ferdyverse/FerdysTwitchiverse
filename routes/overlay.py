@@ -7,7 +7,11 @@ from modules.schemas import OverlayMessage
 from modules import event_handlers
 from modules.websocket_handler import broadcast_message
 from modules.sequence_runner import execute_sequence, reload_sequences, load_sequences
-from modules.heat_api import add_clickable_object, remove_clickable_object, get_clickable_objects
+from modules.heat_api import (
+    add_clickable_object,
+    remove_clickable_object,
+    get_clickable_objects,
+)
 from database.crud.overlay import get_overlay_data, save_overlay_data
 from database.crud.events import save_event
 
@@ -23,10 +27,12 @@ async def overlay(request: Request):
     """Display the main overlay page for OBS."""
     return templates.TemplateResponse("overlay.html", {"request": request})
 
+
 @router.get("/solar", response_class=HTMLResponse)
 async def solarsystem(request: Request):
     """Display the solar system overlay."""
     return templates.TemplateResponse("solar-system.html", {"request": request})
+
 
 @router.get("/raid", response_class=HTMLResponse)
 async def raiders(request: Request):
@@ -45,7 +51,12 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
 
         for event_type, event_data in payload.model_dump().items():
             if event_data:  # Process only non-empty events
-                success = await event_handlers.handle_event(event_type, event_data, add_clickable_object, remove_clickable_object)
+                success = await event_handlers.handle_event(
+                    event_type,
+                    event_data,
+                    add_clickable_object,
+                    remove_clickable_object,
+                )
                 logger.info(f"🔍 handle_event() returned: {success}")
                 if not success:
                     logger.error(f"❌ Event failed: {event_type}")
@@ -58,7 +69,10 @@ async def send_to_overlay(payload: OverlayMessage = Body(...)):
             return {"status": "success", "message": "Data sent to overlay"}
 
         logger.error("❌ Some events failed, skipping broadcast.")
-        return {"status": "error", "message": "One or more events failed. No broadcast sent."}
+        return {
+            "status": "error",
+            "message": "One or more events failed. No broadcast sent.",
+        }
 
     except Exception as e:
         logger.exception("❌ Error in send_to_overlay")
@@ -74,8 +88,9 @@ async def fetch_overlay_data():
         "last_subscriber": get_overlay_data("last_subscriber") or "None",
         "goal_text": get_overlay_data("goal_text") or "None",
         "goal_current": get_overlay_data("goal_current") or "None",
-        "goal_target": get_overlay_data("goal_target") or "None"
+        "goal_target": get_overlay_data("goal_target") or "None",
     }
+
 
 @router.post("/data")
 async def set_overlay_data(request: Request):
@@ -87,6 +102,7 @@ async def set_overlay_data(request: Request):
         save_overlay_data(key, value)
     except Exception as e:
         logger.exception(f"❌ Error set overlay-data: {e}")
+
 
 ### Trigger Overlay Actions ###
 @router.post("/trigger/")
@@ -111,7 +127,11 @@ async def trigger_overlay(request: Request):
             # Pass event queue from `app.state`
             await execute_sequence(action, event_queue, data)
         else:
-            save_event("overlay_action", None, f"Direct overlay action: {action} with data: {data}")
+            save_event(
+                "overlay_action",
+                None,
+                f"Direct overlay action: {action} with data: {data}",
+            )
             await broadcast_message({"overlay_event": {"action": action, "data": data}})
 
         return {"status": "success", "message": f"Overlay triggered: {action}"}

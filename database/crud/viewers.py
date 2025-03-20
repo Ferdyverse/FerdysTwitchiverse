@@ -28,7 +28,7 @@ def save_viewer(
     color: str = None,
     badges: list = None,
     follower_date: datetime = None,
-    subscriber_date: datetime = None
+    subscriber_date: datetime = None,
 ):
     """Save or update a viewer in CouchDB, updating only non-empty fields."""
     try:
@@ -45,11 +45,14 @@ def save_viewer(
             "twitch_id": twitch_id,
             "login": login or existing_viewer.get("login", ""),
             "display_name": display_name or existing_viewer.get("display_name", ""),
-            "profile_image_url": profile_image_url or existing_viewer.get("profile_image_url", ""),
+            "profile_image_url": profile_image_url
+            or existing_viewer.get("profile_image_url", ""),
             "color": color or existing_viewer.get("color", ""),
             "badges": ",".join(badges) if badges else existing_viewer.get("badges", ""),
-            "follower_date": follower_date or existing_viewer.get("follower_date", None),
-            "subscriber_date": subscriber_date or existing_viewer.get("subscriber_date", None),
+            "follower_date": follower_date
+            or existing_viewer.get("follower_date", None),
+            "subscriber_date": subscriber_date
+            or existing_viewer.get("subscriber_date", None),
             "total_chat_messages": existing_viewer.get("total_chat_messages", 0),
             "total_used_emotes": existing_viewer.get("total_used_emotes", 0),
             "total_replies": existing_viewer.get("total_replies", 0),
@@ -84,14 +87,16 @@ def get_viewer_stats(twitch_id: int):
             "total_chat_messages": viewer.get("total_chat_messages", 0),
             "total_used_emotes": viewer.get("total_used_emotes", 0),
             "total_replies": viewer.get("total_replies", 0),
-            "per_stream_stats": viewer.get("stream_stats", [])
+            "per_stream_stats": viewer.get("stream_stats", []),
         }
     except Exception as e:
         logger.error(f"❌ Failed to retrieve viewer stats: {e}")
         return None
 
 
-def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_used: int, is_reply: str):
+def update_viewer_stats(
+    twitch_id: int, stream_id: str, message: str, emotes_used: int, is_reply: str
+):
     """Update viewer stats in CouchDB."""
     try:
         db = couchdb_client.get_db("viewers")
@@ -112,7 +117,9 @@ def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_use
 
         # Per-stream statistics
         stream_stats = viewer.get("stream_stats", [])
-        stream_record = next((stat for stat in stream_stats if stat["stream_id"] == stream_id), None)
+        stream_record = next(
+            (stat for stat in stream_stats if stat["stream_id"] == stream_id), None
+        )
 
         if stream_record:
             stream_record["chat_messages"] += 1
@@ -121,13 +128,15 @@ def update_viewer_stats(twitch_id: int, stream_id: str, message: str, emotes_use
                 stream_record["replies"] += 1
             stream_record["last_message_time"] = datetime.datetime.utcnow().isoformat()
         else:
-            stream_stats.append({
-                "stream_id": stream_id,
-                "chat_messages": 1,
-                "used_emotes": emotes_used,
-                "replies": 1 if is_reply else 0,
-                "last_message_time": datetime.datetime.utcnow().isoformat()
-            })
+            stream_stats.append(
+                {
+                    "stream_id": stream_id,
+                    "chat_messages": 1,
+                    "used_emotes": emotes_used,
+                    "replies": 1 if is_reply else 0,
+                    "last_message_time": datetime.datetime.utcnow().isoformat(),
+                }
+            )
 
         viewer["stream_stats"] = stream_stats
         db.save(viewer)

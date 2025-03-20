@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger("uvicorn.error.viewers")
 router = APIRouter(prefix="/viewers", tags=["Viewers"])
 
+
 @router.post("/update/{user_id}")
 async def update_viewer(user_id: int, request: Request):
     """Fetch latest user info and update the viewer database."""
@@ -22,10 +23,12 @@ async def update_viewer(user_id: int, request: Request):
             twitch_id=user_id,
             login=user_info["login"],
             display_name=user_info["display_name"],
-            profile_image_url=user_info["profile_image_url"]
+            profile_image_url=user_info["profile_image_url"],
         )
 
-        await broadcast_message({"admin_alert": {"type": "viewer_update", "user_id": user_id}})
+        await broadcast_message(
+            {"admin_alert": {"type": "viewer_update", "user_id": user_id}}
+        )
         return {"status": "success", "message": "Viewer updated"}
     except Exception as e:
         logger.error(f"❌ Failed to update viewer: {e}")

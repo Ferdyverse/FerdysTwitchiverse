@@ -6,6 +6,7 @@ from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.twitch_api_user")
 
+
 class TwitchUsers:
     def __init__(self, twitch, test_mode):
         self.twitch = twitch
@@ -73,16 +74,26 @@ class TwitchUsers:
                     "account_type": user.type or "",
                     "broadcaster_type": user.broadcaster_type or "",
                     "profile_image_url": user.profile_image_url or "",
-                    "account_age": existing_viewer.get("account_age", "") if existing_viewer else "",
+                    "account_age": (
+                        existing_viewer.get("account_age", "")
+                        if existing_viewer
+                        else ""
+                    ),
                     "follower_date": follower_date,
-                    "subscriber_date": existing_viewer.get("subscriber_date", None) if existing_viewer else None,
+                    "subscriber_date": (
+                        existing_viewer.get("subscriber_date", None)
+                        if existing_viewer
+                        else None
+                    ),
                     "color": user_color,
-                    "badges": ",".join(user_badges) if user_badges else None
+                    "badges": ",".join(user_badges) if user_badges else None,
                 }
 
                 # Save or update viewer data in CouchDB
                 if existing_viewer:
-                    viewer_data["_rev"] = existing_viewer["_rev"]  # Preserve document revision for updates
+                    viewer_data["_rev"] = existing_viewer[
+                        "_rev"
+                    ]  # Preserve document revision for updates
                     db.save(viewer_data)
                 else:
                     db[viewer_data["_id"]] = viewer_data  # Create new document
@@ -95,7 +106,7 @@ class TwitchUsers:
                     "broadcaster_type": user.broadcaster_type,
                     "profile_image_url": user.profile_image_url,
                     "color": user_color,
-                    "badges": user_badges
+                    "badges": user_badges,
                 }
 
             logger.warning(f"⚠️ No user found for {username or user_id}")
@@ -122,29 +133,40 @@ class TwitchUsers:
 
         self.auth_headers = {
             "Authorization": f"Bearer {app_token}",
-            "Client-Id": config.TWITCH_CLIENT_ID
+            "Client-Id": config.TWITCH_CLIENT_ID,
         }
 
         async with aiohttp.ClientSession() as session:
             headers = self.auth_headers  # Ensure your headers contain a valid token
 
             # Fetch Global Badges
-            async with session.get("https://api.twitch.tv/helix/chat/badges/global", headers=headers) as response:
+            async with session.get(
+                "https://api.twitch.tv/helix/chat/badges/global", headers=headers
+            ) as response:
                 if response.status == 200:
                     badge_data = await response.json()
                     for badge in badge_data.get("data", []):
                         for version in badge["versions"]:
-                            badges["global"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+                            badges["global"][f"{badge['set_id']}/{version['id']}"] = (
+                                version["image_url_1x"]
+                            )
 
             # Fetch Channel Badges
-            async with session.get(f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}", headers=headers) as response:
+            async with session.get(
+                f"https://api.twitch.tv/helix/chat/badges?broadcaster_id={config.TWITCH_CHANNEL_ID}",
+                headers=headers,
+            ) as response:
                 if response.status == 200:
                     badge_data = await response.json()
                     for badge in badge_data.get("data", []):
                         for version in badge["versions"]:
-                            badges["channel"][f"{badge['set_id']}/{version['id']}"] = version["image_url_1x"]
+                            badges["channel"][f"{badge['set_id']}/{version['id']}"] = (
+                                version["image_url_1x"]
+                            )
 
-        logger.info(f"✅ Loaded {len(badges['global'])} global badges & {len(badges['channel'])} channel badges")
+        logger.info(
+            f"✅ Loaded {len(badges['global'])} global badges & {len(badges['channel'])} channel badges"
+        )
         return badges
 
     async def initialize_badges(self):
@@ -157,7 +179,10 @@ class TwitchUsers:
         try:
             if not self.auth_headers:
                 logger.error("❌ get_chat_metadata() called without authentication!")
-                return {"color": "#9147FF", "badges": []}  # Use default color if missing auth
+                return {
+                    "color": "#9147FF",
+                    "badges": [],
+                }  # Use default color if missing auth
 
             user_color = None
 
@@ -165,30 +190,31 @@ class TwitchUsers:
                 # Fetch user chat color
                 async with session.get(
                     f"https://api.twitch.tv/helix/chat/color?user_id={user_id}",
-                    headers=self.auth_headers
+                    headers=self.auth_headers,
                 ) as response:
                     if response.status == 200:
                         color_data = await response.json()
                         if color_data.get("data"):
                             user_color = color_data["data"][0].get("color")
                     else:
-                        logger.warning(f"⚠️ Failed to fetch user color: {await response.text()}")
+                        logger.warning(
+                            f"⚠️ Failed to fetch user color: {await response.text()}"
+                        )
 
                 # Set default color if empty
                 user_color = user_color or "#9147FF"  # Twitch default purple
 
-            return {
-                "color": user_color
-            }
+            return {"color": user_color}
 
         except Exception as e:
             logger.error(f"❌ Error fetching chat metadata: {e}")
             return {"color": "#9147FF", "badges": []}  # Return safe defaults
 
-
     async def get_user_follow_state(self, user_id):
         try:
-            user_data = await self.twitch.get_channel_followers(broadcaster_id=config.TWITCH_CHANNEL_ID, user_id=user_id)
+            user_data = await self.twitch.get_channel_followers(
+                broadcaster_id=config.TWITCH_CHANNEL_ID, user_id=user_id
+            )
             return user_data
         except Exception as e:
             return None

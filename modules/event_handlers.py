@@ -3,7 +3,13 @@ import math
 import logging
 from database.crud.overlay import save_overlay_data
 from database.crud.planets import save_planet
-from modules.schemas import AlertSchema, GoalSchema, IconSchema, HtmlSchema, ClickableObject
+from modules.schemas import (
+    AlertSchema,
+    GoalSchema,
+    IconSchema,
+    HtmlSchema,
+    ClickableObject,
+)
 
 logger = logging.getLogger("uvicorn.error.events")
 
@@ -16,7 +22,10 @@ EVENT_MAPPING = {
     "clickable": (ClickableObject, "handle_clickable"),
 }
 
-async def handle_event(event_type, event_data, add_clickable_object=None, remove_clickable_object=None):
+
+async def handle_event(
+    event_type, event_data, add_clickable_object=None, remove_clickable_object=None
+):
     """
     Dynamically calls the appropriate event handler based on the event_type.
     Returns True if successful, False if an error occurs.
@@ -39,24 +48,31 @@ async def handle_event(event_type, event_data, add_clickable_object=None, remove
         validated_data = schema(**event_data)
 
         if event_type == "clickable":
-            result = await handler(validated_data, add_clickable_object, remove_clickable_object)
+            result = await handler(
+                validated_data, add_clickable_object, remove_clickable_object
+            )
         else:
             result = await handler(validated_data)
 
-        logger.debug(f"🔍 {event_type} handler returned: {result}")  # Log handler return value
+        logger.debug(
+            f"🔍 {event_type} handler returned: {result}"
+        )  # Log handler return value
 
         if not isinstance(result, dict):  # Ensure it's a dictionary
             logger.error(f"❌ {event_type} handler returned invalid data: {result}")
             return False
 
         if result.get("status") != "success":
-            logger.error(f"❌ Event processing failed: {result.get('message', 'Unknown error')}")
+            logger.error(
+                f"❌ Event processing failed: {result.get('message', 'Unknown error')}"
+            )
             return False  # Indicate failure
 
         return True
     except Exception as e:
         logger.error(f"❌ Error in event handler for {event_type}: {e}")
         return False
+
 
 async def handle_alert(alert):
     """Handles Twitch alerts like follows, subs, and raids."""
@@ -85,6 +101,7 @@ async def handle_alert(alert):
         logger.error(f"❌ Error processing alert: {e}")
         return {"status": "error", "message": str(e)}
 
+
 async def handle_goal(goal):
     """Handles goal updates."""
     try:
@@ -98,6 +115,7 @@ async def handle_goal(goal):
         logger.error(f"❌ Error processing goal: {e}")
         return {"status": "error", "message": str(e)}
 
+
 async def handle_message(message):
     """Handles custom overlay messages."""
     try:
@@ -108,6 +126,7 @@ async def handle_message(message):
     except Exception as e:
         logger.error(f"❌ Error processing message: {e}")
         return {"status": "error", "message": str(e)}
+
 
 async def handle_icon(icon):
     """Handles adding and removing icons in the overlay."""
@@ -122,16 +141,20 @@ async def handle_icon(icon):
         logger.error(f"❌ Error processing icon: {e}")
         return {"status": "error", "message": str(e)}
 
+
 async def handle_html(html):
     """Handles overlay HTML updates."""
     try:
         save_overlay_data("html_content", html.content)
         save_overlay_data("html_lifetime", html.lifetime)
-        logger.info(f"🖼️ HTML content received: {html.content} (Lifetime: {html.lifetime}ms)")
+        logger.info(
+            f"🖼️ HTML content received: {html.content} (Lifetime: {html.lifetime}ms)"
+        )
         return {"status": "success", "message": "HTML saved"}
     except Exception as e:
         logger.error(f"❌ Error processing icon: {e}")
         return {"status": "error", "message": str(e)}
+
 
 async def handle_clickable(clickable, add_clickable_object, remove_clickable_object):
     """Handles adding and removing clickable objects."""

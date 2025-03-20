@@ -7,7 +7,7 @@ from modules.twitch_api import (
     TwitchChat,
     TwitchUsers,
     TwitchAds,
-    TwitchRewards
+    TwitchRewards,
 )
 
 logger = logging.getLogger("uvicorn.error.twitch_api_client")
@@ -68,6 +68,7 @@ MOCK_SCOPES = [
     AuthScope.USER_READ_FOLLOWS,
 ]
 
+
 class TwitchAPI:
     def __init__(self, client_id, client_secret, test_mode=False):
         """Initialize the Twitch API client"""
@@ -97,7 +98,9 @@ class TwitchAPI:
                 logger.error("❌ Failed authentication, skipping Twitch API startup.")
                 return
             if not await self.auth.authenticate():
-                logger.error("❌ Failed authentication (second try), skipping Twitch API startup.")
+                logger.error(
+                    "❌ Failed authentication (second try), skipping Twitch API startup."
+                )
                 return
 
         self.twitch = self.auth.twitch
@@ -105,7 +108,12 @@ class TwitchAPI:
         self.users = TwitchUsers(self.twitch, self.test_mode)
         await self.users.initialize_badges()
 
-        self.eventsub = TwitchEventSub(twitch=self.twitch, test_mode=self.test_mode, rewards=self.rewards, users=self.users)
+        self.eventsub = TwitchEventSub(
+            twitch=self.twitch,
+            test_mode=self.test_mode,
+            rewards=self.rewards,
+            users=self.users,
+        )
 
         await self.eventsub.start_eventsub()
         self.is_running = True
@@ -114,9 +122,13 @@ class TwitchAPI:
         """Fetch current Twitch stream details (viewer count, title, etc.)."""
         try:
             user_id = config.TWITCH_CHANNEL_ID  # Use channel ID from config
-            stream_generator = self.twitch.get_streams(user_id=[user_id])  # This is an async generator
+            stream_generator = self.twitch.get_streams(
+                user_id=[user_id]
+            )  # This is an async generator
 
-            async for stream_data in stream_generator:  # Iterate over the async generator
+            async for (
+                stream_data
+            ) in stream_generator:  # Iterate over the async generator
                 if stream_data:
                     return stream_data  # First stream object
 

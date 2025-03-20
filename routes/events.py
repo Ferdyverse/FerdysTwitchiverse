@@ -7,6 +7,7 @@ from database.crud.events import get_recent_events
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/events", tags=["Events"])
 
+
 @router.get("/", response_class=HTMLResponse)
 async def get_events():
     """Retrieve the last 50 stored events and return them as HTML."""
@@ -15,4 +16,6 @@ async def get_events():
     if not events:
         return "<p class='text-center text-gray-400'>No events yet...</p>"
 
-    return templates.TemplateResponse("includes/events.html", {"request": {}, "events": events})
+    return templates.TemplateResponse(
+        "includes/events.html", {"request": {}, "events": events}
+    )

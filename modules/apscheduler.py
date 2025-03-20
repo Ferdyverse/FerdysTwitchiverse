@@ -9,6 +9,7 @@ logger = logging.getLogger("uvicorn.error.apscheduler")
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 
+
 async def load_scheduled_jobs(app):
     """Loads and schedules all enabled jobs from CouchDB using CRUD functions."""
     jobs = get_scheduled_jobs()  # Fetch scheduled jobs from the database
@@ -31,7 +32,7 @@ async def load_scheduled_jobs(app):
                     IntervalTrigger(seconds=job["interval_seconds"]),
                     id=f"job_{job_id}",
                     replace_existing=True,
-                    args=[job_id, app]
+                    args=[job_id, app],
                 )
 
             elif job["job_type"] == "date":
@@ -41,7 +42,7 @@ async def load_scheduled_jobs(app):
                     run_date=job["run_at"],
                     id=f"job_{job_id}",
                     replace_existing=True,
-                    args=[job_id, app]
+                    args=[job_id, app],
                 )
 
             elif job["job_type"] == "cron":
@@ -56,7 +57,7 @@ async def load_scheduled_jobs(app):
                     day_of_week=cron_parts[4],
                     id=f"job_{job_id}",
                     replace_existing=True,
-                    args=[job_id, app]
+                    args=[job_id, app],
                 )
 
             logger.info(f"✅ Scheduled {job['job_type']} job: {job_id}")
@@ -64,12 +65,14 @@ async def load_scheduled_jobs(app):
         except Exception as e:
             logger.error(f"❌ Error scheduling job {job_id}: {e}")
 
+
 # Start scheduler
 def start_scheduler(app):
     """Starts the scheduler and loads jobs asynchronously."""
     scheduler.start()
     logger.info("✅ APScheduler started.")
     app.add_event_handler("startup", lambda: load_scheduled_jobs(app))
+
 
 # Shutdown scheduler
 def shutdown_scheduler():

@@ -9,6 +9,7 @@ logger = logging.getLogger("uvicorn.error.heat")
 # Dynamic dictionary for clickable objects (Updated via API)
 CLICKABLE_OBJECTS = {}
 
+
 class HeatAPIClient:
     """
     Connects to Twitch Heat API WebSocket and processes user clicks.
@@ -23,7 +24,7 @@ class HeatAPIClient:
         """
         self.channel_id = channel_id
         self.is_connected = False
-        self.event_queue =  app.state.event_queue.get()
+        self.event_queue = app.state.event_queue.get()
         self.websocket_task = None
         self.heat_api_url = f"wss://heat-api.j38.net/channel/{self.channel_id}"
 
@@ -33,8 +34,12 @@ class HeatAPIClient:
             try:
                 logger.info(f"🔗 Connecting to Heat API WebSocket: {self.heat_api_url}")
 
-                async with websockets.connect(self.heat_api_url, ping_interval=30) as ws:  # Ping alle 30 Sekunden
-                    logger.info(f"✅ Connected to Heat API for channel {self.channel_id}")
+                async with websockets.connect(
+                    self.heat_api_url, ping_interval=30
+                ) as ws:  # Ping alle 30 Sekunden
+                    logger.info(
+                        f"✅ Connected to Heat API for channel {self.channel_id}"
+                    )
 
                     # Start background ping task
                     asyncio.create_task(self.send_ping(ws))
@@ -57,10 +62,16 @@ class HeatAPIClient:
                             coord_x = int(float(data.get("x")) * 1920)
                             coord_y = int(float(data.get("y")) * 1080)
 
-                            logger.debug(f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}")
+                            logger.debug(
+                                f"🔥 user: {user_id} | x: {coord_x} | y: {coord_y}"
+                            )
 
                             if user_id.startswith("A") or user_id.startswith("U"):
-                                username = "Anonymous" if user_id.startswith("A") else "Unverified"
+                                username = (
+                                    "Anonymous"
+                                    if user_id.startswith("A")
+                                    else "Unverified"
+                                )
                                 logger.debug(f"⚠️ Got click from {username}")
 
                             # Detect what object was clicked
@@ -71,7 +82,9 @@ class HeatAPIClient:
                             await self.event_queue.put(processed_click)
 
             except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError) as e:
-                logger.error(f"❌ WebSocket connection error: {e}. Retrying in 5 seconds...")
+                logger.error(
+                    f"❌ WebSocket connection error: {e}. Retrying in 5 seconds..."
+                )
                 await asyncio.sleep(5)  # Retry after delay
             except Exception as e:
                 logger.error(f"❌ Unexpected WebSocket error: {e}")
@@ -104,6 +117,7 @@ class HeatAPIClient:
             self.is_connected = False
             logger.info(f"🛑 Heat API listener stopped for channel {self.channel_id}.")
 
+
 def process_click(data, x, y):
     """Detect if a user clicked on a dynamically registered object."""
     user_id = data.get("id")
@@ -128,13 +142,17 @@ def process_click(data, x, y):
         }
     }
 
+
 async def add_clickable_object(obj: ClickableObject):
     """Add a new clickable object to the overlay."""
     object_id = obj.object_id
 
     if object_id in CLICKABLE_OBJECTS:
         logger.error(f"Clickable object {object_id} already exists")
-        return {"status": "error", "message": f"Clickable object {object_id} already exists"}
+        return {
+            "status": "error",
+            "message": f"Clickable object {object_id} already exists",
+        }
 
     # Store the object as a dictionary instead of a Pydantic model
     CLICKABLE_OBJECTS[object_id] = obj.model_dump()
@@ -142,6 +160,7 @@ async def add_clickable_object(obj: ClickableObject):
 
     logger.info(f"✅ Clickable object '{object_id}' added")
     return {"status": "success", "message": f"Clickable object '{object_id}' added"}
+
 
 async def remove_clickable_object(object_id: str):
     """Remove a clickable object from the overlay."""
@@ -155,11 +174,13 @@ async def remove_clickable_object(object_id: str):
     logger.info(f"🗑️ Clickable object '{object_id}' removed: {removed_obj}")
     return {"status": "success", "message": f"Clickable object '{object_id}' removed"}
 
+
 def update_clickable_objects(new_objects: dict):
     """Update the currently active clickable objects."""
     global CLICKABLE_OBJECTS
     CLICKABLE_OBJECTS = new_objects
     logger.info(f"🔄 Clickable objects updated: {CLICKABLE_OBJECTS}")
+
 
 def get_clickable_objects():
     """Retrieve all currently defined clickable objects."""

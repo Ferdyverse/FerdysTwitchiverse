@@ -36,7 +36,9 @@ async def process_scheduled_job(job_id: int, app):
                 message_text = get_random_message_from_category(message_category)
 
                 if not message_text:
-                    logger.warning(f"⚠️ No messages found in pool for category '{message_category}', skipping.")
+                    logger.warning(
+                        f"⚠️ No messages found in pool for category '{message_category}', skipping."
+                    )
                     return
 
             if message_text:

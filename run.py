@@ -5,14 +5,29 @@ import uvicorn
 import os
 import config
 
+
 def startup():
-    parser = argparse.ArgumentParser(description="Start the Ferdyverse API with optional modules disabled.")
-    parser.add_argument("--disable-heat-api", action="store_true", help="Disable the Heat API module")
-    parser.add_argument("--disable-printer", action="store_true", help="Disable the Printer module")
-    parser.add_argument("--disable-twitch", action="store_true", help="Disable the Twitch module")
-    parser.add_argument("--disable-obs", action="store_true", help="Disable the OBS module")
-    parser.add_argument("--disable-spotify", action="store_true", help="Disable the Spotify module")
-    parser.add_argument("--enable-mock-api", action="store_true", help="Enable Twitch Mock API")
+    parser = argparse.ArgumentParser(
+        description="Start the Ferdyverse API with optional modules disabled."
+    )
+    parser.add_argument(
+        "--disable-heat-api", action="store_true", help="Disable the Heat API module"
+    )
+    parser.add_argument(
+        "--disable-printer", action="store_true", help="Disable the Printer module"
+    )
+    parser.add_argument(
+        "--disable-twitch", action="store_true", help="Disable the Twitch module"
+    )
+    parser.add_argument(
+        "--disable-obs", action="store_true", help="Disable the OBS module"
+    )
+    parser.add_argument(
+        "--disable-spotify", action="store_true", help="Disable the Spotify module"
+    )
+    parser.add_argument(
+        "--enable-mock-api", action="store_true", help="Enable Twitch Mock API"
+    )
     args = parser.parse_args()
 
     os.environ["DISABLE_HEAT_API"] = "true" if args.disable_heat_api else "false"
@@ -45,10 +60,17 @@ def startup():
 
     # Debugging: Try running Uvicorn
     try:
-        uvicorn.run("main:app", host=config.APP_HOST, port=config.APP_PORT, reload=True, log_level=config.APP_LOG_LEVEL)
+        uvicorn.run(
+            "main:app",
+            host=config.APP_HOST,
+            port=config.APP_PORT,
+            reload=True,
+            log_level=config.APP_LOG_LEVEL,
+        )
     except Exception as e:
         print(f"❌ ERROR starting Uvicorn: {e}")
         exit(1)
+
 
 if __name__ == "__main__":
     startup()

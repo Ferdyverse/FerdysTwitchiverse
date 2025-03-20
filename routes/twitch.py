@@ -6,6 +6,7 @@ import config
 logger = logging.getLogger("uvicorn.error.twitch")
 router = APIRouter(prefix="/twitch", tags=["Twitch Integration"])
 
+
 @router.get("/rewards", response_class=HTMLResponse)
 async def get_rewards(request: Request):
     """Fetch and display existing Twitch rewards."""
@@ -15,11 +16,14 @@ async def get_rewards(request: Request):
         return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
 
     try:
-        rewards = await twitch_api.twitch.get_custom_reward(broadcaster_id=config.TWITCH_CHANNEL_ID)
+        rewards = await twitch_api.twitch.get_custom_reward(
+            broadcaster_id=config.TWITCH_CHANNEL_ID
+        )
         return rewards or "<p class='text-gray-400'>No rewards available.</p>"
     except Exception as e:
         logger.error(f"❌ Failed to fetch rewards: {e}")
         return "<p class='text-red-500'>Error fetching rewards.</p>"
+
 
 @router.post("/create-reward/")
 async def create_channel_point_reward(request: Request):
@@ -37,7 +41,10 @@ async def create_channel_point_reward(request: Request):
 
     try:
         await twitch_api.twitch.create_custom_reward(
-            broadcaster_id=config.TWITCH_CHANNEL_ID, title=title, cost=cost, is_enabled=True
+            broadcaster_id=config.TWITCH_CHANNEL_ID,
+            title=title,
+            cost=cost,
+            is_enabled=True,
         )
         return {"status": "success", "message": f"Reward '{title}' created!"}
     except Exception as e:

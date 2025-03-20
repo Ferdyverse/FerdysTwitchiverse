@@ -25,6 +25,7 @@ logger = logging.getLogger("uvicorn.error.lifespan")
 printer_manager = PrinterManager()
 heat_api_client = None
 
+
 @asynccontextmanager
 async def lifespan(app):
     """Lifecycle event manager for the FastAPI application."""
@@ -32,11 +33,20 @@ async def lifespan(app):
 
     use_mock_api = config.USE_MOCK_API
 
-    twitch_api = TwitchAPI(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, test_mode=use_mock_api)
+    twitch_api = TwitchAPI(
+        client_id=config.TWITCH_CLIENT_ID,
+        client_secret=config.TWITCH_CLIENT_SECRET,
+        test_mode=use_mock_api,
+    )
 
     twitch_chat = None
     if not use_mock_api:
-        twitch_chat = TwitchChatBot(client_id=config.TWITCH_CLIENT_ID, client_secret=config.TWITCH_CLIENT_SECRET, twitch_channel=config.TWITCH_CHANNEL, twitch_api=twitch_api)
+        twitch_chat = TwitchChatBot(
+            client_id=config.TWITCH_CLIENT_ID,
+            client_secret=config.TWITCH_CLIENT_SECRET,
+            twitch_channel=config.TWITCH_CHANNEL,
+            twitch_api=twitch_api,
+        )
 
     try:
 
@@ -62,7 +72,6 @@ async def lifespan(app):
             logger.info("🚫 Heat API is disabled.")
             app.state.heat_api = None
 
-
         # Initialize Twitch API & Chat
         if not config.DISABLE_TWITCH:
             asyncio.create_task(twitch_api.initialize(app))
@@ -82,7 +91,9 @@ async def lifespan(app):
         # Initialize OBS
         obs = None
         if not config.DISABLE_OBS:
-            obs = OBSController(config.OBS_WS_HOST, config.OBS_WS_PORT, config.OBS_WS_PASSWORD)
+            obs = OBSController(
+                config.OBS_WS_HOST, config.OBS_WS_PORT, config.OBS_WS_PASSWORD
+            )
             await obs.initialize()
             app.state.obs = obs
             register_function("obs.toggle_source", obs.toggle_source)
@@ -100,7 +111,7 @@ async def lifespan(app):
 
         # Start queue processors once
         asyncio.create_task(process_event_queue(app))
-        #asyncio.create_task(process_alert_queue(app))
+        # asyncio.create_task(process_alert_queue(app))
 
         await asyncio.sleep(1)
 

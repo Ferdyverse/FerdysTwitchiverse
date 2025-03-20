@@ -22,6 +22,5 @@ def get_events(request: Request):
         return "<p class='text-center text-gray-400'>No events yet...</p>"
 
     return templates.TemplateResponse(
-        "includes/events.html",
-        {"request": request, "events": events}
+        "includes/events.html", {"request": request, "events": events}
     )

@@ -13,8 +13,9 @@ logger = logging.getLogger("uvicorn.error.event_queue_processor")
 
 worker_count = 0  # Track how many times this function is started
 
+
 async def process_event_queue(app):
-    """ Continuously processes events from the queue """
+    """Continuously processes events from the queue"""
 
     global worker_count
     worker_count += 1
@@ -43,25 +44,46 @@ async def process_event_queue(app):
                 if callable(func):
                     try:
                         sig = inspect.signature(func)
-                        param_types = [param.annotation for param in sig.parameters.values()]
+                        param_types = [
+                            param.annotation for param in sig.parameters.values()
+                        ]
 
-                        if param_types and param_types[0] not in [inspect.Parameter.empty, dict]:
+                        if param_types and param_types[0] not in [
+                            inspect.Parameter.empty,
+                            dict,
+                        ]:
                             expected_type = param_types[0]
                             if isinstance(parameters, dict):
                                 parameters = expected_type(**parameters)
 
                         if inspect.iscoroutinefunction(func):
-                            await func(parameters) if len(param_types) == 1 else await func(**parameters)
+                            (
+                                await func(parameters)
+                                if len(param_types) == 1
+                                else await func(**parameters)
+                            )
                         else:
-                            func(parameters) if len(param_types) == 1 else func(**parameters)
+                            (
+                                func(parameters)
+                                if len(param_types) == 1
+                                else func(**parameters)
+                            )
 
-                        logger.info(f"✅ Executed function: {function_name} with parameters: {parameters}")
+                        logger.info(
+                            f"✅ Executed function: {function_name} with parameters: {parameters}"
+                        )
 
                     except TypeError as e:
                         logger.error(f"❌ Function execution failed: {e}")
-                        save_event("error", None, f"Failed function: {function_name}, Error: {e}")
+                        save_event(
+                            "error",
+                            None,
+                            f"Failed function: {function_name}, Error: {e}",
+                        )
                 else:
-                    logger.warning(f"⚠️ Function '{function_name}' not found or not callable!")
+                    logger.warning(
+                        f"⚠️ Function '{function_name}' not found or not callable!"
+                    )
                     save_event("error", None, f"Function not found: {function_name}")
 
             # Process Twitch message printing
@@ -80,16 +102,21 @@ async def process_event_queue(app):
                         print_request = {
                             "print_elements": [
                                 {"type": "headline_1", "text": "Chatogram"},
-                                {"type": "image", "url": user_data.get("profile_image_url", "")},
+                                {
+                                    "type": "image",
+                                    "url": user_data.get("profile_image_url", ""),
+                                },
                                 {"type": "headline_2", "text": user},
-                                {"type": "message", "text": message}
+                                {"type": "message", "text": message},
                             ],
-                            "print_as_image": True
+                            "print_as_image": True,
                         }
 
                         result = await obs.find_scene_item("Pixel 2")
                         for item in result:
-                            await obs.set_source_visibility(item["scene"], item["id"], True)
+                            await obs.set_source_visibility(
+                                item["scene"], item["id"], True
+                            )
 
                         response = await broadcast_message(print_request)
                         logger.info(f"🖨️ Print status: {response}")
@@ -98,7 +125,7 @@ async def process_event_queue(app):
                             config.TWITCH_CHANNEL_ID,
                             task["reward_id"],
                             task["redeem_id"],
-                            CustomRewardRedemptionStatus.FULFILLED
+                            CustomRewardRedemptionStatus.FULFILLED,
                         )
 
                 except Exception as e:
@@ -107,12 +134,14 @@ async def process_event_queue(app):
                         config.TWITCH_CHANNEL_ID,
                         task["reward_id"],
                         task["redeem_id"],
-                        CustomRewardRedemptionStatus.CANCELED
+                        CustomRewardRedemptionStatus.CANCELED,
                     )
                 finally:
                     await asyncio.sleep(2)
                     for item in result:
-                        await obs.set_source_visibility(item["scene"], item["id"], False)
+                        await obs.set_source_visibility(
+                            item["scene"], item["id"], False
+                        )
 
             # Process heatmap clicks
             if "heat_click" in task:
@@ -130,19 +159,25 @@ async def process_event_queue(app):
                         user_data = await twitch_api.get_user_info(user_id=user)
                         real_user = user_data.get("display_name", "Unknown")
 
-                    logger.info(f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}")
+                    logger.info(
+                        f"🖱️ Click detected! User: {real_user}, X: {x}, Y: {y}, Object: {clicked_object}"
+                    )
 
                     if clicked_object == "hidden_star":
-                        await broadcast_message({
-                            "hidden": {
-                                "action": "found",
-                                "user": real_user,
-                                "x": x,
-                                "y": y
+                        await broadcast_message(
+                            {
+                                "hidden": {
+                                    "action": "found",
+                                    "user": real_user,
+                                    "x": x,
+                                    "y": y,
+                                }
                             }
-                        })
+                        )
                         await execute_sequence("reset_star", event_queue)
-                        await twitch_chat.send_message(f"{real_user} hat sich erbarmt und sauber gemacht!")
+                        await twitch_chat.send_message(
+                            f"{real_user} hat sich erbarmt und sauber gemacht!"
+                        )
                         save_event("heat_click", user, "Hat aufgeräumt!")
 
                 except Exception as e:
@@ -157,10 +192,12 @@ async def process_event_queue(app):
                         broadcaster_id=config.TWITCH_CHANNEL_ID,
                         title=redemption.get("title"),
                         cost=redemption.get("cost"),
-                        is_enabled=True
+                        is_enabled=True,
                     )
 
-                    logger.info(f"✅ Created Twitch reward: {redemption.get('title')} for {redemption.get('cost')} points")
+                    logger.info(
+                        f"✅ Created Twitch reward: {redemption.get('title')} for {redemption.get('cost')} points"
+                    )
 
                 except Exception as e:
                     logger.error(f"❌ Failed to create Twitch reward: {e}")

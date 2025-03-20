@@ -25,15 +25,23 @@ async def update_viewer(user_id: int, request: Request):
             raise HTTPException(status_code=404, detail="User not found in Twitch API")
 
         # Broadcast update
-        await broadcast_message({
-            "admin_alert": {"type": "viewer_update", "user_id": user_id, "message": "Viewer info updated"}
-        })
+        await broadcast_message(
+            {
+                "admin_alert": {
+                    "type": "viewer_update",
+                    "user_id": user_id,
+                    "message": "Viewer info updated",
+                }
+            }
+        )
 
         return {"status": "success", "message": "Viewer information updated"}
 
     except Exception as e:
         logger.error(f"❌ Failed to update viewer: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to update viewer: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update viewer: {str(e)}"
+        )
 
 
 @router.get("/count", response_class=HTMLResponse)

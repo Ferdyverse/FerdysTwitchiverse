@@ -45,7 +45,11 @@ class TwitchAds:
                 "admin_alert": {
                     "type": "ad_break",
                     "duration": duration,
-                    "start_time": local_next_ad_timestamp
+                    "start_time": local_next_ad_timestamp,
+                    "snooze_count": snooze_count,
+                    "snooze_refresh": snooze_refresh,
+                    "last_ad": last_ad,
+                    "preroll_free_time": preroll_free_time
                 }
             })
 

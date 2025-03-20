@@ -6,11 +6,12 @@ router = APIRouter(prefix="/print", tags=["Printer"])
 
 logger = logging.getLogger("uvicorn.error.printer")
 
+
 @router.post(
     "/",
     summary="Print data to thermal printer",
     description="Send structured data to the thermal printer for printing.",
-    response_description="Returns a success message when printing is completed."
+    response_description="Returns a success message when printing is completed.",
 )
 async def print_data(request: PrintRequest):
     """
@@ -33,12 +34,14 @@ async def print_data(request: PrintRequest):
         if request.print_as_image:
             # Print a image
             pimage = await printer_manager.create_image(elements=request.print_elements)
-            printer_manager.printer.image(pimage,
-                        high_density_horizontal=True,
-                        high_density_vertical=True,
-                        impl="bitImageColumn",
-                        fragment_height=960,
-                        center=True)
+            printer_manager.printer.image(
+                pimage,
+                high_density_horizontal=True,
+                high_density_vertical=True,
+                impl="bitImageColumn",
+                fragment_height=960,
+                center=True,
+            )
         else:
             for element in request.print_elements:
                 if await printer_manager.print_element(element):

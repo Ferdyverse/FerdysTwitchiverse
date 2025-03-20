@@ -12,7 +12,8 @@ def get_admin_buttons():
         db = couchdb_client.get_db("admin_buttons")
 
         buttons = [
-            db[doc["id"]] for doc in db.view("_all_docs", include_docs=True)
+            db[doc["id"]]
+            for doc in db.view("_all_docs", include_docs=True)
             if db[doc["id"]].get("type") == "admin_button"
         ]
         return sorted(buttons, key=lambda x: x.get("position", 0))
@@ -34,7 +35,7 @@ def add_admin_button(label: str, action: str, data: dict, prompt: bool):
             "action": action,
             "data": json.dumps(data) if isinstance(data, dict) else "{}",
             "prompt": prompt,
-            "position": len(get_admin_buttons())  # New button at the end
+            "position": len(get_admin_buttons()),  # New button at the end
         }
 
         db.save(button_data)
@@ -44,7 +45,9 @@ def add_admin_button(label: str, action: str, data: dict, prompt: bool):
         return None
 
 
-def update_admin_button(button_id: str, label: str, action: str, data: dict, prompt: bool):
+def update_admin_button(
+    button_id: str, label: str, action: str, data: dict, prompt: bool
+):
     """Update an existing admin button in CouchDB."""
     try:
         db = couchdb_client.get_db("admin_buttons")
@@ -53,12 +56,14 @@ def update_admin_button(button_id: str, label: str, action: str, data: dict, pro
         if not button:
             return None  # Button not found
 
-        button.update({
-            "label": label,
-            "action": action,
-            "data": json.dumps(data) if isinstance(data, dict) else "{}",
-            "prompt": prompt
-        })
+        button.update(
+            {
+                "label": label,
+                "action": action,
+                "data": json.dumps(data) if isinstance(data, dict) else "{}",
+                "prompt": prompt,
+            }
+        )
 
         db.save(button)
         return get_admin_buttons()  # Return updated list of buttons

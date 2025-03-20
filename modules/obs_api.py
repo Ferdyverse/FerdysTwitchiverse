@@ -4,8 +4,9 @@ import json
 
 logger = logging.getLogger("uvicorn.error.obs")
 
+
 class OBSController:
-    def __init__(self, host='localhost', port=4455, password=''):
+    def __init__(self, host="localhost", port=4455, password=""):
         self.host = host
         self.port = port
         self.password = password
@@ -14,7 +15,9 @@ class OBSController:
     async def initialize(self):
         """Initialize and connect the OBS WebSocket client."""
         if self.client is None:
-            self.client = obs.ReqClient(host=self.host, port=self.port, password=self.password)
+            self.client = obs.ReqClient(
+                host=self.host, port=self.port, password=self.password
+            )
             logger.info("OBS started!")
 
     async def disconnect(self):
@@ -28,7 +31,9 @@ class OBSController:
         await self.initialize()
         return self.client.set_current_program_scene(scene_name)
 
-    async def set_source_visibility(self, scene_id=None, source_name=None, visibility=True):
+    async def set_source_visibility(
+        self, scene_id=None, source_name=None, visibility=True
+    ):
         """Set the visibility of a source within a specific scene."""
         await self.initialize()
         if scene_id == None:
@@ -42,7 +47,7 @@ class OBSController:
     async def get_current_scene(self):
         await self.initialize()
         response = self.client.get_current_program_scene()
-        return { "name": response.scene_name, "id": response.scene_uuid}
+        return {"name": response.scene_name, "id": response.scene_uuid}
 
     async def get_scene_items(self, scene_name=None):
         if scene_name == None:
@@ -63,10 +68,7 @@ class OBSController:
             items_response = self.client.get_scene_item_list(scene_name)
             scene_items = items_response.scene_items
 
-            response_data = {
-                "scene_name": scene_name,
-                "items": []
-            }
+            response_data = {"scene_name": scene_name, "items": []}
 
             for item in scene_items:
                 item_id = item["sceneItemId"]
@@ -77,7 +79,7 @@ class OBSController:
                     "id": item_id,
                     "name": item_name,
                     "is_group": is_group,
-                    "sub_items": []
+                    "sub_items": [],
                 }
 
                 # If the item is a group, fetch its sub-items
@@ -110,11 +112,11 @@ class OBSController:
         """Enable or disable a scene item in OBS."""
         try:
             self.client.set_scene_item_enabled(
-                scene_name=scene_name,
-                scene_item_id=item_id,
-                scene_item_enabled=enable
+                scene_name=scene_name, scene_item_id=item_id, scene_item_enabled=enable
             )
-            print(f"✅ {'Enabled' if enable else 'Disabled'} item {item_id} in {scene_name}")
+            print(
+                f"✅ {'Enabled' if enable else 'Disabled'} item {item_id} in {scene_name}"
+            )
         except Exception as e:
             print(f"❌ Error toggling item {item_id}: {e}")
 
@@ -136,18 +138,22 @@ class OBSController:
                 scene_items = items_response.scene_items
 
                 for item in scene_items:
-                    if item["sourceName"].lower() == item_name.lower():  # Case-insensitive match
+                    if (
+                        item["sourceName"].lower() == item_name.lower()
+                    ):  # Case-insensitive match
                         item_id = item["sceneItemId"]
                         is_visible = self.get_scene_item_visibility(scene_name, item_id)
 
-                        found_items.append({
-                            "scene": scene_name,
-                            "scene_id": scene_id,
-                            "id": item_id,
-                            "name": item["sourceName"],
-                            "is_group": item["isGroup"],
-                            "visible": is_visible
-                        })
+                        found_items.append(
+                            {
+                                "scene": scene_name,
+                                "scene_id": scene_id,
+                                "id": item_id,
+                                "name": item["sourceName"],
+                                "is_group": item["isGroup"],
+                                "visible": is_visible,
+                            }
+                        )
 
                         # If it's a group, check inside the group
                         if item["isGroup"]:
@@ -155,16 +161,20 @@ class OBSController:
                             for group_item in group_items:
                                 if group_item["name"].lower() == item_name.lower():
                                     group_item_id = group_item["id"]
-                                    group_is_visible = self.get_scene_item_visibility(scene_name, group_item_id)
+                                    group_is_visible = self.get_scene_item_visibility(
+                                        scene_name, group_item_id
+                                    )
 
-                                    found_items.append({
-                                        "scene": scene_name,
-                                        "scene_id": scene_id,
-                                        "id": group_item_id,
-                                        "name": group_item["name"],
-                                        "is_group": False,
-                                        "visible": group_is_visible
-                                    })
+                                    found_items.append(
+                                        {
+                                            "scene": scene_name,
+                                            "scene_id": scene_id,
+                                            "id": group_item_id,
+                                            "name": group_item["name"],
+                                            "is_group": False,
+                                            "visible": group_is_visible,
+                                        }
+                                    )
 
             if not found_items:
                 print(f"🔍 Item '{item_name}' not found in any scene.")

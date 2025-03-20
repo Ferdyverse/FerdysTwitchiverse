@@ -24,7 +24,9 @@ async def delete_chat_message_endpoint(message_id: str, request: Request):
         await twitch_api.delete_message(message_id)
         delete_chat_message(message_id)
 
-        await broadcast_message({"admin_alert": {"type": "chat_update", "message": "Message deleted"}})
+        await broadcast_message(
+            {"admin_alert": {"type": "chat_update", "message": "Message deleted"}}
+        )
         return {"status": "success", "message": "Message deleted"}
 
     except Exception as e:
@@ -56,7 +58,7 @@ async def create_channel_point_reward(request: Request):
             cost=cost,
             prompt=prompt,
             is_enabled=True,
-            is_user_input_required=require_input
+            is_user_input_required=require_input,
         )
 
         logger.info(f"✅ Created new reward: {title} (Cost: {cost})")
@@ -77,8 +79,7 @@ async def delete_channel_point_reward(request: Request, reward_id: str):
 
     try:
         await twitch_api.twitch.delete_custom_reward(
-            broadcaster_id=config.TWITCH_CHANNEL_ID,
-            reward_id=reward_id
+            broadcaster_id=config.TWITCH_CHANNEL_ID, reward_id=reward_id
         )
 
         logger.info(f"🗑️ Deleted reward {reward_id}")
@@ -87,6 +88,7 @@ async def delete_channel_point_reward(request: Request, reward_id: str):
     except Exception as e:
         logger.error(f"❌ Failed to delete reward: {e}")
         return {"status": "error", "message": "❌ Failed to delete reward."}
+
 
 @router.get("/rewards/pending", response_class=HTMLResponse)
 async def get_pending_rewards(request: Request):
@@ -107,7 +109,11 @@ async def get_pending_rewards(request: Request):
 
         html_output = "<div class='space-y-2'>"
         for redemption in redemptions:
-            redeemed_at = redemption.redeemed_at.strftime('%d.%m.%Y %H:%M') if redemption.redeemed_at else "Unknown"
+            redeemed_at = (
+                redemption.redeemed_at.strftime("%d.%m.%Y %H:%M")
+                if redemption.redeemed_at
+                else "Unknown"
+            )
 
             html_output += f"""
             <div class='p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm'>
@@ -139,13 +145,13 @@ async def get_all_custom_rewards(twitch_api):
 
     try:
         rewards = await twitch_api.twitch.get_custom_reward(
-            broadcaster_id=config.TWITCH_CHANNEL_ID,
-            only_manageable_rewards=True
+            broadcaster_id=config.TWITCH_CHANNEL_ID, only_manageable_rewards=True
         )
         return rewards
     except Exception as e:
         logger.error(f"Failed to fetch custom rewards: {e}")
         return []
+
 
 async def get_pending_redemptions(twitch_api, rewards):
     """Fetch pending redemptions for each reward."""
@@ -158,7 +164,7 @@ async def get_pending_redemptions(twitch_api, rewards):
             redemptions_generator = twitch_api.twitch.get_custom_reward_redemption(
                 broadcaster_id=config.TWITCH_CHANNEL_ID,
                 reward_id=reward.id,
-                status=CustomRewardRedemptionStatus.UNFULFILLED
+                status=CustomRewardRedemptionStatus.UNFULFILLED,
             )
 
             async for redemption in redemptions_generator:
@@ -169,6 +175,7 @@ async def get_pending_redemptions(twitch_api, rewards):
         logger.error(f"Failed to fetch pending redemptions: {e}")
         return []
 
+
 @router.get("/rewards/", response_class=HTMLResponse)
 async def get_rewards(request: Request):
     """Fetch and display the existing custom rewards."""
@@ -178,7 +185,9 @@ async def get_rewards(request: Request):
         if not twitch_api:
             return "<p class='text-red-500 text-sm'>Twitch API not initialized!</p>"
 
-        rewards = await twitch_api.twitch.get_custom_reward(broadcaster_id=config.TWITCH_CHANNEL_ID)
+        rewards = await twitch_api.twitch.get_custom_reward(
+            broadcaster_id=config.TWITCH_CHANNEL_ID
+        )
 
         if not rewards:
             return "<p class='text-gray-400'>No rewards available.</p>"
@@ -194,7 +203,8 @@ async def get_rewards(request: Request):
                 <button class='bg-red-500 px-3 py-1 rounded text-white'
                     onclick="deleteReward('{reward.id}')">🗑️ Delete</button>
             </div>
-            """ for reward in rewards
+            """
+            for reward in rewards
         )
 
         return reward_html
@@ -203,7 +213,12 @@ async def get_rewards(request: Request):
         return "<p class='text-red-500'>Error fetching rewards.</p>"
 
 
-async def handle_redemption_update(request: Request, reward_id: str, redeem_id: str, status: CustomRewardRedemptionStatus):
+async def handle_redemption_update(
+    request: Request,
+    reward_id: str,
+    redeem_id: str,
+    status: CustomRewardRedemptionStatus,
+):
     """Update the status of a Twitch redemption (fulfill/cancel) and save to CouchDB."""
     twitch_api = request.app.state.twitch_api
 
@@ -215,7 +230,7 @@ async def handle_redemption_update(request: Request, reward_id: str, redeem_id: 
             broadcaster_id=config.TWITCH_CHANNEL_ID,
             reward_id=reward_id,
             redemption_ids=[redeem_id],
-            status=status
+            status=status,
         )
 
         logger.info(f"✅ Redemption {redeem_id} updated to {status}")
@@ -227,15 +242,23 @@ async def handle_redemption_update(request: Request, reward_id: str, redeem_id: 
 
 
 @router.post("/redemption/fulfill")
-async def fulfill_redemption(request: Request, reward_id: str = Body(...), redeem_id: str = Body(...)):
+async def fulfill_redemption(
+    request: Request, reward_id: str = Body(...), redeem_id: str = Body(...)
+):
     """Mark a redemption as FULFILLED and store in CouchDB."""
-    return await handle_redemption_update(request, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED)
+    return await handle_redemption_update(
+        request, reward_id, redeem_id, CustomRewardRedemptionStatus.FULFILLED
+    )
 
 
 @router.post("/redemption/cancel")
-async def cancel_redemption(request: Request, reward_id: str = Body(...), redeem_id: str = Body(...)):
+async def cancel_redemption(
+    request: Request, reward_id: str = Body(...), redeem_id: str = Body(...)
+):
     """Cancel a redemption (refund to the user) and store in CouchDB."""
-    return await handle_redemption_update(request, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED)
+    return await handle_redemption_update(
+        request, reward_id, redeem_id, CustomRewardRedemptionStatus.CANCELED
+    )
 
 
 async def save_twitch_event(event_type: str, message: str):

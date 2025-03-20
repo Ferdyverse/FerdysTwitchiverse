@@ -44,11 +44,27 @@ async def execute_sequence(action: str, event_queue, context: dict = {}):
         success = await execute_sequence_step(step, event_queue, context)
 
         if not success:
-            logger.error(f"❌ Sequence '{action}' stopped due to an error in step: {step}")
-            await broadcast_message({"admin_alert": {"type": "error", "message": f"Sequence '{action}' failed"}})
+            logger.error(
+                f"❌ Sequence '{action}' stopped due to an error in step: {step}"
+            )
+            await broadcast_message(
+                {
+                    "admin_alert": {
+                        "type": "error",
+                        "message": f"Sequence '{action}' failed",
+                    }
+                }
+            )
             break
 
-    await broadcast_message({"admin_alert": {"type": "button_click", "message": f"Sequence '{action}' executed"}})
+    await broadcast_message(
+        {
+            "admin_alert": {
+                "type": "button_click",
+                "message": f"Sequence '{action}' executed",
+            }
+        }
+    )
 
 
 async def execute_sequence_step(step, event_queue, context: dict):
@@ -72,15 +88,23 @@ async def execute_sequence_step(step, event_queue, context: dict):
             else_steps = step_data.get("else", [])
 
             if check_condition(condition_name):
-                logger.info(f"✅ Condition '{condition_name}' is TRUE, executing THEN block.")
+                logger.info(
+                    f"✅ Condition '{condition_name}' is TRUE, executing THEN block."
+                )
                 for then_step in then_steps:
-                    success = await execute_sequence_step(then_step, event_queue, context)
+                    success = await execute_sequence_step(
+                        then_step, event_queue, context
+                    )
                     if not success:
                         return False
             else:
-                logger.info(f"❌ Condition '{condition_name}' is FALSE, executing ELSE block.")
+                logger.info(
+                    f"❌ Condition '{condition_name}' is FALSE, executing ELSE block."
+                )
                 for else_step in else_steps:
-                    success = await execute_sequence_step(else_step, event_queue, context)
+                    success = await execute_sequence_step(
+                        else_step, event_queue, context
+                    )
                     if not success:
                         return False
             return True
@@ -92,12 +116,16 @@ async def execute_sequence_step(step, event_queue, context: dict):
 
             task = {"function": function_name, "data": parameters}
             await event_queue.put(task)
-            logger.info(f"🔄 Queued function '{function_name}' with parameters: {parameters}")
+            logger.info(
+                f"🔄 Queued function '{function_name}' with parameters: {parameters}"
+            )
 
             # Check if function succeeds
             success = await wait_for_task_success(task, event_queue)
             if not success:
-                logger.error(f"❌ Function '{function_name}' failed, stopping sequence.")
+                logger.error(
+                    f"❌ Function '{function_name}' failed, stopping sequence."
+                )
                 return False
             return True
 
@@ -128,7 +156,9 @@ async def execute_sequence_step(step, event_queue, context: dict):
 
             success = update_scheduled_job(job_id, **new_data)
             if success:
-                logger.info(f"✅ Updated scheduled job {job_id} with new data: {new_data}")
+                logger.info(
+                    f"✅ Updated scheduled job {job_id} with new data: {new_data}"
+                )
             else:
                 logger.error(f"❌ Failed to update scheduled job {job_id}")
             return success
@@ -138,14 +168,25 @@ async def execute_sequence_step(step, event_queue, context: dict):
             category = step_data.get("category")
             message = get_random_message_from_category(category)
             if message:
-                await broadcast_message({"overlay_event": {"action": "display_message", "data": {"message": message}}})
-                logger.info(f"✅ Displayed random message from category '{category}': {message}")
+                await broadcast_message(
+                    {
+                        "overlay_event": {
+                            "action": "display_message",
+                            "data": {"message": message},
+                        }
+                    }
+                )
+                logger.info(
+                    f"✅ Displayed random message from category '{category}': {message}"
+                )
             else:
                 logger.warning(f"⚠️ No messages found in category '{category}'")
             return True
 
         # Handle overlay events
-        await broadcast_message({"overlay_event": {"action": step_type, "data": step_data}})
+        await broadcast_message(
+            {"overlay_event": {"action": step_type, "data": step_data}}
+        )
         logger.info(f"✅ Executed overlay action: {step_type} with data: {step_data}")
         return True
 
@@ -195,8 +236,11 @@ def resolve_variables(data, context):
 
 def replace_variables_in_string(text, context):
     """Replace all occurrences of $$variables in a string using the provided context."""
+
     def replace_match(match):
         variable_name = match.group(1)
-        return context.get(variable_name, match.group(0))  # Keep the original if not found
+        return context.get(
+            variable_name, match.group(0)
+        )  # Keep the original if not found
 
     return re.sub(r"\$\$(\w+)", replace_match, text)

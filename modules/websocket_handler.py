@@ -7,6 +7,7 @@ logger = logging.getLogger("uvicorn.error.websocket")
 # Keep track of connected clients
 connected_clients: List[WebSocket] = []
 
+
 async def broadcast_message(message: dict):
     """
     Sends a message to all connected WebSocket clients.
@@ -16,6 +17,7 @@ async def broadcast_message(message: dict):
             await client.send_json(message)
         except Exception as e:
             logger.error(f"Error sending message: {e}")
+
 
 async def websocket_endpoint(websocket: WebSocket):
     """

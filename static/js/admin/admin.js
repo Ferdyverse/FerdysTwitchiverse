@@ -187,9 +187,9 @@ async function createReward() {
   if (result.status === "success") {
     closeGenericModal("reward-modal");
     htmx.ajax("GET", "/admin/twitch/rewards/", {
-        target: "#reward-list",
-        swap: "innerHTML",
-      });
+      target: "#reward-list",
+      swap: "innerHTML",
+    });
   }
 }
 
@@ -340,127 +340,132 @@ async function triggerButtonAction(action, data, ask = false) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const chatBox = document.getElementById("chat-box");
-    const contextMenu = document.getElementById("chat-context-menu");
-    let selectedMessage = null;
-    let selectedMessageId = null; // Store message ID
-    let selectedUser = null; // Store user ID
+  const chatBox = document.getElementById("chat-box");
+  const contextMenu = document.getElementById("chat-context-menu");
+  let selectedMessage = null;
+  let selectedMessageId = null; // Store message ID
+  let selectedUser = null; // Store user ID
 
-    chatBox.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        const messageElement = event.target.closest(".chat-message");
-        if (!messageElement) return;
+  chatBox.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    const messageElement = event.target.closest(".chat-message");
+    if (!messageElement) return;
 
-        selectedMessage = messageElement;
-        selectedMessageId = selectedMessage.getAttribute("data-message-id"); // Get message ID
-        selectedUser = selectedMessage.getAttribute("data-user-id"); // Get user ID
-        const username = selectedMessage.querySelector(".chat-username").textContent.trim();
+    selectedMessage = messageElement;
+    selectedMessageId = selectedMessage.getAttribute("data-message-id"); // Get message ID
+    selectedUser = selectedMessage.getAttribute("data-user-id"); // Get user ID
+    const username = selectedMessage
+      .querySelector(".chat-username")
+      .textContent.trim();
 
-        document.getElementById("context-username").textContent = `@${username}`;
-        contextMenu.style.top = `${event.pageY}px`;
-        contextMenu.style.left = `${event.pageX}px`;
-        contextMenu.classList.remove("hidden");
+    document.getElementById("context-username").textContent = `@${username}`;
+    contextMenu.style.top = `${event.pageY}px`;
+    contextMenu.style.left = `${event.pageX}px`;
+    contextMenu.classList.remove("hidden");
+  });
+
+  // Hide context menu
+  document.addEventListener("click", (event) => {
+    if (!contextMenu.contains(event.target)) {
+      contextMenu.classList.add("hidden");
+    }
+  });
+
+  // Copy Message
+  window.copyMessage = () => {
+    if (!selectedMessage) return;
+    const text = selectedMessage.querySelector(".chat-text").textContent.trim();
+    navigator.clipboard.writeText(text);
+    showFlashMessage("Message copied to clipboard!", "success");
+    contextMenu.classList.add("hidden");
+  };
+
+  // Pin Message
+  window.pinMessage = () => {
+    if (!selectedMessage) return;
+    const pinnedContainer = document.getElementById("pinned-messages");
+    if (!pinnedContainer) return;
+
+    const clonedMessage = selectedMessage.cloneNode(true);
+    clonedMessage.classList.add("border-yellow-400", "bg-yellow-900/20", "p-2");
+    pinnedContainer.appendChild(clonedMessage);
+
+    showFlashMessage("Message pinned!", "success");
+    contextMenu.classList.add("hidden");
+  };
+
+  // Delete Message
+  window.deleteMessage = async () => {
+    if (!selectedMessageId) return;
+
+    const response = await fetch(
+      `/admin/twitch/delete-message/${selectedMessageId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    const result = await response.json();
+    showFlashMessage(
+      result.message,
+      result.status === "success" ? "success" : "error"
+    );
+
+    contextMenu.classList.add("hidden");
+    htmx.ajax("GET", "/chat", {
+      target: "#chat-box",
+      swap: "innerHTML",
+    });
+  };
+
+  // Ban User
+  window.banUser = async () => {
+    if (!selectedUser) return;
+    const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
+      method: "POST",
     });
 
-    // Hide context menu
-    document.addEventListener("click", (event) => {
-        if (!contextMenu.contains(event.target)) {
-            contextMenu.classList.add("hidden");
-        }
+    const result = await response.json();
+    showFlashMessage(
+      result.message,
+      result.status === "success" ? "success" : "error"
+    );
+
+    contextMenu.classList.add("hidden");
+  };
+
+  // Timeout User
+  window.timeoutUser = async () => {
+    if (!selectedUser) return;
+    const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
+      method: "POST",
     });
 
-    // Copy Message
-    window.copyMessage = () => {
-        if (!selectedMessage) return;
-        const text = selectedMessage.querySelector(".chat-text").textContent.trim();
-        navigator.clipboard.writeText(text);
-        showFlashMessage("Message copied to clipboard!", "success");
-        contextMenu.classList.add("hidden");
-    };
+    const result = await response.json();
+    showFlashMessage(
+      result.message,
+      result.status === "success" ? "success" : "error"
+    );
 
-    // Pin Message
-    window.pinMessage = () => {
-        if (!selectedMessage) return;
-        const pinnedContainer = document.getElementById("pinned-messages");
-        if (!pinnedContainer) return;
+    contextMenu.classList.add("hidden");
+  };
 
-        const clonedMessage = selectedMessage.cloneNode(true);
-        clonedMessage.classList.add("border-yellow-400", "bg-yellow-900/20", "p-2");
-        pinnedContainer.appendChild(clonedMessage);
+  // Update Viewer
+  window.updateViewer = async () => {
+    console.log("update me");
+    if (!selectedUser) return;
+    const response = await fetch(`/admin/viewers/update/${selectedUser}`, {
+      method: "POST",
+    });
 
-        showFlashMessage("Message pinned!", "success");
-        contextMenu.classList.add("hidden");
-    };
+    const result = await response.json();
+    showFlashMessage(
+      result.message,
+      result.status === "success" ? "success" : "error"
+    );
 
-    // Delete Message
-    window.deleteMessage = async () => {
-        if (!selectedMessageId) return;
-
-        const response = await fetch(`/admin/twitch/delete-message/${selectedMessageId}`, {
-            method: "DELETE",
-        });
-
-        const result = await response.json();
-        showFlashMessage(
-            result.message,
-            result.status === "success" ? "success" : "error"
-        );
-
-        contextMenu.classList.add("hidden");
-        htmx.ajax("GET", "/chat", {
-            target: "#chat-box",
-            swap: "innerHTML",
-        });
-    };
-
-    // Ban User
-    window.banUser = async () => {
-        if (!selectedUser) return;
-        const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
-            method: "POST",
-        });
-
-        const result = await response.json();
-        showFlashMessage(
-            result.message,
-            result.status === "success" ? "success" : "error"
-        );
-
-        contextMenu.classList.add("hidden");
-    };
-
-    // Timeout User
-    window.timeoutUser = async () => {
-        if (!selectedUser) return;
-        const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
-            method: "POST",
-        });
-
-        const result = await response.json();
-        showFlashMessage(
-            result.message,
-            result.status === "success" ? "success" : "error"
-        );
-
-        contextMenu.classList.add("hidden");
-    };
-
-    // Update Viewer
-    window.updateViewer = async () => {
-        console.log("update me");
-        if (!selectedUser) return;
-        const response = await fetch(`/admin/viewers/update/${selectedUser}`, {
-            method: "POST",
-        });
-
-        const result = await response.json();
-        showFlashMessage(
-            result.message,
-            result.status === "success" ? "success" : "error"
-        );
-
-        contextMenu.classList.add("hidden");
-    };
+    contextMenu.classList.add("hidden");
+  };
 });
 
 function applyVisualReordering(buttons) {
@@ -512,39 +517,43 @@ function initSortable() {
 }
 
 async function submitScheduledJob(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    const jobId = document.getElementById("scheduled-job-id").value;
-    const jobType = document.getElementById("scheduled-job-type").value;
-    const intervalSeconds = document.getElementById("scheduled-job-interval").value;
-    const cronExpression = document.getElementById("scheduled-job-cron").value;
-    const payload = document.getElementById("scheduled-job-payload").value;
+  const jobId = document.getElementById("scheduled-job-id").value;
+  const jobType = document.getElementById("scheduled-job-type").value;
+  const intervalSeconds = document.getElementById(
+    "scheduled-job-interval"
+  ).value;
+  const cronExpression = document.getElementById("scheduled-job-cron").value;
+  const payload = document.getElementById("scheduled-job-payload").value;
 
-    const jobData = {
-        job_type: jobType,
-        interval_seconds: intervalSeconds ? parseInt(intervalSeconds) : null,
-        cron_expression: cronExpression || null,
-        payload: payload ? JSON.parse(payload) : {}
-    };
+  const jobData = {
+    job_type: jobType,
+    interval_seconds: intervalSeconds ? parseInt(intervalSeconds) : null,
+    cron_expression: cronExpression || null,
+    payload: payload ? JSON.parse(payload) : {},
+  };
 
-    const endpoint = jobId ? `/admin/scheduled/jobs/edit/${jobId}` : `/admin/scheduled/jobs/add`;
+  const endpoint = jobId
+    ? `/admin/scheduled/jobs/edit/${jobId}`
+    : `/admin/scheduled/jobs/add`;
 
-    console.log(endpoint)
+  console.log(endpoint);
 
-    const response = await fetch(endpoint, {
-        method: jobId ? "POST" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(jobData)
-    });
+  const response = await fetch(endpoint, {
+    method: jobId ? "POST" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(jobData),
+  });
 
-    const result = await response.json();
+  const result = await response.json();
 
-    if (result.success) {
-        resetScheduledJobForm();
-        reloadScheduledJobs();
-    } else {
-        alert("Error saving job: " + (result.error || "Unknown error"));
-    }
+  if (result.success) {
+    resetScheduledJobForm();
+    reloadScheduledJobs();
+  } else {
+    alert("Error saving job: " + (result.error || "Unknown error"));
+  }
 }
 
 function resetScheduledJobForm() {
@@ -615,15 +624,17 @@ async function removePoolMessage(messageId) {
 
 // ✏️ Edit Scheduled Job (Fills the form for editing)
 function editScheduledJob(id, jobType, interval, cron, payload) {
-    document.getElementById("scheduled-job-id").value = id;
-    document.getElementById("scheduled-job-type").value = jobType;
-    document.getElementById("scheduled-job-interval").value = interval || "";
-    document.getElementById("scheduled-job-cron").value = cron || "";
+  document.getElementById("scheduled-job-id").value = id;
+  document.getElementById("scheduled-job-type").value = jobType;
+  document.getElementById("scheduled-job-interval").value = interval || "";
+  document.getElementById("scheduled-job-cron").value = cron || "";
 
-    // Ensure payload is shown properly (as JSON)
-    document.getElementById("scheduled-job-payload").value = payload ? JSON.stringify(payload, null, 2) : "";
+  // Ensure payload is shown properly (as JSON)
+  document.getElementById("scheduled-job-payload").value = payload
+    ? JSON.stringify(payload, null, 2)
+    : "";
 
-    openGenericModal("scheduled-jobs-modal"); // Show modal
+  openGenericModal("scheduled-jobs-modal"); // Show modal
 }
 
 // ✏️ Edit Pool Message (Fills the form for editing)
@@ -742,37 +753,36 @@ function loadTodos(status = null) {
   });
 }
 
-
 // Action sidebar
 const toggleButton = document.getElementById("toggle-menu");
-  const closeButton = document.getElementById("close-menu");
-  const menu = document.getElementById("button-menu");
-  const actionButtons = menu.querySelectorAll("button:not(#close-menu)");
+const closeButton = document.getElementById("close-menu");
+const menu = document.getElementById("button-menu");
+const actionButtons = menu.querySelectorAll("button:not(#close-menu)");
 
-  // Toggle menu visibility
-  toggleButton.addEventListener("click", () => {
-      menu.classList.toggle("-translate-x-full");
-  });
+// Toggle menu visibility
+toggleButton.addEventListener("click", () => {
+  menu.classList.toggle("-translate-x-full");
+});
 
-  closeButton.addEventListener("click", () => {
-      menu.classList.add("-translate-x-full");
-  });
+closeButton.addEventListener("click", () => {
+  menu.classList.add("-translate-x-full");
+});
 
-  // Close menu when clicking any action button
-  actionButtons.forEach(button => {
-      button.addEventListener("click", () => {
-          menu.classList.add("-translate-x-full");
-      });
+// Close menu when clicking any action button
+actionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    menu.classList.add("-translate-x-full");
   });
+});
 
 function updateClock() {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    const seconds = now.getSeconds().toString().padStart(2, "0");
+  const now = new Date();
+  const hours = now.getHours().toString().padStart(2, "0");
+  const minutes = now.getMinutes().toString().padStart(2, "0");
+  const seconds = now.getSeconds().toString().padStart(2, "0");
 
-    const timeString = `${hours}:${minutes}:${seconds}`;
-    document.getElementById("overlay-clock").innerText = timeString;
+  const timeString = `${hours}:${minutes}:${seconds}`;
+  document.getElementById("overlay-clock").innerText = timeString;
 }
 
 // Update clock every second
@@ -780,52 +790,53 @@ setInterval(updateClock, 1000);
 updateClock();
 
 function sendCommand(endpoint) {
-    fetch(`http://localhost:8000${endpoint}`, {
-        method: "POST",
-    }).then(response => response.json())
-      .then(data => console.log("Response:", data))
-      .catch(error => console.error("Error:", error));
+  fetch(`http://localhost:8000${endpoint}`, {
+    method: "POST",
+  })
+    .then((response) => response.json())
+    .then((data) => console.log("Response:", data))
+    .catch((error) => console.error("Error:", error));
 }
 
 function changeVolume(value) {
-    fetch(`http://localhost:8000/spotify/volume/${value}`, {
-        method: "POST",
-    }).then(response => response.json())
-      .then(data => console.log("Volume changed:", data))
-      .catch(error => console.error("Error:", error));
+  fetch(`http://localhost:8000/spotify/volume/${value}`, {
+    method: "POST",
+  })
+    .then((response) => response.json())
+    .then((data) => console.log("Volume changed:", data))
+    .catch((error) => console.error("Error:", error));
 }
 
 function togglePlayPause() {
-    let btn = document.getElementById("playPauseBtn");
-    if (btn.innerText === "▶️") {
-        sendCommand('/spotify/play');
-        btn.innerText = "⏸";
-    } else {
-        sendCommand('/spotify/pause');
-        btn.innerText = "▶️";
-    }
+  let btn = document.getElementById("playPauseBtn");
+  if (btn.innerText === "▶️") {
+    sendCommand("/spotify/play");
+    btn.innerText = "⏸";
+  } else {
+    sendCommand("/spotify/pause");
+    btn.innerText = "▶️";
+  }
 }
 
 function updatePlaybackState() {
-    fetch(`http://localhost:8000/spotify/currently-playing`)
-        .then(response => response.json())
-        .then(data => {
-            let btn = document.getElementById("playPauseBtn");
-            let volumeSlider = document.getElementById("volume-slider");
+  fetch(`http://localhost:8000/spotify/currently-playing`)
+    .then((response) => response.json())
+    .then((data) => {
+      let btn = document.getElementById("playPauseBtn");
+      let volumeSlider = document.getElementById("volume-slider");
 
-            // Update play/pause button
-            if (!data.error && data.title) {
-                btn.innerText = "⏸"; // If something is playing, show Pause
-            } else {
-                btn.innerText = "▶️"; // Otherwise, show Play
-            }
+      // Update play/pause button
+      if (!data.error && data.title) {
+        btn.innerText = "⏸"; // If something is playing, show Pause
+      } else {
+        btn.innerText = "▶️"; // Otherwise, show Play
+      }
 
-            // Update volume slider
-            if (data.volume !== null && data.volume !== undefined) {
-                volumeSlider.value = data.volume;
-                console.log(`Volume updated to: ${data.volume}`);
-            }
-        })
-        .catch(error => console.error("Error fetching playback state:", error));
+      // Update volume slider
+      if (data.volume !== null && data.volume !== undefined) {
+        volumeSlider.value = data.volume;
+        console.log(`Volume updated to: ${data.volume}`);
+      }
+    })
+    .catch((error) => console.error("Error fetching playback state:", error));
 }
-updatePlaybackState();

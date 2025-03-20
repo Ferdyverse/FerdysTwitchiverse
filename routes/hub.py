@@ -8,9 +8,10 @@ router = APIRouter(prefix="/hub", tags=["Hub"])
 logger = logging.getLogger("uvicorn.error.hub")
 
 REGEX = [
-    r'^(((\W|[pP])(.|r)(r|.)n)|(p.n.{2}|[^cC]r.n))',
-    r'\w*(?:vulva|vagina|pimmel|penis|pensi|fotze|arsch|p*rn|schwanz|titten|\(*.\))\w*'
+    r"^(((\W|[pP])(.|r)(r|.)n)|(p.n.{2}|[^cC]r.n))",
+    r"\w*(?:vulva|vagina|pimmel|penis|pensi|fotze|arsch|p*rn|schwanz|titten|\(*.\))\w*",
 ]
+
 
 @router.get("/{text}", response_class=HTMLResponse)
 def show_hub(text: str):

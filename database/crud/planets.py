@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger("uvicorn.error.planets")
 
+
 def get_planets():
     """Retrieve all planets from the correct CouchDB database."""
     try:
@@ -21,6 +22,7 @@ def get_planets():
         logger.error(f"❌ Failed to retrieve planets: {e}")
         return []
 
+
 def save_planet(raider_name: str, raid_size: int, angle: float, distance: float):
     """Save a planet record to the correct CouchDB database."""
     try:
@@ -33,7 +35,7 @@ def save_planet(raider_name: str, raid_size: int, angle: float, distance: float)
             "raid_size": raid_size,
             "angle": angle,
             "distance": distance,
-            "date": datetime.datetime.utcnow().isoformat()  # Store as ISO timestamp
+            "date": datetime.datetime.utcnow().isoformat(),  # Store as ISO timestamp
         }
 
         db.save(planet)
@@ -41,6 +43,7 @@ def save_planet(raider_name: str, raid_size: int, angle: float, distance: float)
     except Exception as e:
         logger.error(f"❌ Error saving planet: {e}")
         return None
+
 
 def clear_planets():
     """Delete all planets from the correct CouchDB database."""

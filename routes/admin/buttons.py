@@ -65,7 +65,11 @@ async def update_button(button_id: str, request: Request):
         )
 
     buttons = update_admin_button(
-        button_id, body["label"], body["action"], body["data"], body.get("prompt", False)
+        button_id,
+        body["label"],
+        body["action"],
+        body["data"],
+        body.get("prompt", False),
     )
 
     if buttons is None:

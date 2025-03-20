@@ -18,10 +18,11 @@ def get_todos(status=None):
                 "created_at": db[doc]["created_at"],
                 "status": db[doc]["status"],
                 "username": db[doc].get("username", "Unknown"),
-                "twitch_id": db[doc]["twitch_id"]
+                "twitch_id": db[doc]["twitch_id"],
             }
             for doc in db
-            if db[doc].get("type") == "todo" and (status is None or db[doc]["status"] == status)
+            if db[doc].get("type") == "todo"
+            and (status is None or db[doc]["status"] == status)
         ]
 
         return sorted(todos, key=lambda x: x["created_at"])
@@ -42,7 +43,7 @@ def save_todo(text: str, twitch_id: int, username: str):
             "twitch_id": twitch_id,
             "username": username,
             "status": "pending",
-            "created_at": datetime.datetime.utcnow().isoformat()
+            "created_at": datetime.datetime.utcnow().isoformat(),
         }
 
         db.save(todo)

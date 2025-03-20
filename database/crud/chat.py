@@ -4,6 +4,7 @@ from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.chat")
 
+
 def delete_chat_message(message_id: str):
     """Delete a chat message by ID from CouchDB."""
     try:
@@ -27,7 +28,7 @@ def save_chat_message(viewer_id: str, message: str, message_id: str, stream_id: 
             "viewer_id": viewer_id,
             "message": message,
             "stream_id": stream_id,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "timestamp": datetime.datetime.utcnow().isoformat(),
         }
         db.save(chat_message)
         return chat_message
@@ -50,23 +51,27 @@ def get_recent_chat_messages(limit: int = 50):
                 messages.append(doc)
 
         # Sort messages by timestamp (newest first) and limit results
-        messages = sorted(messages, key=lambda x: x.get("timestamp", ""), reverse=True)[:limit]
+        messages = sorted(messages, key=lambda x: x.get("timestamp", ""), reverse=True)[
+            :limit
+        ]
 
         formatted_messages = []
         for doc in messages:
             viewer_id = str(doc.get("viewer_id", ""))  # Ensure viewer_id is a string
             user = user_db.get(viewer_id, {})
 
-            formatted_messages.append({
-                "message": doc.get("message", ""),
-                "timestamp": doc.get("timestamp", ""),
-                "message_id": doc.get("_id", ""),
-                "twitch_id": viewer_id,
-                "username": user.get("display_name", "Unknown"),
-                "avatar": user.get("profile_image_url", ""),
-                "user_color": user.get("color", "#FFFFFF"),
-                "badges": user.get("badges", ""),
-            })
+            formatted_messages.append(
+                {
+                    "message": doc.get("message", ""),
+                    "timestamp": doc.get("timestamp", ""),
+                    "message_id": doc.get("_id", ""),
+                    "twitch_id": viewer_id,
+                    "username": user.get("display_name", "Unknown"),
+                    "avatar": user.get("profile_image_url", ""),
+                    "user_color": user.get("color", "#FFFFFF"),
+                    "badges": user.get("badges", ""),
+                }
+            )
 
         return formatted_messages
 

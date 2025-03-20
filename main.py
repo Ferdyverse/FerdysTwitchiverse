@@ -41,6 +41,7 @@ MODULE_COLORS = {
 
 RESET_COLOR = "\033[0m"
 
+
 class ColorFormatter(logging.Formatter):
     """Custom formatter to apply colors based on module names only."""
 
@@ -51,9 +52,11 @@ class ColorFormatter(logging.Formatter):
 
         return f"{module_color}{log_message}{RESET_COLOR}"
 
+
 formatter = ColorFormatter(
     "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-    datefmt=config.APP_LOG_TIME_FORMAT)
+    datefmt=config.APP_LOG_TIME_FORMAT,
+)
 
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 for handler in logging.getLogger("uvicorn").handlers:
@@ -67,7 +70,7 @@ app = FastAPI(
     summary="Get data from Twitch and send it to the local network.",
     description="An API to manage Twitch-related events, overlay updates, and thermal printing.",
     lifespan=lifespan,
-    swagger_ui_parameters={"syntaxHighlight.theme": "monokai"}
+    swagger_ui_parameters={"syntaxHighlight.theme": "monokai"},
 )
 
 # Include routers
@@ -89,17 +92,25 @@ app.add_api_websocket_route("/ws", websocket_endpoint)
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get(
     "/",
     summary="API home",
     description="Provides links to the API documentation, overlay, and status endpoints.",
     response_description="Links to API resources.",
-    response_class=HTMLResponse)
+    response_class=HTMLResponse,
+)
 async def homepage(request: Request):
     """Serve the API Overview Homepage."""
     sequence_names = get_sequence_names()
-    return templates.TemplateResponse("homepage.html", {"request": request, "sequence_names": sequence_names})
+    return templates.TemplateResponse(
+        "homepage.html", {"request": request, "sequence_names": sequence_names}
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=config.APP_HOST, port=config.APP_PORT, log_level=config.APP_LOG_LEVEL)
+
+    uvicorn.run(
+        app, host=config.APP_HOST, port=config.APP_PORT, log_level=config.APP_LOG_LEVEL
+    )

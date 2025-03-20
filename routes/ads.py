@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 
 router = APIRouter(prefix="/ads", tags=["Ad Break"])
 
+
 @router.get("/")
 async def get_events(request: Request):
     """

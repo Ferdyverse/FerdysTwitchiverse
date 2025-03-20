@@ -36,16 +36,34 @@ function connectWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.admin_chat) {
-        const { username, message, avatar, badges, color, timestamp, message_id, is_first } = data.admin_chat;
-        updateAdminChat(username, message, avatar, badges, color, timestamp, message_id, is_first);
+      const {
+        username,
+        message,
+        avatar,
+        badges,
+        color,
+        timestamp,
+        message_id,
+        is_first,
+      } = data.admin_chat;
+      updateAdminChat(
+        username,
+        message,
+        avatar,
+        badges,
+        color,
+        timestamp,
+        message_id,
+        is_first
+      );
     } else if (data.admin_alert) {
-        if (data.admin_alert.type === "ad_break"){
-          startAdCountdown(data.admin_alert.duration, data.admin_alert.start_time);
-        }
+      if (data.admin_alert.type === "ad_break") {
+        startAdCountdown(data.admin_alert);
+      }
     } else if (data.event) {
-        updateEventLog(data.event.message);
+      updateEventLog(data.event.message);
     } else {
-      console.log(data)
+      console.log(data);
     }
   };
 
@@ -68,43 +86,67 @@ function connectWebSocket() {
 /**
  * Update Admin Chat Box (WebSocket Messages)
  */
-function updateAdminChat(username, message, avatarUrl = "", badges = [], userColor = "#ffffff", timestamp = null, message_id = null, is_first = false) {
-    const chatBox = document.getElementById("chat-box");
+function updateAdminChat(
+  username,
+  message,
+  avatarUrl = "",
+  badges = [],
+  userColor = "#ffffff",
+  timestamp = null,
+  message_id = null,
+  is_first = false
+) {
+  const chatBox = document.getElementById("chat-box");
 
-    // Convert timestamp to local time ⏰
-    const now = timestamp ? new Date(timestamp * 1000) : new Date();
-    const localTime = now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  // Convert timestamp to local time ⏰
+  const now = timestamp ? new Date(timestamp * 1000) : new Date();
+  const localTime = now.toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-    console.log(is_first)
+  console.log(is_first);
 
-    // Create message container
-    const newMessage = document.createElement("div");
-    newMessage.classList.add("chat-message", "flex", "items-start", "space-x-3", "p-3", "rounded-md", "bg-gray-800", "border", "border-gray-700", "mb-2", "shadow-sm");
-    newMessage.dataset.messageId = message_id;
-    // Avatar (Optional)
-    const avatar = avatarUrl
-        ? `<img src="${avatarUrl}" alt="${username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">`
-        : `<img src="/static/images/default_avatar.png" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">`;
+  // Create message container
+  const newMessage = document.createElement("div");
+  newMessage.classList.add(
+    "chat-message",
+    "flex",
+    "items-start",
+    "space-x-3",
+    "p-3",
+    "rounded-md",
+    "bg-gray-800",
+    "border",
+    "border-gray-700",
+    "mb-2",
+    "shadow-sm"
+  );
+  newMessage.dataset.messageId = message_id;
+  // Avatar (Optional)
+  const avatar = avatarUrl
+    ? `<img src="${avatarUrl}" alt="${username}" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">`
+    : `<img src="/static/images/default_avatar.png" class="chat-avatar w-10 h-10 rounded-full border border-gray-600">`;
 
-    // Badges 🏅
-    let badgeHtml = "";
-    if (badges.length > 0) {
-        badgeHtml = badges
-            .map((badge) => `<img src="${badge}" class="chat-badge" alt="badge">`)
-            .join("");
-    }
+  // Badges 🏅
+  let badgeHtml = "";
+  if (badges.length > 0) {
+    badgeHtml = badges
+      .map((badge) => `<img src="${badge}" class="chat-badge" alt="badge">`)
+      .join("");
+  }
 
-    let is_ping = false;
-    if (message && message.trim().toLowerCase().includes("!ping")) {
-        is_ping = true;
-    }
+  let is_ping = false;
+  if (message && message.trim().toLowerCase().includes("!ping")) {
+    is_ping = true;
+  }
 
-    // Message HTML
-    newMessage.innerHTML = `
+  // Message HTML
+  newMessage.innerHTML = `
         <div class="chat-avatar-container flex flex-col items-center justify-center">
           ${avatar}
-          ${is_first ? '<span class="first-marker mt-1">First</span>' : ''}
-          ${is_ping ? '<span class="ping-marker mt-1">Ping</span>' : ''}
+          ${is_first ? '<span class="first-marker mt-1">First</span>' : ""}
+          ${is_ping ? '<span class="ping-marker mt-1">Ping</span>' : ""}
         </div>
         <div class="chat-content flex flex-col w-full">
             <div class="chat-header flex justify-between items-center text-gray-400 text-sm mb-1">
@@ -119,24 +161,24 @@ function updateAdminChat(username, message, avatarUrl = "", badges = [], userCol
         </div>
     `;
 
-    // Append message to chat
-    chatBox.appendChild(newMessage);
+  // Append message to chat
+  chatBox.appendChild(newMessage);
 
-    // Auto-scroll to bottom
-    chatBox.scrollTop = chatBox.scrollHeight;
+  // Auto-scroll to bottom
+  chatBox.scrollTop = chatBox.scrollHeight;
 
-    // Remove old messages if limit is reached
-    while (chatBox.children.length > MAX_CHAT_MESSAGES) {
-        chatBox.removeChild(chatBox.firstChild);
-    }
+  // Remove old messages if limit is reached
+  while (chatBox.children.length > MAX_CHAT_MESSAGES) {
+    chatBox.removeChild(chatBox.firstChild);
+  }
 }
 
 /**
  * Ensure the chat box auto-scrolls to the latest message
  */
 function scrollChatToBottom() {
-    let chatBox = document.getElementById("chat-box");
-    chatBox.scrollTop = chatBox.scrollHeight;
+  let chatBox = document.getElementById("chat-box");
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 /**
@@ -160,14 +202,22 @@ function updateEventLog(message) {
 /**
  * Ad Break Countdown
  */
-function startAdCountdown(duration, startTime) {
+function startAdCountdown(data) {
   const adCountdown = document.getElementById("ad-countdown");
+  const adDetails = document.getElementById("ad-details");
   const progressBar = document.createElement("div");
   progressBar.classList.add("progress-bar");
 
   if (!adCountdown.querySelector(".progress-bar")) {
     adCountdown.appendChild(progressBar);
   }
+
+  const duration = data.duration;
+  const start_time = data.startTime;
+  const snooze_count = data.snooze_count;
+  const snooze_refresh = data.snooze_refresh;
+  const last_ad = data.last_ad;
+  const preroll_free_time = data.preroll_free_time;
 
   adCountdown.style.display = "flex";
   adCountdown.style.opacity = "1";
@@ -180,7 +230,7 @@ function startAdCountdown(duration, startTime) {
 
   function updateCountdown() {
     const currentTime = Math.floor(Date.now() / 1000);
-    let remainingTime = (currentTime - startTime);
+    let remainingTime = currentTime - start_time;
 
     if (remainingTime <= 0) {
       adCountdown.innerHTML = `🚨 <strong>Ad Break Now!</strong>`;
@@ -201,6 +251,8 @@ function startAdCountdown(duration, startTime) {
     } else {
       adCountdown.classList.remove("blinking");
     }
+
+    adDetails.innerHTML = `<p><strong>Snooze Count:</strong> ${snooze_count}</p><p><strong>Last AD:</strong> ${last_ad}</p>`;
 
     adCountdown.innerHTML = `⏳ <strong>${formatTime(remainingTime)}</strong>`;
     adCountdown.appendChild(progressBar);

@@ -8,6 +8,7 @@ logger = logging.getLogger("uvicorn.error.stream")
 
 router = APIRouter(prefix="/stream", tags=["Stream Stats"])
 
+
 @router.get("/state", response_class=HTMLResponse)
 async def get_viewer_count(request: Request):
     """Retrieve the current Twitch viewer count and return it as an HTML snippet."""
@@ -23,9 +24,16 @@ async def get_viewer_count(request: Request):
             return "<p class='text-red-500 font-bold'>🔴 Offline</p>"
         else:
             if stream_info.type == "live":
-                stream_duration = datetime.datetime.now(datetime.timezone.utc) - stream_info.started_at
-                stream_duration = str(datetime.timedelta(seconds=int(stream_duration.total_seconds())))
-                formatted_duration = ":".join(stream_duration.split(":")[:2])  # Keep only HH:MM
+                stream_duration = (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    - stream_info.started_at
+                )
+                stream_duration = str(
+                    datetime.timedelta(seconds=int(stream_duration.total_seconds()))
+                )
+                formatted_duration = ":".join(
+                    stream_duration.split(":")[:2]
+                )  # Keep only HH:MM
 
                 return f"<p class='text-green-400 font-bold'>🟢 Online</p><p>{formatted_duration}</p>"
 

@@ -4,6 +4,7 @@ from database.couchdb_client import couchdb_client
 
 logger = logging.getLogger("uvicorn.error.events")
 
+
 def save_event(event_type: str, viewer_id: str = None, message: str = ""):
     """Save an event in CouchDB."""
     try:
@@ -14,7 +15,7 @@ def save_event(event_type: str, viewer_id: str = None, message: str = ""):
             "event_type": event_type,
             "viewer_id": viewer_id,
             "message": message,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "timestamp": datetime.datetime.utcnow().isoformat(),
         }
         db.save(event)
         return event
@@ -32,7 +33,9 @@ def get_recent_events(limit: int = 50):
         events = []
 
         # Sort documents by timestamp and limit results
-        for doc_id in sorted(db, key=lambda x: db[x]["timestamp"], reverse=True)[:limit]:
+        for doc_id in sorted(db, key=lambda x: db[x]["timestamp"], reverse=True)[
+            :limit
+        ]:
             doc = db[doc_id]
             if doc.get("type") == "event":
                 viewer_id = str(doc.get("viewer_id")) if doc.get("viewer_id") else None
@@ -40,21 +43,27 @@ def get_recent_events(limit: int = 50):
 
                 timestamp_str = doc.get("timestamp", "")
                 try:
-                    timestamp = datetime.datetime.fromisoformat(timestamp_str) if timestamp_str else None
+                    timestamp = (
+                        datetime.datetime.fromisoformat(timestamp_str)
+                        if timestamp_str
+                        else None
+                    )
                 except ValueError:
                     timestamp = None
 
-                events.append({
-                    "event_id": doc["_id"],
-                    "message": doc.get("message", ""),
-                    "event_type": doc["event_type"],
-                    "timestamp": timestamp,
-                    "username": user.get("display_name", "Unknown"),
-                    "avatar": user.get("profile_image_url", ""),
-                    "user_color": user.get("color", "#FFFFFF"),
-                    "badges": user.get("badges", ""),
-                    "twitch_id": doc.get("viewer_id")
-                })
+                events.append(
+                    {
+                        "event_id": doc["_id"],
+                        "message": doc.get("message", ""),
+                        "event_type": doc["event_type"],
+                        "timestamp": timestamp,
+                        "username": user.get("display_name", "Unknown"),
+                        "avatar": user.get("profile_image_url", ""),
+                        "user_color": user.get("color", "#FFFFFF"),
+                        "badges": user.get("badges", ""),
+                        "twitch_id": doc.get("viewer_id"),
+                    }
+                )
         return events
     except Exception as e:
         logger.error(f"❌ Failed to retrieve events: {e}")

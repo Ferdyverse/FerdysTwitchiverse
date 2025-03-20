@@ -11,8 +11,10 @@ def get_random_message_from_category(category: str):
         db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
 
         messages = [
-            db[doc] for doc in db
-            if db[doc].get("type") == "scheduled_message" and db[doc].get("category") == category
+            db[doc]
+            for doc in db
+            if db[doc].get("type") == "scheduled_message"
+            and db[doc].get("category") == category
         ]
 
         return random.choice(messages)["message"] if messages else None
@@ -30,7 +32,7 @@ def add_message_to_pool(category: str, message: str):
             "_id": f"message_{random.randint(10000, 99999)}",
             "type": "scheduled_message",
             "category": category,
-            "message": message
+            "message": message,
         }
 
         db.save(new_message)
@@ -62,7 +64,9 @@ def get_messages_from_pool(category: str):
 
         return [
             {"id": doc, "message": db[doc]["message"]}
-            for doc in db if db[doc].get("type") == "scheduled_message" and db[doc].get("category") == category
+            for doc in db
+            if db[doc].get("type") == "scheduled_message"
+            and db[doc].get("category") == category
         ]
     except Exception as e:
         logger.error(f"❌ Failed to retrieve messages from pool: {e}")
@@ -75,7 +79,9 @@ def get_categories():
         db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
 
         categories = set(
-            db[doc]["category"] for doc in db if db[doc].get("type") == "scheduled_message"
+            db[doc]["category"]
+            for doc in db
+            if db[doc].get("type") == "scheduled_message"
         )
 
         return list(categories)
@@ -84,7 +90,9 @@ def get_categories():
         return []
 
 
-def update_pool_message(message_id: str, new_category: str = None, new_message: str = None):
+def update_pool_message(
+    message_id: str, new_category: str = None, new_message: str = None
+):
     """Update an existing message in the CouchDB message pool, including category."""
     try:
         db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
@@ -112,12 +120,9 @@ def get_scheduled_message_pool():
         db = couchdb_client.get_db("scheduled_messages")  # ✅ Korrekte DB!
 
         messages = [
-            {
-                "id": doc,
-                "category": db[doc]["category"],
-                "message": db[doc]["message"]
-            }
-            for doc in db if db[doc].get("type") == "scheduled_message"
+            {"id": doc, "category": db[doc]["category"], "message": db[doc]["message"]}
+            for doc in db
+            if db[doc].get("type") == "scheduled_message"
         ]
 
         return messages

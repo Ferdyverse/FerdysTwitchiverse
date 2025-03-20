@@ -7,6 +7,7 @@ import html
 
 logger = logging.getLogger("uvicorn.error.misc")
 
+
 def save_tokens(scope, access_token, refresh_token):
     """Save or update Twitch tokens for a specific scope."""
     token_file = config.TOKEN_FILE
@@ -20,15 +21,13 @@ def save_tokens(scope, access_token, refresh_token):
     else:
         tokens = {}
 
-    tokens[scope] = {
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    }
+    tokens[scope] = {"access_token": access_token, "refresh_token": refresh_token}
 
     with open(token_file, "w") as f:
         json.dump(tokens, f, indent=4)
 
     logger.info(f"✅ Tokens saved for scope: {scope}")  # Debugging output
+
 
 def load_tokens(scope):
     """Load Twitch tokens from a file."""
@@ -43,6 +42,7 @@ def load_tokens(scope):
     except FileNotFoundError:
         return None
 
+
 def load_sequences():
     """Load action sequences from YAML file."""
     if not os.path.exists(config.SEQUENCES_FILE):
@@ -52,6 +52,7 @@ def load_sequences():
         data = yaml.safe_load(file)
 
     return data.get("sequences", {})
+
 
 def replace_emotes(message: str, emotes: dict) -> str:
     """Replace emote text in a message with Twitch emote images inline."""
@@ -76,6 +77,6 @@ def replace_emotes(message: str, emotes: dict) -> str:
 
     # Replace text with image HTML (from back to front)
     for start, end, img in emote_replacements:
-        message = message[:start] + img + message[end + 1:]
+        message = message[:start] + img + message[end + 1 :]
 
     return message

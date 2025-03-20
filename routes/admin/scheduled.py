@@ -4,14 +4,14 @@ from database.crud.scheduled_messages import (
     get_scheduled_message_pool,
     add_message_to_pool,
     delete_message_from_pool,
-    update_pool_message
+    update_pool_message,
 )
 from database.crud.scheduled_jobs import (
     get_scheduled_jobs,
     add_scheduled_job,
     update_scheduled_job,
     remove_scheduled_job,
-    get_scheduled_job_by_id
+    get_scheduled_job_by_id,
 )
 from modules.apscheduler import load_scheduled_jobs
 from fastapi.templating import Jinja2Templates
@@ -25,31 +25,41 @@ router = APIRouter(prefix="/scheduled", tags=["Scheduled Jobs"])
 def scheduled_jobs(request: Request):
     """Retrieve all scheduled jobs from CouchDB and return HTML."""
     jobs = get_scheduled_jobs()
-    return templates.TemplateResponse("includes/admin_scheduled_jobs.html", {
-        "request": request,
-        "jobs": jobs
-    })
+    return templates.TemplateResponse(
+        "includes/admin_scheduled_jobs.html", {"request": request, "jobs": jobs}
+    )
 
 
 @router.post("/jobs/add", response_model=dict)
-async def create_or_update_scheduled_job(
-    request: Request,
-    data: dict = Body(...)
-):
+async def create_or_update_scheduled_job(request: Request, data: dict = Body(...)):
     """HTMX endpoint to add or update a scheduled job."""
     job_id = data.get("id")
-    job_type = data.get("job_type")  # "twitch_message", "overlay_event", "interval", "cron"
+    job_type = data.get(
+        "job_type"
+    )  # "twitch_message", "overlay_event", "interval", "cron"
     interval_seconds = data.get("interval_seconds")
     cron_expression = data.get("cron_expression")
-    payload = data.get("payload", {})  # Stores additional data (e.g., Twitch message text)
+    payload = data.get(
+        "payload", {}
+    )  # Stores additional data (e.g., Twitch message text)
 
-    if not job_type or (job_type == "interval" and not interval_seconds) or (job_type == "cron" and not cron_expression):
-        raise HTTPException(status_code=400, detail="Missing required fields for job scheduling.")
+    if (
+        not job_type
+        or (job_type == "interval" and not interval_seconds)
+        or (job_type == "cron" and not cron_expression)
+    ):
+        raise HTTPException(
+            status_code=400, detail="Missing required fields for job scheduling."
+        )
 
     if job_id:
-        success = update_scheduled_job(job_id, job_type, interval_seconds, cron_expression, payload)
+        success = update_scheduled_job(
+            job_id, job_type, interval_seconds, cron_expression, payload
+        )
     else:
-        success = add_scheduled_job(job_type, interval_seconds, cron_expression, payload)
+        success = add_scheduled_job(
+            job_type, interval_seconds, cron_expression, payload
+        )
 
     # Reload jobs in APScheduler to apply changes
     await load_scheduled_jobs(request.app)
@@ -68,21 +78,25 @@ def get_scheduled_job(job_id: str):
 
 
 @router.post("/jobs/edit/{job_id}")
-async def edit_scheduled_job(
-    request: Request,
-    job_id: str,
-    data: dict = Body(...)
-):
+async def edit_scheduled_job(request: Request, job_id: str, data: dict = Body(...)):
     """Edit a scheduled job."""
     job_type = data.get("job_type")
     interval_seconds = data.get("interval_seconds")
     cron_expression = data.get("cron_expression")
     payload = data.get("payload", {})
 
-    if not job_type or (job_type == "interval" and not interval_seconds) or (job_type == "cron" and not cron_expression):
-        raise HTTPException(status_code=400, detail="Missing required fields for job scheduling.")
+    if (
+        not job_type
+        or (job_type == "interval" and not interval_seconds)
+        or (job_type == "cron" and not cron_expression)
+    ):
+        raise HTTPException(
+            status_code=400, detail="Missing required fields for job scheduling."
+        )
 
-    success = update_scheduled_job(job_id, job_type, interval_seconds, cron_expression, payload)
+    success = update_scheduled_job(
+        job_id, job_type, interval_seconds, cron_expression, payload
+    )
 
     # Reload jobs in APScheduler to apply changes
     await load_scheduled_jobs(request.app)
@@ -106,10 +120,9 @@ def delete_scheduled_job(request: Request, job_id: str):
 def scheduled_message_pool(request: Request):
     """Retrieve all scheduled messages from CouchDB."""
     messages = get_scheduled_message_pool()
-    return templates.TemplateResponse("includes/admin_message_pool.html", {
-        "request": request,
-        "messages": messages
-    })
+    return templates.TemplateResponse(
+        "includes/admin_message_pool.html", {"request": request, "messages": messages}
+    )
 
 
 @router.post("/pool/add")
@@ -126,10 +139,7 @@ def create_pool_message(data: dict = Body(...)):
 
 
 @router.post("/pool/edit/{message_id}")
-def edit_pool_message(
-    message_id: str,
-    data: dict = Body(...)
-):
+def edit_pool_message(message_id: str, data: dict = Body(...)):
     """Update a message in the scheduled message pool."""
     new_category = data.get("category")
     new_message = data.get("message")

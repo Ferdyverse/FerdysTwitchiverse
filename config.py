@@ -6,9 +6,16 @@ import pytz
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path)
 
+
 def getenv_bool(var_name: str, default: bool = False) -> bool:
     """Retrieve an environment variable as a boolean."""
-    return os.getenv(var_name, str(default)).strip().lower() in ("true", "1", "yes", "on")
+    return os.getenv(var_name, str(default)).strip().lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
+
 
 def getenv_int(var_name: str, default: int = 0) -> int:
     """Retrieve an environment variable as an integer."""
@@ -16,6 +23,7 @@ def getenv_int(var_name: str, default: int = 0) -> int:
         return int(os.getenv(var_name, default))
     except ValueError:
         return default
+
 
 DISABLE_HEAT_API = getenv_bool("DISABLE_HEAT_API")
 DISABLE_PRINTER = getenv_bool("DISABLE_PRINTER")
@@ -32,7 +40,7 @@ APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 APP_DOMAIN = "http://localhost:8000"
 
 # Printer configuration
-PRINTER_VENDOR_ID = 0x0aa7  # WINCOR NIXDORF
+PRINTER_VENDOR_ID = 0x0AA7  # WINCOR NIXDORF
 PRINTER_PRODUCT_ID = 0x0304  # TH230
 PRINTER_IN_EP = 0x81
 PRINTER_OUT_EP = 0x02
@@ -50,12 +58,14 @@ else:
     TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
     TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
     TWITCH_CHANNEL = "Ferdyverse"
-    TWITCH_CHANNEL_ID = 136134545 # Ferdyverse
+    TWITCH_CHANNEL_ID = 136134545  # Ferdyverse
     TWITCH_API_BASE_URL = "https://api.twitch.tv/helix"
     TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
 
 if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
-    raise RuntimeError("🚨 Missing Twitch credentials! Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env")
+    raise RuntimeError(
+        "🚨 Missing Twitch credentials! Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env"
+    )
 
 # Database
 COUCHDB_USER = os.getenv("COUCHDB_USER", "admin")
@@ -73,10 +83,10 @@ OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TTS_AUDIO_PATH = "static/sounds/tts/"  # Directory for storing TTS files
 
-#Spotify
-SPOTIFY_CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET=os.getenv("SPOTIFY_CLIENT_SECRET")
-SPOTIFY_REDIRECT_URI="http://localhost:8000/spotify/auth"
+# Spotify
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_REDIRECT_URI = "http://localhost:8000/spotify/auth"
 
 # Additional settings
 TOKEN_FILE = "storage/twitch_tokens.json"
