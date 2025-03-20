@@ -116,6 +116,7 @@ function connectWebSocket() {
 
   // 📌 Icon Handling
   function handleIcon({ id, action, name }) {
+    console.log(`${id}, ${action}, ${name}`)
     action === "add" ? addIcon(id, name) : removeIcon(id);
   }
 
@@ -191,7 +192,12 @@ function attemptReconnect() {
 function handleOverlayAction(action, payload) {
   switch (action) {
     case "show_icon":
-      addIcon(payload.id, payload.name);
+      if (payload.action == "add") {
+        console.log(`${payload.icon}, ${payload.name}`)
+        addIcon(payload.name, payload.icon);
+      } else {
+        removeIcon(payload.name);
+      }
       break;
     case "play_animation":
       showAlertWithGSAP(payload.type, payload.user, payload.size);
