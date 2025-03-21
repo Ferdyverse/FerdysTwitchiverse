@@ -421,7 +421,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Ban User
   window.banUser = async () => {
     if (!selectedUser) return;
-    const response = await fetch(`/admin/twitch/ban-user/${selectedUser}`, {
+    const response = await fetch(`/admin/viewers/ban/${selectedUser}`, {
       method: "POST",
     });
 
@@ -437,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Timeout User
   window.timeoutUser = async () => {
     if (!selectedUser) return;
-    const response = await fetch(`/admin/twitch/timeout-user/${selectedUser}`, {
+    const response = await fetch(`/admin/viewers/timeout/${selectedUser}`, {
       method: "POST",
     });
 

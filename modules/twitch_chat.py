@@ -155,7 +155,7 @@ class TwitchChatBot:
 
         username = event.user.display_name
         twitch_id = str(event.user.id)  # Ensure Twitch ID is a string
-        message = replace_emotes(html.escape(event.text), event.emotes)
+        message = replace_emotes(html.escape(event.text, True), event.emotes)
         message_id = event.id
         stream_id = datetime.datetime.utcnow().strftime("%Y%m%d")
         emotes_used = len(event.emotes) if event.emotes else 0

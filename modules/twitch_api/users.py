@@ -224,3 +224,27 @@ class TwitchUsers:
             return user_data
         except Exception as e:
             return None
+
+    async def ban_user(self, user_id, reason):
+        try:
+            self.twitch.ban_user(
+                config.TWITCH_CHANNEL_ID,
+                config.TWITCH_CHANNEL_ID,
+                user_id,
+                reason,
+                duration=None,
+            )
+        except Exception as e:
+            return None
+
+    async def timeout_user(self, user_id, reason, duration):
+        try:
+            self.twitch.ban_user(
+                config.TWITCH_CHANNEL_ID,
+                config.TWITCH_CHANNEL_ID,
+                user_id,
+                reason,
+                duration=duration,
+            )
+        except Exception as e:
+            return None

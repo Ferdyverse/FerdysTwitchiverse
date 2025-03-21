@@ -64,3 +64,35 @@ async def get_viewer_count(request: Request):
     except Exception as e:
         logger.error(f"❌ Error fetching viewer count: {e}")
         return "<span class='text-red-500'>N/A</span>"
+
+
+@router.post("/ban/{user_id}")
+async def ban_viewer(user_id: int, request: Request):
+    twitch_api = request.app.state.twitch_api
+
+    if not twitch_api or not twitch_api.is_running:
+        return {"status": "error", "message": "Twitch API not initialized"}
+
+    try:
+        twitch_api.users.ban_user(user_id, "Admin Interface Ban")
+    except Exception as e:
+        logger.error(f"❌ Failed to ban viewer: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update viewer: {str(e)}"
+        )
+
+
+@router.post("/timeout/{user_id}")
+async def timeout_viewer(user_id: int, request: Request):
+    twitch_api = request.app.state.twitch_api
+
+    if not twitch_api or not twitch_api.is_running:
+        return {"status": "error", "message": "Twitch API not initialized"}
+
+    try:
+        twitch_api.users.timeout_user(user_id, "Admin Timeout", 120)
+    except Exception as e:
+        logger.error(f"❌ Failed to timeout viewer: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update viewer: {str(e)}"
+        )

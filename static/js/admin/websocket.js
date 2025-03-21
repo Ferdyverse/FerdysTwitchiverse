@@ -8,6 +8,9 @@ const MAX_EVENTS = 50; // Limit events to prevent overflow
 document.addEventListener("DOMContentLoaded", function () {
   loadChatHistory();
   connectWebSocket();
+  setTimeout(() => {
+        loadADs();
+      }, 10000)
 });
 
 /**
@@ -262,6 +265,23 @@ function startAdCountdown(data) {
   }
 
   updateCountdown();
+}
+
+function loadADs() {
+  console.log("📥 Loading ads...");
+  fetch("/ads")
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    })
+    .then(data => {
+      startAdCountdown(data);
+    })
+    .catch(error => {
+      console.error("Error fetching ads:", error);
+    });
 }
 
 /**
