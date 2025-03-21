@@ -40,8 +40,11 @@ class TwitchUsers:
                 db = couchdb_client.get_db("viewers")
 
                 # Fetch existing viewer data (if available)
-                existing_viewer = db.get(str(user.id))
-                logger.info(f"Existing User: {existing_viewer}")
+                doc_id = str(user.id)
+                if doc_id in db:
+                    existing_viewer = db[doc_id]
+                else:
+                    existing_viewer = None
 
                 user_color = None
                 user_badges = []
@@ -61,41 +64,44 @@ class TwitchUsers:
                         user_color = chat_data.get("color", user_color)
 
                 follow_state = await self.get_user_follow_state(user_id=user.id)
-                if follow_state is not None:
+                if len(follow_state.data) > 0:
                     follower_date = follow_state.data[0].followed_at.isoformat()
                 else:
                     follower_date = None
 
-                # Ensure no missing values in the document
-                viewer_data = {
-                    "_id": str(user.id),
-                    "login": user.login,
-                    "display_name": user.display_name,
-                    "account_type": user.type or "",
-                    "broadcaster_type": user.broadcaster_type or "",
-                    "profile_image_url": user.profile_image_url or "",
-                    "account_age": (
-                        existing_viewer.get("account_age", "")
-                        if existing_viewer
-                        else ""
-                    ),
-                    "follower_date": follower_date,
-                    "subscriber_date": (
-                        existing_viewer.get("subscriber_date", None)
-                        if existing_viewer
-                        else None
-                    ),
-                    "color": user_color,
-                    "badges": ",".join(user_badges) if user_badges else None,
-                }
+                account_age = user.created_at.isoformat()
 
-                # Save or update viewer data in CouchDB
-                if existing_viewer:
-                    viewer_data["_rev"] = existing_viewer[
-                        "_rev"
-                    ]  # Preserve document revision for updates
-                    db.save(viewer_data)
+                if existing_viewer is not None:
+                    existing_viewer["login"] = user.login
+                    existing_viewer["display_name"] = user.display_name
+                    existing_viewer["account_type"] = user.type or ""
+                    existing_viewer["broadcaster_type"] = user.broadcaster_type or ""
+                    existing_viewer["profile_image_url"] = user.profile_image_url or ""
+                    existing_viewer["account_age"] = account_age
+                    existing_viewer["follower_date"] = follower_date
+                    existing_viewer["color"] = user_color
+                    existing_viewer["badges"] = (
+                        ",".join(user_badges) if user_badges else None
+                    )
+
+                    db.save(existing_viewer)
+
                 else:
+                    # Ensure no missing values in the document
+                    viewer_data = {
+                        "_id": doc_id,
+                        "login": user.login,
+                        "display_name": user.display_name,
+                        "account_type": user.type or "",
+                        "broadcaster_type": user.broadcaster_type or "",
+                        "profile_image_url": user.profile_image_url or "",
+                        "account_age": account_age,
+                        "follower_date": follower_date,
+                        "subscriber_date": None,
+                        "color": user_color,
+                        "badges": ",".join(user_badges) if user_badges else None,
+                    }
+
                     db[viewer_data["_id"]] = viewer_data  # Create new document
 
                 return {
@@ -108,9 +114,9 @@ class TwitchUsers:
                     "color": user_color,
                     "badges": user_badges,
                 }
-
-            logger.warning(f"⚠️ No user found for {username or user_id}")
-            return None
+            else:
+                logger.warning(f"⚠️ No user found for {username or user_id}")
+                return None
 
         except Exception as e:
             logger.error(f"❌ Error fetching user info for {username or user_id}: {e}")
