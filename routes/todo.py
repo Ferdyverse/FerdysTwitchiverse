@@ -5,7 +5,7 @@ from database.crud.todos import save_todo, get_todos, complete_todo
 
 router = APIRouter(prefix="/todo", tags=["ToDos"])
 
-logger = logging.getLogger("uvicorn.error.todo")
+logger = logging.getLogger("uvicorn.error.routes.todo")
 
 
 @router.post("/")

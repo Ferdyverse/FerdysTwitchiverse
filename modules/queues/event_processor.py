@@ -112,9 +112,12 @@ async def process_event_queue(app):
                             PrintElement(type="message", text=message),
                         ]
 
+                        # Fetch cam errors
                         try:
-                            result = await obs.find_scene_item("Pixel 2")
-                            for item in result:
+                            cam_result = await obs.find_scene_item(
+                                config.OBS_PRINTER_CAM
+                            )
+                            for item in cam_result:
                                 await obs.set_source_visibility(
                                     item["scene"], item["id"], True
                                 )
@@ -161,10 +164,13 @@ async def process_event_queue(app):
                     )
                 finally:
                     await asyncio.sleep(2)
-                    for item in result:
-                        await obs.set_source_visibility(
-                            item["scene"], item["id"], False
-                        )
+                    try:
+                        for item in cam_result:
+                            await obs.set_source_visibility(
+                                item["scene"], item["id"], False
+                            )
+                    except Exception as e:
+                        logger.error("Could not deactivate Printer cam")
 
             # Process heatmap clicks
             if "heat_click" in task:

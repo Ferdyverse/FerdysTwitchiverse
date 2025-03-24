@@ -5,7 +5,8 @@ import pytz
 from modules.websocket_handler import broadcast_message
 from database.crud.events import save_event
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api.ads")
+
 
 
 class TwitchAds:

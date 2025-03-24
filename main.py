@@ -25,42 +25,7 @@ from modules.websocket_handler import websocket_endpoint
 from modules.lifespan import lifespan
 from modules.sequence_runner import get_sequence_names
 
-MODULE_COLORS = {
-    "twitch_api": "\033[95m",  # Purple
-    "twitch_chat": "\033[94m",  # Blue
-    "heat_api": "\033[93m",  # Yellow
-    "event_queue_processor": "\033[92m",  # Green
-    "printer_manager": "\033[96m",  # Cyan
-    "uvicorn.error": "\033[91m",  # Red (Uvicorn errors)
-    "uvicorn.lifespan": "\033[35m",  # Magenta
-    "uvicorn": "\033[90m",  # Dark Gray (General Uvicorn logs)
-    "database": "\033[38;5;208m",  # Orange
-    "scheduled_messages": "\033[38;5;214m",  # Gold
-    "queue_manager": "\033[38;5;33m",  # Deep Blue
-}
-
-RESET_COLOR = "\033[0m"
-
-
-class ColorFormatter(logging.Formatter):
-    """Custom formatter to apply colors based on module names only."""
-
-    def format(self, record):
-        module_color = MODULE_COLORS.get(record.module, "\033[97m")
-
-        log_message = super().format(record)
-
-        return f"{module_color}{log_message}{RESET_COLOR}"
-
-
-formatter = ColorFormatter(
-    "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-    datefmt=config.APP_LOG_TIME_FORMAT,
-)
-
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-for handler in logging.getLogger("uvicorn").handlers:
-    handler.setFormatter(formatter)
+from app_log import *
 
 templates = Jinja2Templates(directory="templates")
 

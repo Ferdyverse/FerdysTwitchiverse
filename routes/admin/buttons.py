@@ -12,7 +12,7 @@ from database.crud.admin_buttons import (
 
 templates = Jinja2Templates(directory="templates")
 
-logger = logging.getLogger("uvicorn.error.admin")
+logger = logging.getLogger("uvicorn.error.routes.admin.buttons")
 
 router = APIRouter(prefix="/buttons", tags=["Admin Buttons"])
 

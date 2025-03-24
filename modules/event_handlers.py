@@ -23,6 +23,7 @@ EVENT_MAPPING = {
 }
 
 
+# * This function is used in the send_to_overlay function which is used by the sequence runner
 async def handle_event(
     event_type, event_data, add_clickable_object=None, remove_clickable_object=None
 ):

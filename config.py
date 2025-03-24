@@ -35,9 +35,11 @@ USE_MOCK_API = getenv_bool("ENABLE_MOCK_API")
 # App configuration
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
+APP_DOMAIN = "http://localhost:8000"
+
+APP_LOG_DIR = "logs"
 APP_LOG_LEVEL = "info"
 APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-APP_DOMAIN = "http://localhost:8000"
 
 # Printer configuration
 PRINTER_MODE = "cups"  # Options: usb, file, network, cups
@@ -63,14 +65,12 @@ PRINTER_OUT_EP = 0x02
 PRINTER_PROFILE = "TH230"
 
 if USE_MOCK_API:
-    print("⚠️ Using Twitch Mock API")
     TWITCH_CLIENT_ID = "2b9b72c93c0154e624b6abdee104bc"
     TWITCH_CLIENT_SECRET = "b66a128609232b7153265668f5c0a5"
     TWITCH_CHANNEL = "mock-channel"
     TWITCH_CHANNEL_ID = "79606119"
     TWITCH_API_BASE_URL = "http://localhost:8080/"
 else:
-    print("✅ Using Live Twitch API")
     TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
     TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
     TWITCH_CHANNEL = "Ferdyverse"
@@ -94,6 +94,7 @@ COUCHDB_URL = f"http://{COUCHDB_USER}:{COUCHDB_PASSWORD}@{COUCHDB_HOST}:{COUCHDB
 OBS_WS_HOST = "localhost"
 OBS_WS_PORT = 4455
 OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
+OBS_PRINTER_CAM = "Pixel 2"
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

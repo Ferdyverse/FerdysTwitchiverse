@@ -4,7 +4,7 @@ from modules.websocket_handler import broadcast_message
 from database.crud.viewers import save_viewer
 import logging
 
-logger = logging.getLogger("uvicorn.error.viewers")
+logger = logging.getLogger("uvicorn.error.routes.admin.viewers")
 
 router = APIRouter(prefix="/viewers", tags=["Viewers"])
 

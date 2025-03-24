@@ -8,7 +8,7 @@ import config
 import logging
 import html
 
-logger = logging.getLogger("uvicorn.error.twitch")
+logger = logging.getLogger("uvicorn.error.routes.admin.twitch")
 router = APIRouter(prefix="/twitch", tags=["Twitch Integration"])
 
 

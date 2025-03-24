@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Request, Body
 from fastapi.responses import HTMLResponse
 from database.crud.scheduled_messages import (
@@ -19,6 +20,9 @@ from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="templates")
 
 router = APIRouter(prefix="/scheduled", tags=["Scheduled Jobs"])
+
+
+logger = logging.getLogger("uvicorn.error.routes.admin.scheduled")
 
 
 @router.get("/jobs", response_class=HTMLResponse)

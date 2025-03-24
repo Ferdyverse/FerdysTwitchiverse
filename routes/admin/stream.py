@@ -4,7 +4,7 @@ import datetime
 
 import logging
 
-logger = logging.getLogger("uvicorn.error.stream")
+logger = logging.getLogger("uvicorn.error.routes.admin.stream")
 
 router = APIRouter(prefix="/stream", tags=["Stream Stats"])
 

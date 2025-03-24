@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("uvicorn.error.twitch_api_chat")
+logger = logging.getLogger("uvicorn.error.twitch_api.chat")
 
 
 class TwitchChat:

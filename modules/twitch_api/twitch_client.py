@@ -10,7 +10,7 @@ from modules.twitch_api import (
     TwitchRewards,
 )
 
-logger = logging.getLogger("uvicorn.error.twitch_api_client")
+logger = logging.getLogger("uvicorn.error.twitch_api.client")
 
 REAL_SCOPES = [
     AuthScope.ANALYTICS_READ_EXTENSION,

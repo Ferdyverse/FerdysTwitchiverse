@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("uvicorn.error.twitch_api")
+logger = logging.getLogger("uvicorn.error.twitch_api.utils")
 
 
 def format_time(time_str):

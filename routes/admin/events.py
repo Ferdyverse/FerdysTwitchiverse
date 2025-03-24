@@ -6,7 +6,7 @@ from database.crud.events import get_recent_events
 
 templates = Jinja2Templates(directory="templates")
 
-logger = logging.getLogger("uvicorn.error.events")
+logger = logging.getLogger("uvicorn.error.routes.admin.events")
 
 router = APIRouter(prefix="/events", tags=["Events"])
 

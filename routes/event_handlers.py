@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("uvicorn.error.events")
+logger = logging.getLogger("uvicorn.error.routes.events")
 
 
 async def handle_event(event_type, event_data, add_clickable, remove_clickable):

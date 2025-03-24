@@ -18,7 +18,7 @@ from database.crud.events import save_event
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/overlay", tags=["Overlay"])
 
-logger = logging.getLogger("uvicorn.error.overlay")
+logger = logging.getLogger("uvicorn.error.routes.overlay")
 
 
 ### Overlay Pages ###
@@ -41,6 +41,7 @@ async def raiders(request: Request):
 
 
 ### Sending Data to Overlay ###
+# * This function is used in the sequence runner to send data to the overlay
 @router.post("/send", summary="Send data to the overlay")
 async def send_to_overlay(payload: OverlayMessage = Body(...)):
     """

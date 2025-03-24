@@ -8,7 +8,7 @@ from database.crud.overlay import save_overlay_data
 import datetime
 import config
 
-logger = logging.getLogger("uvicorn.error.twitch_api_eventsub")
+logger = logging.getLogger("uvicorn.error.twitch_api.eventsub")
 
 
 class TwitchEventSub:
