@@ -78,7 +78,7 @@ class TwitchAPI:
         self.event_queue = None
         self.auth = TwitchAuth(client_id, client_secret, self.get_scopes(), test_mode)
         self.twitch = None
-        self.rewards = TwitchRewards()
+        self.rewards = None
         self.eventsub = None
         self.ads = TwitchAds()
         self.chat = TwitchChat()
@@ -107,6 +107,8 @@ class TwitchAPI:
 
         self.users = TwitchUsers(self.twitch, self.test_mode)
         await self.users.initialize_badges()
+
+        self.rewards = TwitchRewards(self.event_queue)
 
         self.eventsub = TwitchEventSub(
             twitch=self.twitch,

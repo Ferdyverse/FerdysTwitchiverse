@@ -1,5 +1,5 @@
 import logging
-from escpos.printer import Usb
+from escpos.printer import Usb, File, Network, CupsPrinter
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
@@ -13,20 +13,47 @@ logger = logging.getLogger("uvicorn.error.printer")
 class PrinterManager:
     def __init__(self):
         self.printer = None
+        self.connection_type = config.PRINTER_MODE
 
     def initialize(self):
         """
         Initialize the USB printer.
         """
         try:
-            self.printer = Usb(
-                config.PRINTER_VENDOR_ID,
-                config.PRINTER_PRODUCT_ID,
-                timeout=0,
-                in_ep=config.PRINTER_IN_EP,
-                out_ep=config.PRINTER_OUT_EP,
-                profile=config.PRINTER_PROFILE,
-            )
+            if self.connection_type == "usb":
+                self.printer = Usb(
+                    config.PRINTER_VENDOR_ID,
+                    config.PRINTER_PRODUCT_ID,
+                    timeout=0,
+                    in_ep=config.PRINTER_IN_EP,
+                    out_ep=config.PRINTER_OUT_EP,
+                    profile=config.PRINTER_PROFILE,
+                )
+            elif self.connection_type == "file":
+                self.printer = File(
+                    config.PRINTER_FILE,
+                    auto_flush=True,
+                    in_ep=config.PRINTER_IN_EP,
+                    out_ep=config.PRINTER_OUT_EP,
+                    profile=config.PRINTER_PROFILE,
+                )
+            elif self.connection_type == "network":
+                self.printer = Network(
+                    config.PRINTER_HOST,
+                    config.PRINTER_PORT,
+                    timeout=0,
+                    in_ep=config.PRINTER_IN_EP,
+                    out_ep=config.PRINTER_OUT_EP,
+                    profile=config.PRINTER_PROFILE,
+                )
+            elif self.connection_type == "cups":
+                self.printer = CupsPrinter(
+                    config.PRINTER_CUPS_NAME,
+                    host=config.PRINTER_CUPS_HOST,
+                    in_ep=config.PRINTER_IN_EP,
+                    out_ep=config.PRINTER_OUT_EP,
+                    profile=config.PRINTER_PROFILE,
+                )
             logger.info("🖨️ Printer module initialized successfully!")
         except Exception as e:
             logger.error(f"🖨️ Failed to initialize the printer module: {e}")

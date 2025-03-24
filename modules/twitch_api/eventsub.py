@@ -145,6 +145,9 @@ class TwitchEventSub:
 
         save_event("follow", user_id, "")
 
+        if not self.test_mode:
+            save_overlay_data("last_follower", username)
+
         await broadcast_message(
             {"alert": {"type": "follower", "user": username, "size": 1}}
         )
@@ -165,6 +168,9 @@ class TwitchEventSub:
         )
 
         save_event("subscription", user_id, f"Tier: {data.event.tier}")
+
+        if not self.test_mode:
+            save_overlay_data("last_subscriber", username)
 
         await broadcast_message(
             {"alert": {"type": "subscriber", "user": username, "size": 1}}

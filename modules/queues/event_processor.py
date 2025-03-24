@@ -1,9 +1,11 @@
 import asyncio
 import inspect
 import logging
+import json
 from twitchAPI.type import CustomRewardRedemptionStatus
 
 from database.crud.events import save_event
+from modules.schemas import PrintElement
 from modules.websocket_handler import broadcast_message
 from modules.sequence_runner import execute_sequence
 from modules.queues.function_registry import get_function
@@ -25,6 +27,7 @@ async def process_event_queue(app):
     twitch_chat = app.state.twitch_chat
     obs = app.state.obs
     event_queue = app.state.event_queue
+    printer = app.state.printer
 
     try:
         while True:
@@ -93,33 +96,53 @@ async def process_event_queue(app):
                 user_id = task["user_id"]
 
                 try:
-                    user_data = await twitch_api.get_user_info(user_id=user_id)
+                    user_data = await twitch_api.users.get_user_info(user_id=user_id)
 
                     if command == "print":
                         message = task.get("message", "")
                         logger.info(f"🖨️ Printing requested by {user}: {message}")
 
-                        print_request = {
-                            "print_elements": [
-                                {"type": "headline_1", "text": "Chatogram"},
-                                {
-                                    "type": "image",
-                                    "url": user_data.get("profile_image_url", ""),
-                                },
-                                {"type": "headline_2", "text": user},
-                                {"type": "message", "text": message},
-                            ],
-                            "print_as_image": True,
-                        }
+                        print_elements = [
+                            PrintElement(type="headline_1", text="Chatogram"),
+                            PrintElement(
+                                type="image",
+                                url=user_data.get("profile_image_url", ""),
+                            ),
+                            PrintElement(type="headline_2", text=user),
+                            PrintElement(type="message", text=message),
+                        ]
 
-                        result = await obs.find_scene_item("Pixel 2")
-                        for item in result:
-                            await obs.set_source_visibility(
-                                item["scene"], item["id"], True
-                            )
+                        try:
+                            result = await obs.find_scene_item("Pixel 2")
+                            for item in result:
+                                await obs.set_source_visibility(
+                                    item["scene"], item["id"], True
+                                )
+                        except Exception as e:
+                            logger.error(f"❌ Error switching CAM on {e}")
 
-                        response = await broadcast_message(print_request)
-                        logger.info(f"🖨️ Print status: {response}")
+                        # Print Message
+                        if not printer.is_online():
+                            printer.reconnect()
+                            if not printer.is_online():
+                                logger.error("❌ Printer not available")
+
+                        # Print a image
+                        pimage = await printer.create_image(elements=print_elements)
+                        printer.printer.image(
+                            pimage,
+                            high_density_horizontal=True,
+                            high_density_vertical=True,
+                            impl="bitImageColumn",
+                            fragment_height=960,
+                            center=True,
+                        )
+                        printer.cut_paper(partial=True)
+
+                        if printer.connection_type == "cups":
+                            printer.printer.close()
+
+                        logger.info(f"🖨️ Print status: done!")
 
                         await twitch_api.twitch.update_redemption_status(
                             config.TWITCH_CHANNEL_ID,

@@ -40,8 +40,24 @@ APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 APP_DOMAIN = "http://localhost:8000"
 
 # Printer configuration
+PRINTER_MODE = "cups"  # Options: usb, file, network, cups
+
+# * USB MODE
 PRINTER_VENDOR_ID = 0x0AA7  # WINCOR NIXDORF
 PRINTER_PRODUCT_ID = 0x0304  # TH230
+
+# * FILE MODE
+PRINTER_FILE = ""
+
+# * NETWORK MODE
+PRINTER_HOST = ""
+PRINTER_PORT = ""
+
+# * CUPS
+PRINTER_CUPS_NAME = "TH230"
+PRINTER_CUPS_HOST = "192.168.10.5"
+
+# General Printer settings
 PRINTER_IN_EP = 0x81
 PRINTER_OUT_EP = 0x02
 PRINTER_PROFILE = "TH230"

@@ -47,6 +47,9 @@ async def print_data(request: PrintRequest):
                 if await printer_manager.print_element(element):
                     printer_manager.newline(1)
         printer_manager.cut_paper(partial=True)
+
+        if printer_manager.connection_type == "cups":
+            printer_manager.printer.close()
         return {"status": "success", "message": "Print done!"}
     except Exception as e:
         logger.error(f"Error during printing: {e}")

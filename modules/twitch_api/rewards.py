@@ -9,6 +9,10 @@ logger = logging.getLogger("uvicorn.error.twitch_api_rewards")
 
 
 class TwitchRewards:
+
+    def __init__(self, event_queue):
+        self.event_queue = event_queue
+
     async def handle_channel_point_redeem(self, data):
         """Handle channel point redemptions, save them, and broadcast them"""
 
