@@ -163,7 +163,9 @@ async def process_event_queue(app):
                         CustomRewardRedemptionStatus.CANCELED,
                     )
                 finally:
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(
+                        6
+                    )  # * Sleep is currently set to fit the cups delay
                     try:
                         for item in cam_result:
                             await obs.set_source_visibility(

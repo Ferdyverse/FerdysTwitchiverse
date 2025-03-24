@@ -20,6 +20,7 @@ LOG_MODULE_MAP = {
     "lifespan": "Lifespan",
     "printer_manager": "Printer",
     "queue_manager": "QueueManager",
+    "scheduled_jobs": "ScheduledJobs",
     "scheduled_messages": "Scheduler",
     "sequence_runner": "SequenceRunner",
     "twitch_api": "TwitchAPI",
