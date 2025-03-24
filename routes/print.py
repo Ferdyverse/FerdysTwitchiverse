@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException
 import logging
+import config
 from modules.schemas import PrintRequest
 
 router = APIRouter(prefix="/print", tags=["Printer"])
 
-logger = logging.getLogger("uvicorn.error.printer")
+logger = logging.getLogger("uvicorn.error.routes.print")
 
 
 @router.post(
@@ -28,9 +29,12 @@ async def print_data(request: PrintRequest):
             raise HTTPException(status_code=500, detail="Printer not available")
 
     try:
-        result = await obs.find_scene_item("Pixel 2")
-        for item in result:
-            await obs.set_source_visibility(item["scene"], item["id"], True)
+        try:
+            cam_result = await obs.find_scene_item(config.OBS_PRINTER_CAM)
+            for item in cam_result:
+                await obs.set_source_visibility(item["scene"], item["id"], True)
+        except Exception as e:
+            logger.error("Could not activate Printer Camera")
         if request.print_as_image:
             # Print a image
             pimage = await printer_manager.create_image(elements=request.print_elements)
@@ -51,3 +55,9 @@ async def print_data(request: PrintRequest):
     except Exception as e:
         logger.error(f"Error during printing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        try:
+            for item in cam_result:
+                await obs.set_source_visibility(item["scene"], item["id"], False)
+        except Exception as e:
+            logger.error("Could not deactivate Printer Camera")

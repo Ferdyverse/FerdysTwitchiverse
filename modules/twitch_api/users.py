@@ -4,7 +4,7 @@ import config
 import datetime
 from database.couchdb_client import couchdb_client
 
-logger = logging.getLogger("uvicorn.error.twitch_api_user")
+logger = logging.getLogger("uvicorn.error.twitch_api.user")
 
 
 class TwitchUsers:

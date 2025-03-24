@@ -5,7 +5,7 @@ import re
 
 router = APIRouter(prefix="/hub", tags=["Hub"])
 
-logger = logging.getLogger("uvicorn.error.hub")
+logger = logging.getLogger("uvicorn.error.routes.hub")
 
 REGEX = [
     r"^(((\W|[pP])(.|r)(r|.)n)|(p.n.{2}|[^cC]r.n))",

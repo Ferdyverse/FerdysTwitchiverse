@@ -35,9 +35,11 @@ USE_MOCK_API = getenv_bool("ENABLE_MOCK_API")
 # App configuration
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
+APP_DOMAIN = "http://localhost:8000"
+
+APP_LOG_DIR = "logs"
 APP_LOG_LEVEL = "info"
 APP_LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-APP_DOMAIN = "http://localhost:8000"
 
 # Printer configuration
 PRINTER_VENDOR_ID = 0x0AA7  # WINCOR NIXDORF
@@ -78,6 +80,7 @@ COUCHDB_URL = f"http://{COUCHDB_USER}:{COUCHDB_PASSWORD}@{COUCHDB_HOST}:{COUCHDB
 OBS_WS_HOST = "localhost"
 OBS_WS_PORT = 4455
 OBS_WS_PASSWORD = os.getenv("OBS_WS_PASSWORD")
+OBS_PRINTER_CAM = "Pixel 2"
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

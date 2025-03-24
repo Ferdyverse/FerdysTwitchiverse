@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 import logging
 import config
 
-logger = logging.getLogger("uvicorn.error.twitch")
+logger = logging.getLogger("uvicorn.error.routes.twitch")
 router = APIRouter(prefix="/twitch", tags=["Twitch Integration"])
 
 
