@@ -24,7 +24,6 @@ LOG_MODULE_MAP = {
     "sequence_runner": "SequenceRunner",
     "twitch_api": "TwitchAPI",
     "twitch_chat": "TwitchChat",
-    "uvicorn.error": "UvicornError",
     "uvicorn": "Uvicorn",
 }
 
@@ -33,13 +32,13 @@ MODULE_COLORS = {
     "Database": "\033[38;5;208m",  # Orange
     "EventQueue": "\033[92m",  # Green
     "HeatmapAPI": "\033[93m",  # Yellow
+    "Lifespan": "\033[91m",  # Red
     "Printer": "\033[96m",  # Cyan
     "QueueManager": "\033[38;5;33m",  # Deep Blue
     "Scheduler": "\033[38;5;214m",  # Gold
     "TwitchAPI": "\033[95m",  # Purple
     "TwitchChat": "\033[94m",  # Blue
     "Uvicorn": "\033[90m",  # Dark Gray (General Uvicorn logs)
-    "UvicornError": "\033[91m",  # Red (Uvicorn errors)
 }
 
 RESET_COLOR = "\033[0m"
