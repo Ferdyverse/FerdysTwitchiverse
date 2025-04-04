@@ -28,6 +28,12 @@ async def overlay(request: Request):
     return templates.TemplateResponse("overlay.html", {"request": request})
 
 
+@router.get("/chat", response_class=HTMLResponse)
+async def overlay(request: Request):
+    """Display the main overlay page for OBS."""
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+
 @router.get("/solar", response_class=HTMLResponse)
 async def solarsystem(request: Request):
     """Display the solar system overlay."""

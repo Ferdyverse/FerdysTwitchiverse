@@ -11,7 +11,6 @@ import {
   removeTodo,
 } from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
-import { updateChat } from "./modules/chat.js";
 import {
   createClickableElement,
   removeClickableElement,

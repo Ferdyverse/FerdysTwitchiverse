@@ -1,17 +1,25 @@
+body {
+    width: 500px;
+    height: 400px;
+
+    overflow: hidden;
+}
+
+
 #chat-container {
     position: absolute;
-    bottom: 20px;
-    left: 20px;
-    width: 350px;
-    height: 250px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    padding-left: 10px;
 
     background-color: rgba(0, 0, 0, 0.6); /* Transparent but visible */
 
     color: limegreen;
     font-family: "Courier New", Courier, monospace;
-    font-size: 16px;
-    padding: 10px;
-    overflow: hidden;
+    font-size: clamp(1rem, 2vw, 4rem);
     display: flex;
     flex-direction: column;
     justify-content: flex-end; /* Messages appear at the bottom */

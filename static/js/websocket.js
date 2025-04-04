@@ -3,7 +3,7 @@ import {
   showAlertWithGSAP,
   showSubBanner,
   startAdCountdown,
-  playTTS
+  playTTS,
 } from "./modules/alerts.js";
 import { updateGoal } from "./modules/goal.js";
 import { addIcon, removeIcon } from "./modules/icons.js";
@@ -16,7 +16,6 @@ import {
   removeTodo,
 } from "./modules/display.js";
 import { triggerStarExplosion } from "./modules/stars.js";
-import { updateChat } from "./modules/chat.js";
 import {
   createClickableElement,
   removeClickableElement,
@@ -116,7 +115,7 @@ function connectWebSocket() {
 
   // 📌 Icon Handling
   function handleIcon({ id, action, name }) {
-    console.log(`${id}, ${action}, ${name}`)
+    console.log(`${id}, ${action}, ${name}`);
     action === "add" ? addIcon(id, name) : removeIcon(id);
   }
 
@@ -193,7 +192,7 @@ function handleOverlayAction(action, payload) {
   switch (action) {
     case "show_icon":
       if (payload.action == "add") {
-        console.log(`${payload.icon}, ${payload.name}`)
+        console.log(`${payload.icon}, ${payload.name}`);
         addIcon(payload.name, payload.icon);
       } else {
         removeIcon(payload.name);
